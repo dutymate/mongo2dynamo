@@ -6,14 +6,14 @@ import (
 	"mongo2dynamo/internal"
 )
 
-// Service handles the migration process between MongoDB and DynamoDB
+// Service handles the migration process between MongoDB and DynamoDB.
 type Service struct {
 	reader internal.DataReader
 	writer internal.DataWriter
 	dryRun bool
 }
 
-// NewService creates a new migration service with the given reader and writer
+// NewService creates a new migration service with the given reader and writer.
 func NewService(reader internal.DataReader, writer internal.DataWriter, dryRun bool) *Service {
 	return &Service{
 		reader: reader,
@@ -22,7 +22,7 @@ func NewService(reader internal.DataReader, writer internal.DataWriter, dryRun b
 	}
 }
 
-// Run executes the migration process
+// Run executes the migration process.
 func (s *Service) Run(ctx context.Context) error {
 	data, err := s.reader.Read(ctx)
 	if err != nil {

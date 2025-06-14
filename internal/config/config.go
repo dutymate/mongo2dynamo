@@ -9,9 +9,9 @@ import (
 	"github.com/spf13/viper"
 )
 
-// Config holds all configuration for the application
+// Config holds all configuration for the application.
 type Config struct {
-	// MongoDB configuration
+	// MongoDB configuration.
 	MongoHost       string
 	MongoPort       string
 	MongoUser       string
@@ -19,41 +19,41 @@ type Config struct {
 	MongoDB         string
 	MongoCollection string
 
-	// DynamoDB configuration
+	// DynamoDB configuration.
 	DynamoTable    string
 	DynamoEndpoint string
 	AWSRegion      string
 
-	// Application configuration
+	// Application configuration.
 	AutoApprove bool
 	DryRun      bool
 }
 
-// Load loads configuration from environment variables and config file
+// Load loads configuration from environment variables and config file.
 func (c *Config) Load() error {
 	v := viper.New()
 
-	// Set default values
+	// Set default values.
 	v.SetDefault("mongo_host", "localhost")
 	v.SetDefault("mongo_port", "27017")
 	v.SetDefault("dynamo_endpoint", "http://localhost:8000")
 	v.SetDefault("aws_region", "us-east-1")
 
-	// Read from environment variables
+	// Read from environment variables.
 	v.SetEnvPrefix("MONGO2DYNAMO")
 	v.AutomaticEnv()
 
-	// Read from config file if it exists
+	// Read from config file if it exists.
 	home, err := os.UserHomeDir()
 	if err == nil {
 		configPath := filepath.Join(home, ".mongo2dynamo")
 		v.AddConfigPath(configPath)
 		v.SetConfigName("config")
 		v.SetConfigType("yaml")
-		_ = v.ReadInConfig() // Ignore error if config file doesn't exist
+		_ = v.ReadInConfig() // Ignore error if config file doesn't exist.
 	}
 
-	// Only set values if they are not already set by flags
+	// Only set values if they are not already set by flags.
 	if c.MongoHost == "" {
 		c.MongoHost = v.GetString("mongo_host")
 	}
@@ -95,7 +95,7 @@ func (c *Config) Load() error {
 	return nil
 }
 
-// validate checks if all required fields are set
+// validate checks if all required fields are set.
 func (c *Config) validate() error {
 	if c.MongoDB == "" {
 		return fmt.Errorf("mongo_db is required")
@@ -109,7 +109,7 @@ func (c *Config) validate() error {
 	return nil
 }
 
-// GetMongoURI returns the MongoDB connection URI
+// GetMongoURI returns the MongoDB connection URI.
 func (c *Config) GetMongoURI() string {
 	if c.MongoUser != "" && c.MongoPassword != "" {
 		return fmt.Sprintf("mongodb://%s:%s@%s:%s",
@@ -148,7 +148,7 @@ func RegisterMongoDynamoFlags(cmd *cobra.Command) {
 	cmd.Flags().String("dynamo-table", "", "DynamoDB table name")
 }
 
-// SetDryRun sets whether this is a dry run
+// SetDryRun sets whether this is a dry run.
 func (c *Config) SetDryRun(dryRun bool) {
 	c.DryRun = dryRun
 }
