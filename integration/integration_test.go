@@ -110,7 +110,16 @@ func setupDynamoDB(t *testing.T, lsHost, lsPort string) *dynamodb.Client {
 	require.NoError(t, err)
 
 	// Wait for table to be created.
-	time.Sleep(2 * time.Second)
+	for {
+		table, err := client.DescribeTable(ctx, &dynamodb.DescribeTableInput{
+			TableName: aws.String("test_table"),
+		})
+		require.NoError(t, err)
+		if table.Table.TableStatus == types.TableStatusActive {
+			break
+		}
+		time.Sleep(500 * time.Millisecond) // Poll every 500ms.
+	}
 
 	return client
 }
