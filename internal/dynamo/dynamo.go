@@ -2,6 +2,7 @@ package dynamo
 
 import (
 	"context"
+	"fmt"
 	appConfig "mongo2dynamo/internal/config"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -9,25 +10,25 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 )
 
-// Connect establishes a connection to DynamoDB
+// Connect establishes a connection to DynamoDB.
 func Connect(cfg *appConfig.Config) (*dynamodb.Client, error) {
-	// Load AWS configuration from shared config files
+	// Load AWS configuration from shared config files.
 	awsCfg, err := awsConfig.LoadDefaultConfig(context.Background(),
 		awsConfig.WithRegion(cfg.AWSRegion),
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load AWS config: %w", err)
 	}
 
-	// Create DynamoDB client with custom endpoint
+	// Create DynamoDB client with custom endpoint.
 	client := dynamodb.NewFromConfig(awsCfg, func(o *dynamodb.Options) {
 		o.BaseEndpoint = aws.String(cfg.DynamoEndpoint)
 	})
 
-	// Verify connection by listing tables
+	// Verify connection.
 	_, err = client.ListTables(context.Background(), &dynamodb.ListTablesInput{})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to list DynamoDB tables: %w", err)
 	}
 
 	return client, nil

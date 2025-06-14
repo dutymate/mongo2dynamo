@@ -9,11 +9,13 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 )
 
+// Writer is a DynamoDB data writer.
 type Writer struct {
 	client *dynamodb.Client
 	table  string
 }
 
+// NewWriter creates a new DynamoDB writer.
 func NewWriter(client *dynamodb.Client, table string) *Writer {
 	return &Writer{
 		client: client,
@@ -21,6 +23,7 @@ func NewWriter(client *dynamodb.Client, table string) *Writer {
 	}
 }
 
+// Write writes data to DynamoDB.
 func (w *Writer) Write(ctx context.Context, data []map[string]interface{}) error {
 	for _, item := range data {
 		av, err := attributevalue.MarshalMap(item)

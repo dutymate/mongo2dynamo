@@ -20,9 +20,9 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// setupTestContainers sets up MongoDB and LocalStack containers for testing
+// setupTestContainers sets up MongoDB and LocalStack containers for testing.
 func setupTestContainers(t *testing.T) (mongoC, lsC testcontainers.Container, mongoHost, mongoPort, lsHost, lsPort string) {
-	// Start MongoDB container
+	// Start MongoDB container.
 	mongoC, err := testcontainers.GenericContainer(context.Background(), testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
 			Image:        "mongo:latest",
@@ -33,14 +33,14 @@ func setupTestContainers(t *testing.T) (mongoC, lsC testcontainers.Container, mo
 	})
 	require.NoError(t, err)
 
-	// Get MongoDB host and port
+	// Get MongoDB host and port.
 	mongoHost, err = mongoC.Host(context.Background())
 	require.NoError(t, err)
 	mongoPortMap, err := mongoC.MappedPort(context.Background(), "27017")
 	require.NoError(t, err)
 	mongoPort = mongoPortMap.Port()
 
-	// Start LocalStack container
+	// Start LocalStack container.
 	lsC, err = testcontainers.GenericContainer(context.Background(), testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
 			Image:        "localstack/localstack:latest",
@@ -56,7 +56,7 @@ func setupTestContainers(t *testing.T) (mongoC, lsC testcontainers.Container, mo
 	})
 	require.NoError(t, err)
 
-	// Get LocalStack host and port
+	// Get LocalStack host and port.
 	lsHost, err = lsC.Host(context.Background())
 	require.NoError(t, err)
 	lsPortMap, err := lsC.MappedPort(context.Background(), "4566")
@@ -66,14 +66,14 @@ func setupTestContainers(t *testing.T) (mongoC, lsC testcontainers.Container, mo
 	return mongoC, lsC, mongoHost, mongoPort, lsHost, lsPort
 }
 
-// setupMongoDB sets up MongoDB with test data
+// setupMongoDB sets up MongoDB with test data.
 func setupMongoDB(t *testing.T, mongoHost, mongoPort string) *mongo.Client {
 	ctx := context.Background()
 	mongoURI := "mongodb://" + mongoHost + ":" + mongoPort
 	mongoClient, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoURI))
 	require.NoError(t, err)
 
-	// Insert test data
+	// Insert test data.
 	collection := mongoClient.Database("testdb").Collection("testcol")
 	_, err = collection.InsertOne(ctx, bson.M{"name": "test", "value": 123})
 	require.NoError(t, err)
@@ -81,7 +81,7 @@ func setupMongoDB(t *testing.T, mongoHost, mongoPort string) *mongo.Client {
 	return mongoClient
 }
 
-// setupDynamoDB sets up DynamoDB table
+// setupDynamoDB sets up DynamoDB table.
 func setupDynamoDB(t *testing.T, lsHost, lsPort string) *dynamodb.Client {
 	ctx := context.Background()
 	awsCfg, err := awsConfig.LoadDefaultConfig(ctx)
@@ -109,33 +109,43 @@ func setupDynamoDB(t *testing.T, lsHost, lsPort string) *dynamodb.Client {
 	})
 	require.NoError(t, err)
 
-	// Wait for table to be created
+	// Wait for table to be created.
 	time.Sleep(2 * time.Second)
 
 	return client
 }
 
-// TestApplyCommand tests the apply command functionality
+// TestApplyCommand tests the apply command functionality.
 func TestApplyCommand(t *testing.T) {
-	// Set up test containers
+	// Set up test containers.
 	mongoC, lsC, mongoHost, mongoPort, lsHost, lsPort := setupTestContainers(t)
-	defer mongoC.Terminate(context.Background())
-	defer lsC.Terminate(context.Background())
+	defer func() {
+		if err := mongoC.Terminate(context.Background()); err != nil {
+			t.Logf("Warning: failed to terminate MongoDB container: %v", err)
+		}
+		if err := lsC.Terminate(context.Background()); err != nil {
+			t.Logf("Warning: failed to terminate LocalStack container: %v", err)
+		}
+	}()
 
-	// Set up AWS environment variables
+	// Set up AWS environment variables.
 	t.Setenv("AWS_REGION", "us-east-1")
 	t.Setenv("AWS_ENDPOINT_URL", "http://"+lsHost+":"+lsPort)
 	t.Setenv("AWS_ACCESS_KEY_ID", "test")
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "test")
 
-	// Set up MongoDB
+	// Set up MongoDB.
 	mongoClient := setupMongoDB(t, mongoHost, mongoPort)
-	defer mongoClient.Disconnect(context.Background())
+	defer func() {
+		if err := mongoClient.Disconnect(context.Background()); err != nil {
+			t.Logf("Warning: failed to disconnect from MongoDB: %v", err)
+		}
+	}()
 
-	// Set up DynamoDB
+	// Set up DynamoDB.
 	dynamoClient := setupDynamoDB(t, lsHost, lsPort)
 
-	// Run the apply command
+	// Run the apply command.
 	cmd := exec.Command("go", "run", "../main.go", "apply",
 		"--mongo-host", mongoHost,
 		"--mongo-port", mongoPort,
@@ -151,7 +161,7 @@ func TestApplyCommand(t *testing.T) {
 		t.Fail()
 	}
 
-	// Verify data in DynamoDB
+	// Verify data in DynamoDB.
 	result, err := dynamoClient.GetItem(context.Background(), &dynamodb.GetItemInput{
 		TableName: aws.String("test_table"),
 		Key: map[string]types.AttributeValue{
@@ -168,18 +178,28 @@ func TestApplyCommand(t *testing.T) {
 	require.Equal(t, float64(123), item["value"])
 }
 
-// TestPlanCommand tests the plan command functionality
+// TestPlanCommand tests the plan command functionality.
 func TestPlanCommand(t *testing.T) {
-	// Set up test containers
+	// Set up test containers.
 	mongoC, lsC, mongoHost, mongoPort, _, _ := setupTestContainers(t)
-	defer mongoC.Terminate(context.Background())
-	defer lsC.Terminate(context.Background())
+	defer func() {
+		if err := mongoC.Terminate(context.Background()); err != nil {
+			t.Logf("Warning: failed to terminate MongoDB container: %v", err)
+		}
+		if err := lsC.Terminate(context.Background()); err != nil {
+			t.Logf("Warning: failed to terminate LocalStack container: %v", err)
+		}
+	}()
 
-	// Set up MongoDB
+	// Set up MongoDB.
 	mongoClient := setupMongoDB(t, mongoHost, mongoPort)
-	defer mongoClient.Disconnect(context.Background())
+	defer func() {
+		if err := mongoClient.Disconnect(context.Background()); err != nil {
+			t.Logf("Warning: failed to disconnect from MongoDB: %v", err)
+		}
+	}()
 
-	// Run the plan command
+	// Run the plan command.
 	cmd := exec.Command("go", "run", "../main.go", "plan",
 		"--mongo-host", mongoHost,
 		"--mongo-port", mongoPort,
@@ -192,6 +212,6 @@ func TestPlanCommand(t *testing.T) {
 		t.Fail()
 	}
 
-	// Verify plan output
+	// Verify plan output.
 	require.Contains(t, string(output), "Found 1 documents to migrate")
 }

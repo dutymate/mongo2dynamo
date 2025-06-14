@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// confirm prompts the user for confirmation and returns true if the user confirms
+// confirm prompts the user for confirmation and returns true if the user confirms.
 func confirm(prompt string) bool {
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Print(prompt)

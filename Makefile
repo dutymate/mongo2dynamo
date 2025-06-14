@@ -15,4 +15,4 @@ test-coverage:
 
 # Clean up test artifacts
 clean:
-	rm -f coverage.out 
+	rm -f coverage.out

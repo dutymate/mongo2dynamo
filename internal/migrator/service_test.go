@@ -2,30 +2,37 @@ package migrator
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
-// MockDataReader is a mock implementation of the DataReader interface
+// MockDataReader is a mock implementation of the DataReader interface.
 type MockDataReader struct {
 	mock.Mock
 }
 
 func (m *MockDataReader) Read(ctx context.Context) ([]map[string]interface{}, error) {
 	args := m.Called(ctx)
-	return args.Get(0).([]map[string]interface{}), args.Error(1)
+	if err := args.Error(1); err != nil {
+		return nil, fmt.Errorf("mock reader error: %w", err)
+	}
+	return args.Get(0).([]map[string]interface{}), nil
 }
 
-// MockDataWriter is a mock implementation of the DataWriter interface
+// MockDataWriter is a mock implementation of the DataWriter interface.
 type MockDataWriter struct {
 	mock.Mock
 }
 
 func (m *MockDataWriter) Write(ctx context.Context, data []map[string]interface{}) error {
 	args := m.Called(ctx, data)
-	return args.Error(0)
+	if err := args.Error(0); err != nil {
+		return fmt.Errorf("mock writer error: %w", err)
+	}
+	return nil
 }
 
 func TestService_Run(t *testing.T) {
