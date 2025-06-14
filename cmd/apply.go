@@ -45,7 +45,7 @@ This command will execute the actual data transfer process.`,
 		}
 
 		// Connect to MongoDB.
-		mongoClient, err := mongo.Connect(cfg)
+		mongoClient, err := mongo.Connect(cmd.Context(), cfg)
 		if err != nil {
 			return fmt.Errorf("failed to connect to MongoDB: %w", err)
 		}
@@ -56,7 +56,7 @@ This command will execute the actual data transfer process.`,
 		}()
 
 		// Connect to DynamoDB.
-		dynamoClient, err := dynamo.Connect(cfg)
+		dynamoClient, err := dynamo.Connect(cmd.Context(), cfg)
 		if err != nil {
 			return fmt.Errorf("failed to connect to DynamoDB: %w", err)
 		}
