@@ -139,7 +139,6 @@ func TestApplyCommand(t *testing.T) {
 
 	// Set up AWS environment variables.
 	t.Setenv("AWS_REGION", "us-east-1")
-	t.Setenv("AWS_ENDPOINT_URL", "http://"+lsHost+":"+lsPort)
 	t.Setenv("AWS_ACCESS_KEY_ID", "test")
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "test")
 
