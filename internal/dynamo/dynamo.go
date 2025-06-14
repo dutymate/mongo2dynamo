@@ -11,9 +11,9 @@ import (
 )
 
 // Connect establishes a connection to DynamoDB.
-func Connect(cfg *appConfig.Config) (*dynamodb.Client, error) {
+func Connect(ctx context.Context, cfg *appConfig.Config) (*dynamodb.Client, error) {
 	// Load AWS configuration from shared config files.
-	awsCfg, err := awsConfig.LoadDefaultConfig(context.Background(),
+	awsCfg, err := awsConfig.LoadDefaultConfig(ctx,
 		awsConfig.WithRegion(cfg.AWSRegion),
 	)
 	if err != nil {
