@@ -42,6 +42,9 @@ mongo2dynamo apply \
 
 ### Command-line Flags
 
+> [!NOTE]
+> \* Required for `apply` command, optional for `plan` command.
+
 | Flag | Description | Required | Default |
 |------|-------------|----------|---------|
 | `--mongo-host` | MongoDB host | No | localhost |
@@ -55,8 +58,6 @@ mongo2dynamo apply \
 | `--aws-region` | AWS region | No | us-east-1 |
 | `--auto-approve` | Skip confirmation prompt | No | false |
 | `--dry-run` | Show what would be migrated without actually migrating | No | false |
-
-\* Required for `apply` command, optional for `plan` command
 
 ## Environment Variables
 
