@@ -28,5 +28,6 @@ func ConfirmWithReader(r io.Reader, prompt string) bool {
 	fmt.Print(prompt)
 	reader := bufio.NewReader(r)
 	text, _ := reader.ReadString('\n')
-	return strings.TrimSpace(text) == "yes"
+	text = strings.ToLower(strings.TrimSpace(text))
+	return text == "y" || text == "yes"
 }
