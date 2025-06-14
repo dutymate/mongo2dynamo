@@ -79,14 +79,7 @@ func init() {
 	rootCmd.AddCommand(applyCmd)
 
 	// Add flags.
-	applyCmd.Flags().String("mongo-host", "localhost", "MongoDB host")
-	applyCmd.Flags().String("mongo-port", "27017", "MongoDB port")
-	applyCmd.Flags().String("mongo-user", "", "MongoDB username")
-	applyCmd.Flags().String("mongo-password", "", "MongoDB password")
-	applyCmd.Flags().String("mongo-db", "", "MongoDB database name")
-	applyCmd.Flags().String("mongo-collection", "", "MongoDB collection name")
-	applyCmd.Flags().String("dynamo-endpoint", "http://localhost:8000", "DynamoDB endpoint")
-	applyCmd.Flags().String("dynamo-table", "", "DynamoDB table name")
-	applyCmd.Flags().String("aws-region", "us-east-1", "AWS region")
-	applyCmd.Flags().Bool("auto-approve", false, "Automatically approve the migration")
+	AddMongoFlags(applyCmd)
+	AddDynamoFlags(applyCmd)
+	applyCmd.Flags().Bool("auto-approve", false, "Automatically approve the migration.")
 }

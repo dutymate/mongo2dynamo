@@ -63,10 +63,5 @@ func init() {
 	rootCmd.AddCommand(planCmd)
 
 	// Add flags.
-	planCmd.Flags().String("mongo-host", "localhost", "MongoDB host")
-	planCmd.Flags().String("mongo-port", "27017", "MongoDB port")
-	planCmd.Flags().String("mongo-user", "", "MongoDB username")
-	planCmd.Flags().String("mongo-password", "", "MongoDB password")
-	planCmd.Flags().String("mongo-db", "", "MongoDB database name")
-	planCmd.Flags().String("mongo-collection", "", "MongoDB collection name")
+	AddMongoFlags(planCmd)
 }
