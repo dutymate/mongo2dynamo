@@ -3,6 +3,7 @@ package dynamo
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -61,15 +62,31 @@ func (w *Writer) Write(ctx context.Context, data []map[string]interface{}) error
 
 // batchWrite writes a batch of items to DynamoDB.
 func (w *Writer) batchWrite(ctx context.Context, writeRequests []types.WriteRequest) error {
-	input := &dynamodb.BatchWriteItemInput{
-		RequestItems: map[string][]types.WriteRequest{
-			w.table: writeRequests,
-		},
+	const maxRetries = 5
+	var unprocessedItems map[string][]types.WriteRequest
+	for attempt := range maxRetries {
+		input := &dynamodb.BatchWriteItemInput{
+			RequestItems: map[string][]types.WriteRequest{
+				w.table: writeRequests,
+			},
+		}
+		output, err := w.client.BatchWriteItem(ctx, input)
+		if err != nil {
+			return fmt.Errorf("failed to batch write items: %w", err)
+		}
+		unprocessedItems = output.UnprocessedItems
+		if len(unprocessedItems) == 0 {
+			return nil // All items processed successfully.
+		}
+		// Prepare for retry.
+		writeRequests = unprocessedItems[w.table]
+		// Exponential backoff.
+		backoffDuration := time.Duration(attempt+1) * time.Second
+		time.Sleep(backoffDuration)
 	}
-
-	_, err := w.client.BatchWriteItem(ctx, input)
-	if err != nil {
-		return fmt.Errorf("failed to batch write items: %w", err)
+	// Log unprocessed items after exhausting retries.
+	if len(unprocessedItems) > 0 {
+		return fmt.Errorf("failed to process all items after %d retries: %v", maxRetries, unprocessedItems)
 	}
 
 	return nil
