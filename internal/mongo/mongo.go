@@ -10,15 +10,15 @@ import (
 )
 
 // Connect establishes a connection to MongoDB.
-func Connect(cfg *config.Config) (*mongo.Client, error) {
+func Connect(ctx context.Context, cfg *config.Config) (*mongo.Client, error) {
 	clientOpts := options.Client().ApplyURI(cfg.GetMongoURI())
-	client, err := mongo.Connect(context.Background(), clientOpts)
+	client, err := mongo.Connect(ctx, clientOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to MongoDB: %w", err)
 	}
 
 	// Ping the database to verify connection.
-	if err := client.Ping(context.Background(), nil); err != nil {
+	if err := client.Ping(ctx, nil); err != nil {
 		return nil, fmt.Errorf("failed to ping MongoDB: %w", err)
 	}
 
