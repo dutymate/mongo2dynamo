@@ -23,8 +23,7 @@ mongo2dynamo plan \
   --mongo-host localhost \
   --mongo-port 27017 \
   --mongo-db your_database \
-  --mongo-collection your_collection \
-  --dynamo-table your_table
+  --mongo-collection your_collection
 ```
 
 ### Apply Command
@@ -37,6 +36,7 @@ mongo2dynamo apply \
   --mongo-port 27017 \
   --mongo-db your_database \
   --mongo-collection your_collection \
+  --dynamo-endpoint your_endpoint \
   --dynamo-table your_table
 ```
 
