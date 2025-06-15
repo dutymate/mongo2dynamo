@@ -17,6 +17,7 @@ var rootCmd = &cobra.Command{
 func init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().Bool("auto-approve", false, "Skip confirmation prompt")
+	rootCmd.CompletionOptions.DisableDefaultCmd = true
 	bindPersistentFlags()
 }
 
