@@ -1,4 +1,4 @@
-# Mongo2Dynamo
+# mongo2dynamo
 
 A command-line tool for migrating data from MongoDB to DynamoDB.
 
@@ -12,7 +12,7 @@ A command-line tool for migrating data from MongoDB to DynamoDB.
 
 ## Usage
 
-Mongo2Dynamo provides two main commands: `plan` and `apply`.
+mongo2dynamo provides two main commands: `plan` and `apply`.
 
 ### Plan Command
 
