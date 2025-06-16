@@ -4,22 +4,26 @@ import (
 	"context"
 )
 
-// DataReader는 데이터를 읽는 인터페이스입니다.
+// DataReader defines the interface for reading data from a source.
 type DataReader interface {
+	// Read retrieves data from the source.
+	// Returns a slice of maps containing the data and any error that occurred.
 	Read(ctx context.Context) ([]map[string]interface{}, error)
 }
 
-// DataWriter는 데이터를 쓰는 인터페이스입니다.
+// DataWriter defines the interface for writing data to a destination.
 type DataWriter interface {
+	// Write saves the provided data to the destination.
+	// Returns any error that occurred during the write operation.
 	Write(ctx context.Context, data []map[string]interface{}) error
 }
 
-// MigrationService는 마이그레이션 서비스 인터페이스입니다.
+// MigrationService is the interface for migration services.
 type MigrationService interface {
 	Run(ctx context.Context) error
 }
 
-// ConfigProvider는 설정을 제공하는 인터페이스입니다.
+// ConfigProvider is the interface for providing configuration settings.
 type ConfigProvider interface {
 	GetMongoURI() string
 	GetMongoDB() string
