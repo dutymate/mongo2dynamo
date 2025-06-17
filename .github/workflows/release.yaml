@@ -72,23 +72,27 @@ jobs:
               darwin_amd64)
                 tag="# darwin_amd64"
                 sha=$DARWIN_AMD64_SHA
+                filename="mongo2dynamo_Darwin_x86_64.tar.gz"
                 ;;
               darwin_arm64)
                 tag="# darwin_arm64"
                 sha=$DARWIN_ARM64_SHA
+                filename="mongo2dynamo_Darwin_arm64.tar.gz"
                 ;;
               linux_amd64)
                 tag="# linux_amd64"
                 sha=$LINUX_AMD64_SHA
+                filename="mongo2dynamo_Linux_x86_64.tar.gz"
                 ;;
               linux_arm64)
                 tag="# linux_arm64"
                 sha=$LINUX_ARM64_SHA
+                filename="mongo2dynamo_Linux_arm64.tar.gz"
                 ;;
             esac
 
             # Update URL and SHA256 for this platform using the comment tag
-            sed -i "/$tag/,/end/s|url \".*\"|url \"https://github.com/dutymate/mongo2dynamo/releases/download/v$VERSION/mongo2dynamo_${platform/darwin/Darwin}_${platform/linux/Linux}.tar.gz\"|" Formula/mongo2dynamo.rb
+            sed -i "/$tag/,/end/s|url \".*\"|url \"https://github.com/dutymate/mongo2dynamo/releases/download/v$VERSION/$filename\"|" Formula/mongo2dynamo.rb
             sed -i "/$tag/,/end/s|sha256 \".*\"|sha256 \"$sha\"|" Formula/mongo2dynamo.rb
           done
 
