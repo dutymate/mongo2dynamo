@@ -46,6 +46,10 @@ jobs:
           
           # Fetch checksums.txt from the release
           CHECKSUMS=$(curl -sL https://github.com/dutymate/mongo2dynamo/releases/download/v${VERSION}/checksums.txt)
+          if [ $? -ne 0 ] || [ -z "$CHECKSUMS" ]; then
+            echo "Error: Failed to fetch checksums.txt from the release. Please check the URL or network connection."
+            exit 1
+          fi
           
           # Extract SHA256 for each platform
           DARWIN_AMD64_SHA=$(echo "$CHECKSUMS" | grep darwin_amd64.tar.gz | awk '{print $1}')
