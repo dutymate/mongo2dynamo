@@ -35,6 +35,8 @@ jobs:
   homebrew:
     needs: goreleaser
     runs-on: ubuntu-latest
+    env:
+      VERSION: ${GITHUB_REF#refs/tags/v}
     steps:
       - name: Checkout homebrew-tap
         uses: actions/checkout@v4
@@ -46,20 +48,19 @@ jobs:
       - name: Update Homebrew formula
         run: |
           cd homebrew-tap
-          VERSION=$(echo $GITHUB_REF | sed 's/refs\/tags\/v//')
           
           # Fetch checksums.txt from the release
-          CHECKSUMS=$(curl -sL https://github.com/dutymate/mongo2dynamo/releases/download/v${VERSION}/checksums.txt)
+          CHECKSUMS=$(curl -sL https://github.com/dutymate/mongo2dynamo/releases/download/v$VERSION/checksums.txt)
           if [ $? -ne 0 ] || [ -z "$CHECKSUMS" ]; then
             echo "Error: Failed to fetch checksums.txt from the release. Please check the URL or network connection."
             exit 1
           fi
           
           # Extract SHA256 for each platform
-          DARWIN_AMD64_SHA=$(echo "$CHECKSUMS" | grep darwin_amd64.tar.gz | awk '{print $1}')
-          DARWIN_ARM64_SHA=$(echo "$CHECKSUMS" | grep darwin_arm64.tar.gz | awk '{print $1}')
-          LINUX_AMD64_SHA=$(echo "$CHECKSUMS" | grep linux_amd64.tar.gz | awk '{print $1}')
-          LINUX_ARM64_SHA=$(echo "$CHECKSUMS" | grep linux_arm64.tar.gz | awk '{print $1}')
+          DARWIN_AMD64_SHA=$(echo "$CHECKSUMS" | grep mongo2dynamo_Darwin_x86_64.tar.gz | awk '{print $1}')
+          DARWIN_ARM64_SHA=$(echo "$CHECKSUMS" | grep mongo2dynamo_Darwin_arm64.tar.gz | awk '{print $1}')
+          LINUX_AMD64_SHA=$(echo "$CHECKSUMS" | grep mongo2dynamo_Linux_x86_64.tar.gz | awk '{print $1}')
+          LINUX_ARM64_SHA=$(echo "$CHECKSUMS" | grep mongo2dynamo_Linux_arm64.tar.gz | awk '{print $1}')
           
           # Update version
           sed -i "s/version \".*\"/version \"${VERSION}\"/" Formula/mongo2dynamo.rb
@@ -73,7 +74,7 @@ jobs:
       - name: Commit and push if changed
         run: |
           cd homebrew-tap
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
+          git config user.name "Jongwoo Han"
+          git config user.email "jongwooo.han@gmail.com"
           git add Formula/mongo2dynamo.rb
-          git diff --quiet && git diff --staged --quiet || (git commit -m "release: Update mongo2dynamo to ${VERSION}" && git push)
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Update mongo2dynamo to v$VERSION" && git push)
