@@ -2,6 +2,19 @@
 
 A command-line tool for migrating data from MongoDB to DynamoDB.
 
+## Installation
+
+### Homebrew
+
+```bash
+brew tap dutymate/tap
+brew install mongo2dynamo
+```
+
+### Binary
+
+Download the latest release from the [releases page](https://github.com/dutymate/mongo2dynamo/releases).
+
 ## Features
 
 - Migrate data from MongoDB to DynamoDB
