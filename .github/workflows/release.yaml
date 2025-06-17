@@ -63,18 +63,34 @@ jobs:
           LINUX_AMD64_SHA=$(echo "$CHECKSUMS" | grep mongo2dynamo_Linux_x86_64.tar.gz | awk '{print $1}')
           LINUX_ARM64_SHA=$(echo "$CHECKSUMS" | grep mongo2dynamo_Linux_arm64.tar.gz | awk '{print $1}')
           
-          # Update version and URLs
-          sed -i "s|version \".*\"|version \"$VERSION\"|" Formula/mongo2dynamo.rb
-          sed -i "s|url \".*\"|url \"https://github.com/dutymate/mongo2dynamo/releases/download/v$VERSION/mongo2dynamo_Darwin_x86_64.tar.gz\"|" Formula/mongo2dynamo.rb
-          sed -i "s|url \".*\"|url \"https://github.com/dutymate/mongo2dynamo/releases/download/v$VERSION/mongo2dynamo_Darwin_arm64.tar.gz\"|" Formula/mongo2dynamo.rb
-          sed -i "s|url \".*\"|url \"https://github.com/dutymate/mongo2dynamo/releases/download/v$VERSION/mongo2dynamo_Linux_x86_64.tar.gz\"|" Formula/mongo2dynamo.rb
-          sed -i "s|url \".*\"|url \"https://github.com/dutymate/mongo2dynamo/releases/download/v$VERSION/mongo2dynamo_Linux_arm64.tar.gz\"|" Formula/mongo2dynamo.rb
+          # Update version
+          sed -i 's|version ".*"|version "'$VERSION'"|' Formula/mongo2dynamo.rb
           
-          # Update SHA256 for each platform
-          sed -i "s|sha256 \".*\" # darwin_amd64|sha256 \"${DARWIN_AMD64_SHA}\" # darwin_amd64|" Formula/mongo2dynamo.rb
-          sed -i "s|sha256 \".*\" # darwin_arm64|sha256 \"${DARWIN_ARM64_SHA}\" # darwin_arm64|" Formula/mongo2dynamo.rb
-          sed -i "s|sha256 \".*\" # linux_amd64|sha256 \"${LINUX_AMD64_SHA}\" # linux_amd64|" Formula/mongo2dynamo.rb
-          sed -i "s|sha256 \".*\" # linux_arm64|sha256 \"${LINUX_ARM64_SHA}\" # linux_arm64|" Formula/mongo2dynamo.rb
+          # Update URLs and SHA256 for each platform
+          for platform in darwin_amd64 darwin_arm64 linux_amd64 linux_arm64; do
+            case $platform in
+              darwin_amd64)
+                block='if Hardware::CPU.intel? # darwin_amd64'
+                sha=$DARWIN_AMD64_SHA
+                ;;
+              darwin_arm64)
+                block='if Hardware::CPU.arm? # darwin_arm64'
+                sha=$DARWIN_ARM64_SHA
+                ;;
+              linux_amd64)
+                block='if Hardware::CPU.intel? # linux_amd64'
+                sha=$LINUX_AMD64_SHA
+                ;;
+              linux_arm64)
+                block='if Hardware::CPU.arm? # linux_arm64'
+                sha=$LINUX_ARM64_SHA
+                ;;
+            esac
+            
+            # Update URL and SHA256 for this platform
+            sed -i '/'$block'/,/end/s|url ".*"|url "https://github.com/dutymate/mongo2dynamo/releases/download/v'$VERSION'/mongo2dynamo_'${platform/darwin/Darwin}'_'${platform/linux/Linux}'.tar.gz"|' Formula/mongo2dynamo.rb
+            sed -i '/'$block'/,/end/s|sha256 ".*"|sha256 "'$sha'"|' Formula/mongo2dynamo.rb
+          done
 
       - name: Commit and push if changed
         run: |
