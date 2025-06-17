@@ -70,26 +70,26 @@ jobs:
           for platform in darwin_amd64 darwin_arm64 linux_amd64 linux_arm64; do
             case $platform in
               darwin_amd64)
-                block='if Hardware::CPU.intel? # darwin_amd64'
+                tag="# darwin_amd64"
                 sha=$DARWIN_AMD64_SHA
                 ;;
               darwin_arm64)
-                block='if Hardware::CPU.arm? # darwin_arm64'
+                tag="# darwin_arm64"
                 sha=$DARWIN_ARM64_SHA
                 ;;
               linux_amd64)
-                block='if Hardware::CPU.intel? # linux_amd64'
+                tag="# linux_amd64"
                 sha=$LINUX_AMD64_SHA
                 ;;
               linux_arm64)
-                block='if Hardware::CPU.arm? # linux_arm64'
+                tag="# linux_arm64"
                 sha=$LINUX_ARM64_SHA
                 ;;
             esac
-            
-            # Update URL and SHA256 for this platform
-            sed -i '/'$block'/,/end/s|url ".*"|url "https://github.com/dutymate/mongo2dynamo/releases/download/v'$VERSION'/mongo2dynamo_'${platform/darwin/Darwin}'_'${platform/linux/Linux}'.tar.gz"|' Formula/mongo2dynamo.rb
-            sed -i '/'$block'/,/end/s|sha256 ".*"|sha256 "'$sha'"|' Formula/mongo2dynamo.rb
+
+            # Update URL and SHA256 for this platform using the comment tag
+            sed -i "/$tag/,/end/s|url \".*\"|url \"https://github.com/dutymate/mongo2dynamo/releases/download/v$VERSION/mongo2dynamo_${platform/darwin/Darwin}_${platform/linux/Linux}.tar.gz\"|" Formula/mongo2dynamo.rb
+            sed -i "/$tag/,/end/s|sha256 \".*\"|sha256 \"$sha\"|" Formula/mongo2dynamo.rb
           done
 
       - name: Commit and push if changed
