@@ -102,4 +102,4 @@ jobs:
           git config user.name "Jongwoo Han"
           git config user.email "jongwooo.han@gmail.com"
           git add Formula/mongo2dynamo.rb
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Update mongo2dynamo to v$VERSION" && git push)
+          git diff --quiet && git diff --staged --quiet || (git commit -m "release: Update mongo2dynamo to v$VERSION" && git push)
