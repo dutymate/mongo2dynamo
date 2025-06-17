@@ -1,0 +1,71 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  homebrew:
+    needs: goreleaser
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout homebrew-tap
+        uses: actions/checkout@v4
+        with:
+          repository: dutymate/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TOKEN }}
+          path: homebrew-tap
+
+      - name: Update Homebrew formula
+        run: |
+          cd homebrew-tap
+          VERSION=$(echo $GITHUB_REF | sed 's/refs\/tags\/v//')
+          
+          # Fetch checksums.txt from the release
+          CHECKSUMS=$(curl -sL https://github.com/dutymate/mongo2dynamo/releases/download/v${VERSION}/checksums.txt)
+          
+          # Extract SHA256 for each platform
+          DARWIN_AMD64_SHA=$(echo "$CHECKSUMS" | grep darwin_amd64.tar.gz | awk '{print $1}')
+          DARWIN_ARM64_SHA=$(echo "$CHECKSUMS" | grep darwin_arm64.tar.gz | awk '{print $1}')
+          LINUX_AMD64_SHA=$(echo "$CHECKSUMS" | grep linux_amd64.tar.gz | awk '{print $1}')
+          LINUX_ARM64_SHA=$(echo "$CHECKSUMS" | grep linux_arm64.tar.gz | awk '{print $1}')
+          
+          # Update version
+          sed -i "s/version \".*\"/version \"${VERSION}\"/" Formula/mongo2dynamo.rb
+          
+          # Update SHA256 for each platform
+          sed -i "s/sha256 \".*\" # darwin_amd64/sha256 \"${DARWIN_AMD64_SHA}\" # darwin_amd64/" Formula/mongo2dynamo.rb
+          sed -i "s/sha256 \".*\" # darwin_arm64/sha256 \"${DARWIN_ARM64_SHA}\" # darwin_arm64/" Formula/mongo2dynamo.rb
+          sed -i "s/sha256 \".*\" # linux_amd64/sha256 \"${LINUX_AMD64_SHA}\" # linux_amd64/" Formula/mongo2dynamo.rb
+          sed -i "s/sha256 \".*\" # linux_arm64/sha256 \"${LINUX_ARM64_SHA}\" # linux_arm64/" Formula/mongo2dynamo.rb
+
+      - name: Commit and push if changed
+        run: |
+          cd homebrew-tap
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add Formula/mongo2dynamo.rb
+          git diff --quiet && git diff --staged --quiet || (git commit -m "release: Update mongo2dynamo to ${VERSION}" && git push)
