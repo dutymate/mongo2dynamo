@@ -19,7 +19,7 @@ jobs:
           go-version-file: go.mod
 
       - name: Install dependencies
-        run: go mod tidy
+        run: make deps
 
       - name: Build
-        run: go build -v ./...
+        run: make build
