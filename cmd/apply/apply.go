@@ -83,5 +83,4 @@ func init() {
 	// Add flags.
 	flags.AddMongoFlags(ApplyCmd)
 	flags.AddDynamoFlags(ApplyCmd)
-	ApplyCmd.Flags().Bool("auto-approve", false, "Automatically approve the migration.")
 }
