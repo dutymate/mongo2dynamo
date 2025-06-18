@@ -3,7 +3,7 @@ package mongo
 import (
 	"context"
 	"fmt"
-	"mongo2dynamo/internal/config"
+	"mongo2dynamo/pkg/config"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"

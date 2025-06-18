@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"mongo2dynamo/internal/config"
+	"mongo2dynamo/pkg/config"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"

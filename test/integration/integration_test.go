@@ -154,7 +154,7 @@ func TestApplyCommand(t *testing.T) {
 	dynamoClient := setupDynamoDB(t, lsHost, lsPort)
 
 	// Run the apply command.
-	cmd := exec.Command("go", "run", "../main.go", "apply",
+	cmd := exec.Command("go", "run", "../../main.go", "apply",
 		"--mongo-host", mongoHost,
 		"--mongo-port", mongoPort,
 		"--mongo-db", "testdb",
@@ -208,7 +208,7 @@ func TestPlanCommand(t *testing.T) {
 	}()
 
 	// Run the plan command.
-	cmd := exec.Command("go", "run", "../main.go", "plan",
+	cmd := exec.Command("go", "run", "../../main.go", "plan",
 		"--mongo-host", mongoHost,
 		"--mongo-port", mongoPort,
 		"--mongo-db", "testdb",

@@ -6,6 +6,10 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"mongo2dynamo/cmd/apply"
+	"mongo2dynamo/cmd/plan"
+	"mongo2dynamo/cmd/version"
 )
 
 var rootCmd = &cobra.Command{
@@ -14,11 +18,11 @@ var rootCmd = &cobra.Command{
 	Long:  `A command-line tool to copy all documents from MongoDB into AWS DynamoDB.`,
 }
 
-func init() {
-	cobra.OnInitialize(initConfig)
-	rootCmd.PersistentFlags().Bool("auto-approve", false, "Skip confirmation prompt")
-	rootCmd.CompletionOptions.DisableDefaultCmd = true
-	bindPersistentFlags()
+func Execute() {
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }
 
 func bindPersistentFlags() {
@@ -32,9 +36,13 @@ func initConfig() {
 	viper.AutomaticEnv()
 }
 
-func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
+func init() {
+	cobra.OnInitialize(initConfig)
+	rootCmd.PersistentFlags().Bool("auto-approve", false, "Skip confirmation prompt")
+	rootCmd.CompletionOptions.DisableDefaultCmd = true
+	bindPersistentFlags()
+
+	rootCmd.AddCommand(apply.ApplyCmd)
+	rootCmd.AddCommand(plan.PlanCmd)
+	rootCmd.AddCommand(version.VersionCmd)
 }

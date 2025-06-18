@@ -3,18 +3,18 @@ package migrator
 import (
 	"context"
 	"fmt"
-	"mongo2dynamo/internal"
+	"mongo2dynamo/pkg/common"
 )
 
 // Service handles the migration process between MongoDB and DynamoDB.
 type Service struct {
-	reader internal.DataReader
-	writer internal.DataWriter
+	reader common.DataReader
+	writer common.DataWriter
 	dryRun bool
 }
 
 // NewService creates a new migration service with the given reader and writer.
-func NewService(reader internal.DataReader, writer internal.DataWriter, dryRun bool) *Service {
+func NewService(reader common.DataReader, writer common.DataWriter, dryRun bool) *Service {
 	return &Service{
 		reader: reader,
 		writer: writer,

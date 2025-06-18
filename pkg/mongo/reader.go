@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-// Reader is a MongoDB data reader.
+// Reader implements the DataReader interface for MongoDB.
 type Reader struct {
 	collection *mongo.Collection
 }
@@ -19,18 +20,18 @@ func NewReader(collection *mongo.Collection) *Reader {
 	}
 }
 
-// Read reads all documents from the MongoDB collection.
+// Read retrieves all documents from the MongoDB collection.
 func (r *Reader) Read(ctx context.Context) ([]map[string]interface{}, error) {
-	cursor, err := r.collection.Find(ctx, map[string]interface{}{})
+	cursor, err := r.collection.Find(ctx, bson.M{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to find documents: %w", err)
 	}
 	defer cursor.Close(ctx)
 
-	var results []map[string]interface{}
-	if err := cursor.All(ctx, &results); err != nil {
+	var documents []map[string]interface{}
+	if err := cursor.All(ctx, &documents); err != nil {
 		return nil, fmt.Errorf("failed to decode documents: %w", err)
 	}
 
-	return results, nil
+	return documents, nil
 }
