@@ -7,7 +7,7 @@ A command-line tool for migrating data from MongoDB to DynamoDB.
 ### Homebrew
 
 ```bash
-brew tap dutymate/homebrew-tap
+brew tap dutymate/tap
 brew install mongo2dynamo
 ```
 
