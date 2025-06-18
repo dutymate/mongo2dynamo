@@ -3,6 +3,7 @@ package integration
 import (
 	"context"
 	"os/exec"
+	"strings"
 	"testing"
 	"time"
 
@@ -222,4 +223,27 @@ func TestPlanCommand(t *testing.T) {
 
 	// Verify plan output.
 	require.Contains(t, string(output), "Found 1 documents to migrate")
+}
+
+// TestVersionCommand tests the version command functionality.
+func TestVersionCommand(t *testing.T) {
+	// Run the version command.
+	cmd := exec.Command("go", "run", "../../main.go", "version")
+	output, err := cmd.CombinedOutput()
+	require.NoError(t, err, "CLI version command should not fail")
+
+	// Verify version output format.
+	outputStr := string(output)
+	require.Contains(t, outputStr, "Version:")
+	require.Contains(t, outputStr, "Git Commit:")
+	require.Contains(t, outputStr, "Build Date:")
+
+	// Verify that the output has the expected structure.
+	lines := strings.Split(strings.TrimSpace(outputStr), "\n")
+	require.Len(t, lines, 3, "Version output should have exactly 3 lines")
+
+	// Verify each line format.
+	require.Regexp(t, `^Version: .+$`, lines[0], "Version line should match expected format")
+	require.Regexp(t, `^Git Commit: .+$`, lines[1], "Git Commit line should match expected format")
+	require.Regexp(t, `^Build Date: .+$`, lines[2], "Build Date line should match expected format")
 }
