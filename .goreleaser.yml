@@ -15,9 +15,9 @@ builds:
       # Reduce the size of the binary. Ref: https://pkg.go.dev/cmd/link
       - -s -w 
       # Embed versioning and build information in the binary.
-      - -X mongo2dynamo/cmd.version={{.Version}}
-      - -X mongo2dynamo/cmd.gitCommit={{.FullCommit}}
-      - -X mongo2dynamo/cmd.buildDate={{.Date}}
+      - -X mongo2dynamo/pkg/version.Version={{.Version}}
+      - -X mongo2dynamo/pkg/version.GitCommit={{.FullCommit}}
+      - -X mongo2dynamo/pkg/version.BuildDate={{.Date}}
 
 archives:
   - format: tar.gz

@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
@@ -136,16 +135,6 @@ func (c *Config) GetAutoApprove() bool {
 
 func (c *Config) GetDryRun() bool {
 	return c.DryRun
-}
-
-func RegisterMongoDynamoFlags(cmd *cobra.Command) {
-	cmd.Flags().String("mongo-host", "localhost", "MongoDB host")
-	cmd.Flags().String("mongo-port", "27017", "MongoDB port")
-	cmd.Flags().String("mongo-user", "", "MongoDB username")
-	cmd.Flags().String("mongo-password", "", "MongoDB password")
-	cmd.Flags().String("mongo-db", "", "MongoDB database name")
-	cmd.Flags().String("mongo-collection", "", "MongoDB collection name")
-	cmd.Flags().String("dynamo-table", "", "DynamoDB table name")
 }
 
 // SetDryRun sets whether this is a dry run.

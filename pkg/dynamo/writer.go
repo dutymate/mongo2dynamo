@@ -10,7 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
-// Writer is a DynamoDB data writer.
+// Writer implements the DataWriter interface for DynamoDB.
 type Writer struct {
 	client *dynamodb.Client
 	table  string
@@ -26,7 +26,7 @@ func NewWriter(client *dynamodb.Client, table string) *Writer {
 	}
 }
 
-// Write writes data to DynamoDB.
+// Write saves all documents to DynamoDB.
 func (w *Writer) Write(ctx context.Context, data []map[string]interface{}) error {
 	var writeRequests []types.WriteRequest
 

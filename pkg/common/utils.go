@@ -1,4 +1,4 @@
-package cmd
+package common
 
 import (
 	"bufio"
@@ -8,8 +8,8 @@ import (
 	"strings"
 )
 
-// confirm prompts the user for confirmation and returns true if the user confirms.
-func confirm(prompt string) bool {
+// Confirm prompts the user for confirmation and returns true if the user confirms.
+func Confirm(prompt string) bool {
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Print(prompt)
 	response, err := reader.ReadString('\n')
@@ -18,10 +18,6 @@ func confirm(prompt string) bool {
 	}
 	response = strings.ToLower(strings.TrimSpace(response))
 	return response == "y" || response == "yes"
-}
-
-func Confirm(prompt string) bool {
-	return ConfirmWithReader(os.Stdin, prompt)
 }
 
 func ConfirmWithReader(r io.Reader, prompt string) bool {
