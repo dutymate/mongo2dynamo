@@ -1,13 +1,33 @@
 package migrator
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
+
+// captureStdout captures stdout output during the execution of the given function and returns the output as a string.
+func captureStdout(f func()) string {
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	f()
+
+	w.Close()
+	os.Stdout = oldStdout
+	var buf bytes.Buffer
+	_, readErr := buf.ReadFrom(r)
+	if readErr != nil {
+		panic(fmt.Sprintf("Failed to read from pipe: %v", readErr))
+	}
+	return buf.String()
+}
 
 // MockDataReader is a mock implementation of the DataReader interface.
 type MockDataReader struct {
@@ -37,11 +57,12 @@ func (m *MockDataWriter) Write(ctx context.Context, data []map[string]interface{
 
 func TestService_Run(t *testing.T) {
 	tests := []struct {
-		name    string
-		reader  *MockDataReader
-		writer  *MockDataWriter
-		dryRun  bool
-		wantErr bool
+		name           string
+		reader         *MockDataReader
+		writer         *MockDataWriter
+		dryRun         bool
+		wantErr        bool
+		expectedOutput []string
 	}{
 		{
 			name: "Successful migration",
@@ -58,8 +79,9 @@ func TestService_Run(t *testing.T) {
 				m.On("Write", mock.Anything, mock.Anything).Return(nil)
 				return m
 			}(),
-			dryRun:  false,
-			wantErr: false,
+			dryRun:         false,
+			wantErr:        false,
+			expectedOutput: []string{"Found 2 documents to migrate", "Successfully migrated 2 documents"},
 		},
 		{
 			name: "Dry run mode",
@@ -70,9 +92,10 @@ func TestService_Run(t *testing.T) {
 				}, nil)
 				return m
 			}(),
-			writer:  nil,
-			dryRun:  true,
-			wantErr: false,
+			writer:         nil,
+			dryRun:         true,
+			wantErr:        false,
+			expectedOutput: []string{"Found 1 documents to migrate"},
 		},
 		{
 			name: "Data read failure",
@@ -81,9 +104,10 @@ func TestService_Run(t *testing.T) {
 				m.On("Read", mock.Anything).Return([]map[string]interface{}{}, assert.AnError)
 				return m
 			}(),
-			writer:  nil,
-			dryRun:  false,
-			wantErr: true,
+			writer:         nil,
+			dryRun:         false,
+			wantErr:        true,
+			expectedOutput: []string{},
 		},
 		{
 			name: "Data write failure",
@@ -99,20 +123,32 @@ func TestService_Run(t *testing.T) {
 				m.On("Write", mock.Anything, mock.Anything).Return(assert.AnError)
 				return m
 			}(),
-			dryRun:  false,
-			wantErr: true,
+			dryRun:         false,
+			wantErr:        true,
+			expectedOutput: []string{"Found 1 documents to migrate"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			service := NewService(tt.reader, tt.writer, tt.dryRun)
-			err := service.Run(context.Background())
+			output := captureStdout(func() {
+				err := service.Run(context.Background())
+				if tt.wantErr {
+					assert.Error(t, err)
+				} else {
+					assert.NoError(t, err)
+				}
+			})
 
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
+			// Verify expected output messages.
+			for _, expectedMsg := range tt.expectedOutput {
+				assert.Contains(t, output, expectedMsg, "Output should contain: %s", expectedMsg)
+			}
+
+			// Verify that success message is not present in dry run or error cases.
+			if tt.dryRun || tt.wantErr {
+				assert.NotContains(t, output, "Successfully migrated", "Success message should not appear in dry run or error cases")
 			}
 
 			tt.reader.AssertExpectations(t)
