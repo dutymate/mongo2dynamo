@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"mongo2dynamo/pkg/common"
+	"mongo2dynamo/pkg/config"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -13,8 +16,8 @@ type Reader struct {
 	collection *mongo.Collection
 }
 
-// NewReader creates a new MongoDB reader.
-func NewReader(collection *mongo.Collection) *Reader {
+// newReader creates a new MongoDB reader.
+func newReader(collection *mongo.Collection) *Reader {
 	return &Reader{
 		collection: collection,
 	}
@@ -34,4 +37,13 @@ func (r *Reader) Read(ctx context.Context) ([]map[string]interface{}, error) {
 	}
 
 	return documents, nil
+}
+
+// NewDataReader creates a DataReader for MongoDB based on the configuration.
+func NewDataReader(ctx context.Context, cfg *config.Config) (common.DataReader, error) {
+	client, err := Connect(ctx, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create MongoDB reader: %w", err)
+	}
+	return newReader(client.Database(cfg.MongoDB).Collection(cfg.MongoCollection)), nil
 }

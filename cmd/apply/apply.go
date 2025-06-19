@@ -49,26 +49,15 @@ func runApply(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	// Connect to MongoDB.
-	mongoClient, err := mongo.Connect(cmd.Context(), cfg)
+	// Create reader and writer using configuration.
+	reader, err := mongo.NewDataReader(cmd.Context(), cfg)
 	if err != nil {
-		return fmt.Errorf("failed to connect to MongoDB: %w", err)
+		return fmt.Errorf("failed to create data reader: %w", err)
 	}
-	defer func() {
-		if err := mongoClient.Disconnect(cmd.Context()); err != nil {
-			fmt.Printf("Warning: failed to disconnect from MongoDB: %v\n", err)
-		}
-	}()
-
-	// Connect to DynamoDB.
-	dynamoClient, err := dynamo.Connect(cmd.Context(), cfg)
+	writer, err := dynamo.NewDataWriter(cmd.Context(), cfg)
 	if err != nil {
-		return fmt.Errorf("failed to connect to DynamoDB: %w", err)
+		return fmt.Errorf("failed to create data writer: %w", err)
 	}
-
-	// Create reader and writer.
-	reader := mongo.NewReader(mongoClient.Database(cfg.MongoDB).Collection(cfg.MongoCollection))
-	writer := dynamo.NewWriter(dynamoClient, cfg.DynamoTable)
 
 	// Create and run migration service.
 	service := migrator.NewService(reader, writer, false)

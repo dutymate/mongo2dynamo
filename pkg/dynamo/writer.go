@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"mongo2dynamo/pkg/config"
+
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
@@ -18,8 +20,8 @@ type Writer struct {
 
 const batchSize = 25
 
-// NewWriter creates a new DynamoDB writer.
-func NewWriter(client *dynamodb.Client, table string) *Writer {
+// newWriter creates a new DynamoDB writer.
+func newWriter(client *dynamodb.Client, table string) *Writer {
 	return &Writer{
 		client: client,
 		table:  table,
@@ -90,4 +92,13 @@ func (w *Writer) batchWrite(ctx context.Context, writeRequests []types.WriteRequ
 	}
 
 	return nil
+}
+
+// NewDataWriter creates a DataWriter for DynamoDB based on the configuration.
+func NewDataWriter(ctx context.Context, cfg *config.Config) (*Writer, error) {
+	client, err := Connect(ctx, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create DynamoDB writer: %w", err)
+	}
+	return newWriter(client, cfg.DynamoTable), nil
 }
