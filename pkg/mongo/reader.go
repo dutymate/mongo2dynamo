@@ -2,7 +2,6 @@ package mongo
 
 import (
 	"context"
-	"fmt"
 
 	"mongo2dynamo/pkg/common"
 	"mongo2dynamo/pkg/config"
@@ -27,13 +26,13 @@ func newReader(collection *mongo.Collection) *Reader {
 func (r *Reader) Read(ctx context.Context) ([]map[string]interface{}, error) {
 	cursor, err := r.collection.Find(ctx, bson.M{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to find documents: %w", err)
+		return nil, &common.DatabaseOperationError{Database: "MongoDB", Op: "find", Reason: err.Error(), Err: err}
 	}
 	defer cursor.Close(ctx)
 
 	var documents []map[string]interface{}
 	if err := cursor.All(ctx, &documents); err != nil {
-		return nil, fmt.Errorf("failed to decode documents: %w", err)
+		return nil, &common.DataValidationError{Field: "mongo decode", Reason: err.Error(), Err: err}
 	}
 
 	return documents, nil
@@ -43,7 +42,7 @@ func (r *Reader) Read(ctx context.Context) ([]map[string]interface{}, error) {
 func NewDataReader(ctx context.Context, cfg *config.Config) (common.DataReader, error) {
 	client, err := Connect(ctx, cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create MongoDB reader: %w", err)
+		return nil, err // Already wrapped by Connect.
 	}
 	return newReader(client.Database(cfg.MongoDB).Collection(cfg.MongoCollection)), nil
 }

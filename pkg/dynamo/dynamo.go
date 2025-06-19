@@ -2,9 +2,9 @@ package dynamo
 
 import (
 	"context"
-	"fmt"
 	"time"
 
+	"mongo2dynamo/pkg/common"
 	"mongo2dynamo/pkg/config"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -19,7 +19,7 @@ func Connect(ctx context.Context, cfg *config.Config) (*dynamodb.Client, error) 
 		awsconfig.WithRegion(cfg.AWSRegion),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load AWS configuration: %w", err)
+		return nil, &common.DatabaseConnectionError{Database: "DynamoDB", Reason: err.Error(), Err: err}
 	}
 
 	// Create DynamoDB client with custom endpoint.
@@ -33,7 +33,7 @@ func Connect(ctx context.Context, cfg *config.Config) (*dynamodb.Client, error) 
 
 	_, err = client.ListTables(timeoutCtx, &dynamodb.ListTablesInput{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to list tables: %w", err)
+		return nil, &common.DatabaseOperationError{Database: "DynamoDB", Op: "list tables", Reason: err.Error(), Err: err}
 	}
 
 	return client, nil

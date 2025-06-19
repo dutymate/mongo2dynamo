@@ -2,7 +2,6 @@ package plan
 
 import (
 	"fmt"
-
 	"mongo2dynamo/pkg/config"
 	"mongo2dynamo/pkg/flags"
 	"mongo2dynamo/pkg/migrator"
@@ -43,13 +42,13 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 	// Create reader using configuration.
 	reader, err := mongo.NewDataReader(cmd.Context(), cfg)
 	if err != nil {
-		return fmt.Errorf("failed to create data reader: %w", err)
+		return fmt.Errorf("failed to create mongo reader: %w", err)
 	}
 
 	// Create and run migration service in dry run mode.
 	service := migrator.NewService(reader, nil, true)
 	if err := service.Run(cmd.Context()); err != nil {
-		return fmt.Errorf("plan generation failed: %w", err)
+		return fmt.Errorf("migration service failed: %w", err)
 	}
 
 	return nil

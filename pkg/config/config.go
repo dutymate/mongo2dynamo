@@ -1,7 +1,9 @@
 package config
 
 import (
+	"errors"
 	"fmt"
+	"mongo2dynamo/pkg/common"
 	"os"
 	"path/filepath"
 
@@ -44,12 +46,19 @@ func (c *Config) Load() error {
 
 	// Read from config file if it exists.
 	home, err := os.UserHomeDir()
-	if err == nil {
-		configPath := filepath.Join(home, ".mongo2dynamo")
-		v.AddConfigPath(configPath)
-		v.SetConfigName("config")
-		v.SetConfigType("yaml")
-		_ = v.ReadInConfig() // Ignore error if config file doesn't exist.
+	if err != nil {
+		return &common.FileIOError{Op: "get user home dir", Reason: err.Error(), Err: err}
+	}
+	configPath := filepath.Join(home, ".mongo2dynamo")
+	v.AddConfigPath(configPath)
+	v.SetConfigName("config")
+	v.SetConfigType("yaml")
+	if err := v.ReadInConfig(); err != nil {
+		// Ignore error if config file doesn't exist, but wrap other errors.
+		var notFoundErr viper.ConfigFileNotFoundError
+		if !errors.As(err, &notFoundErr) {
+			return &common.FileIOError{Op: "read config file", Reason: err.Error(), Err: err}
+		}
 	}
 
 	// Only set values if they are not already set by flags.
@@ -97,13 +106,13 @@ func (c *Config) Load() error {
 // validate checks if all required fields are set.
 func (c *Config) validate() error {
 	if c.MongoDB == "" {
-		return fmt.Errorf("mongo_db is required")
+		return &common.ConfigFieldError{Field: "mongo_db", Reason: "required"}
 	}
 	if c.MongoCollection == "" {
-		return fmt.Errorf("mongo_collection is required")
+		return &common.ConfigFieldError{Field: "mongo_collection", Reason: "required"}
 	}
 	if c.DynamoTable == "" && !c.DryRun {
-		return fmt.Errorf("dynamo_table is required")
+		return &common.ConfigFieldError{Field: "dynamo_table", Reason: "required unless dry run"}
 	}
 	return nil
 }

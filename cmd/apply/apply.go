@@ -52,17 +52,17 @@ func runApply(cmd *cobra.Command, _ []string) error {
 	// Create reader and writer using configuration.
 	reader, err := mongo.NewDataReader(cmd.Context(), cfg)
 	if err != nil {
-		return fmt.Errorf("failed to create data reader: %w", err)
+		return fmt.Errorf("failed to create mongo reader: %w", err)
 	}
 	writer, err := dynamo.NewDataWriter(cmd.Context(), cfg)
 	if err != nil {
-		return fmt.Errorf("failed to create data writer: %w", err)
+		return fmt.Errorf("failed to create dynamo writer: %w", err)
 	}
 
 	// Create and run migration service.
 	service := migrator.NewService(reader, writer, false)
 	if err := service.Run(cmd.Context()); err != nil {
-		return fmt.Errorf("migration failed: %w", err)
+		return fmt.Errorf("migration service failed: %w", err)
 	}
 
 	return nil
