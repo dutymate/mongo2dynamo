@@ -23,6 +23,7 @@ lint:
 .PHONY: fmt
 fmt:
 	go fmt ./...
+	goimports -w .
 
 # Build the application.
 .PHONY: build
