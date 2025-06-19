@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"mongo2dynamo/pkg/common"
 	"mongo2dynamo/pkg/config"
 
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -35,7 +36,7 @@ func (w *Writer) Write(ctx context.Context, data []map[string]interface{}) error
 	for _, item := range data {
 		av, err := attributevalue.MarshalMap(item)
 		if err != nil {
-			return fmt.Errorf("failed to marshal item: %w", err)
+			return &common.DataValidationError{Field: "dynamo marshal", Reason: err.Error(), Err: err}
 		}
 		writeRequests = append(writeRequests, types.WriteRequest{
 			PutRequest: &types.PutRequest{
@@ -74,7 +75,12 @@ func (w *Writer) batchWrite(ctx context.Context, writeRequests []types.WriteRequ
 		}
 		output, err := w.client.BatchWriteItem(ctx, input)
 		if err != nil {
-			return fmt.Errorf("failed to batch write items: %w", err)
+			return &common.DatabaseOperationError{
+				Database: "DynamoDB",
+				Op:       "batch write",
+				Reason:   err.Error(),
+				Err:      err,
+			}
 		}
 		unprocessedItems = output.UnprocessedItems
 		if len(unprocessedItems) == 0 {
@@ -88,7 +94,12 @@ func (w *Writer) batchWrite(ctx context.Context, writeRequests []types.WriteRequ
 	}
 	// Log unprocessed items after exhausting retries.
 	if len(unprocessedItems) > 0 {
-		return fmt.Errorf("failed to process all items after %d retries: %v", maxRetries, unprocessedItems)
+		return &common.DatabaseOperationError{
+			Database: "DynamoDB",
+			Op:       "batch write (unprocessed items)",
+			Reason:   fmt.Sprintf("failed to process all items after %d retries", maxRetries),
+			Err:      fmt.Errorf("unprocessed items: %v", unprocessedItems),
+		}
 	}
 
 	return nil
@@ -98,7 +109,7 @@ func (w *Writer) batchWrite(ctx context.Context, writeRequests []types.WriteRequ
 func NewDataWriter(ctx context.Context, cfg *config.Config) (*Writer, error) {
 	client, err := Connect(ctx, cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create DynamoDB writer: %w", err)
+		return nil, err // Already wrapped by Connect.
 	}
 	return newWriter(client, cfg.DynamoTable), nil
 }

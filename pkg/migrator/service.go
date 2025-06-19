@@ -26,7 +26,7 @@ func NewService(reader common.DataReader, writer common.DataWriter, dryRun bool)
 func (s *Service) Run(ctx context.Context) error {
 	data, err := s.reader.Read(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to read data: %w", err)
+		return &common.MigrationStepError{Step: "read", Reason: err.Error(), Err: err}
 	}
 
 	fmt.Printf("Found %d documents to migrate\n", len(data))
@@ -36,7 +36,7 @@ func (s *Service) Run(ctx context.Context) error {
 	}
 
 	if err := s.writer.Write(ctx, data); err != nil {
-		return fmt.Errorf("failed to write data: %w", err)
+		return &common.MigrationStepError{Step: "write", Reason: err.Error(), Err: err}
 	}
 
 	fmt.Printf("Successfully migrated %d documents\n", len(data))
