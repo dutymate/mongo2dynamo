@@ -39,5 +39,6 @@ func (s *Service) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to write data: %w", err)
 	}
 
+	fmt.Printf("Successfully migrated %d documents\n", len(data))
 	return nil
 }

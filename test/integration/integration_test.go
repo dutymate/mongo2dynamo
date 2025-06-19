@@ -170,6 +170,11 @@ func TestApplyCommand(t *testing.T) {
 		t.Fail()
 	}
 
+	// Verify apply command output messages.
+	outputStr := string(output)
+	require.Contains(t, outputStr, "Found 1 documents to migrate", "Apply output should show found documents")
+	require.Contains(t, outputStr, "Successfully migrated 1 documents", "Apply output should show successful migration")
+
 	// Verify data in DynamoDB.
 	result, err := dynamoClient.GetItem(context.Background(), &dynamodb.GetItemInput{
 		TableName: aws.String("test_table"),
@@ -221,8 +226,10 @@ func TestPlanCommand(t *testing.T) {
 		t.Fail()
 	}
 
-	// Verify plan output.
-	require.Contains(t, string(output), "Found 1 documents to migrate")
+	// Verify plan command output messages.
+	outputStr := string(output)
+	require.Contains(t, outputStr, "Found 1 documents to migrate", "Plan output should show found documents")
+	require.NotContains(t, outputStr, "Successfully migrated", "Plan output should not show success message in dry run mode")
 }
 
 // TestVersionCommand tests the version command functionality.
