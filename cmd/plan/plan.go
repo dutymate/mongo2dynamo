@@ -40,19 +40,11 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
-	// Connect to MongoDB.
-	mongoClient, err := mongo.Connect(cmd.Context(), cfg)
+	// Create reader using configuration.
+	reader, err := mongo.NewDataReader(cmd.Context(), cfg)
 	if err != nil {
-		return fmt.Errorf("failed to connect to MongoDB: %w", err)
+		return fmt.Errorf("failed to create data reader: %w", err)
 	}
-	defer func() {
-		if err := mongoClient.Disconnect(cmd.Context()); err != nil {
-			fmt.Printf("Warning: failed to disconnect from MongoDB: %v\n", err)
-		}
-	}()
-
-	// Create reader.
-	reader := mongo.NewReader(mongoClient.Database(cfg.MongoDB).Collection(cfg.MongoCollection))
 
 	// Create and run migration service in dry run mode.
 	service := migrator.NewService(reader, nil, true)
