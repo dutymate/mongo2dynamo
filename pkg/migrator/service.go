@@ -29,7 +29,7 @@ func (s *Service) Run(ctx context.Context) error {
 		return &common.MigrationStepError{Step: "read", Reason: err.Error(), Err: err}
 	}
 
-	fmt.Printf("Found %d documents to migrate\n", len(data))
+	fmt.Printf("Found %s documents to migrate\n", common.FormatNumber(len(data)))
 
 	if s.dryRun {
 		return nil
@@ -39,6 +39,6 @@ func (s *Service) Run(ctx context.Context) error {
 		return &common.MigrationStepError{Step: "write", Reason: err.Error(), Err: err}
 	}
 
-	fmt.Printf("Successfully migrated %d documents\n", len(data))
+	fmt.Printf("Successfully migrated %s documents\n", common.FormatNumber(len(data)))
 	return nil
 }
