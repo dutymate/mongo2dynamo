@@ -41,7 +41,12 @@ func (r *Reader) Read(ctx context.Context) ([]map[string]interface{}, error) {
 	for cursor.Next(ctx) {
 		var doc map[string]interface{}
 		if err := cursor.Decode(&doc); err != nil {
-			return nil, &common.DataValidationError{Field: "mongo decode", Reason: err.Error(), Err: err}
+			return nil, &common.DataValidationError{
+				Database: "MongoDB",
+				Op:       "decode",
+				Reason:   err.Error(),
+				Err:      err,
+			}
 		}
 
 		documents = append(documents, doc)
