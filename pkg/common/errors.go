@@ -69,16 +69,17 @@ func (e *MigrationStepError) Unwrap() error {
 
 // DataValidationError is returned for data validation errors not related to config.
 type DataValidationError struct {
-	Field  string
-	Reason string
-	Err    error
+	Database string
+	Op       string
+	Reason   string
+	Err      error
 }
 
 func (e *DataValidationError) Error() string {
 	if e.Err != nil {
-		return fmt.Sprintf("data validation error on field '%s': %s: %v", e.Field, e.Reason, e.Err)
+		return fmt.Sprintf("data validation error on '%s' (%s): %s: %v", e.Database, e.Op, e.Reason, e.Err)
 	}
-	return fmt.Sprintf("data validation error on field '%s': %s", e.Field, e.Reason)
+	return fmt.Sprintf("data validation error on '%s' (%s): %s", e.Database, e.Op, e.Reason)
 }
 
 func (e *DataValidationError) Unwrap() error {

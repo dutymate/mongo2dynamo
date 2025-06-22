@@ -36,7 +36,12 @@ func (w *Writer) Write(ctx context.Context, data []map[string]interface{}) error
 	for _, item := range data {
 		av, err := attributevalue.MarshalMap(item)
 		if err != nil {
-			return &common.DataValidationError{Field: "dynamo marshal", Reason: err.Error(), Err: err}
+			return &common.DataValidationError{
+				Database: "DynamoDB",
+				Op:       "marshal",
+				Reason:   err.Error(),
+				Err:      err,
+			}
 		}
 		writeRequests = append(writeRequests, types.WriteRequest{
 			PutRequest: &types.PutRequest{
