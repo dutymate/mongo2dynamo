@@ -106,16 +106,17 @@ func (e *FileIOError) Unwrap() error {
 
 // AuthError is returned for authentication/authorization errors.
 type AuthError struct {
-	Op     string
-	Reason string
-	Err    error
+	Database string
+	Op       string
+	Reason   string
+	Err      error
 }
 
 func (e *AuthError) Error() string {
 	if e.Err != nil {
-		return fmt.Sprintf("authentication/authorization error during '%s': %s: %v", e.Op, e.Reason, e.Err)
+		return fmt.Sprintf("authentication/authorization error on '%s' (%s): %s: %v", e.Database, e.Op, e.Reason, e.Err)
 	}
-	return fmt.Sprintf("authentication/authorization error during '%s': %s", e.Op, e.Reason)
+	return fmt.Sprintf("authentication/authorization error on '%s' (%s): %s", e.Database, e.Op, e.Reason)
 }
 
 func (e *AuthError) Unwrap() error {
