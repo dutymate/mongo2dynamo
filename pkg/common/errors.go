@@ -49,6 +49,23 @@ func (e *DatabaseOperationError) Unwrap() error {
 	return e.Err
 }
 
+// ChunkCallbackError is returned when a chunk processing callback returns an error.
+type ChunkCallbackError struct {
+	Reason string
+	Err    error
+}
+
+func (e *ChunkCallbackError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf("chunk callback error: %s: %v", e.Reason, e.Err)
+	}
+	return fmt.Sprintf("chunk callback error: %s", e.Reason)
+}
+
+func (e *ChunkCallbackError) Unwrap() error {
+	return e.Err
+}
+
 // MigrationStepError is returned when a migration operation fails at a specific step.
 type MigrationStepError struct {
 	Step   string
