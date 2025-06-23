@@ -172,7 +172,6 @@ func TestApplyCommand(t *testing.T) {
 
 	// Verify apply command output messages.
 	outputStr := string(output)
-	require.Contains(t, outputStr, "Found 1 documents to migrate", "Apply output should show found documents")
 	require.Contains(t, outputStr, "Successfully migrated 1 documents", "Apply output should show successful migration")
 
 	// Verify data in DynamoDB.

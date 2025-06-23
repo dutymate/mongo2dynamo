@@ -32,14 +32,20 @@ func captureStdout(f func()) string {
 // MockDataReader is a mock implementation of the DataReader interface.
 type MockDataReader struct {
 	mock.Mock
+	Data [][]map[string]interface{} // Data for each chunk.
+	Err  error                      // Error to simulate read failures.
 }
 
-func (m *MockDataReader) Read(ctx context.Context) ([]map[string]interface{}, error) {
-	args := m.Called(ctx)
-	if err := args.Error(1); err != nil {
-		return nil, fmt.Errorf("mock reader error: %w", err)
+func (m *MockDataReader) Read(_ context.Context, handleChunk func([]map[string]interface{}) error) error {
+	if m.Err != nil {
+		return m.Err
 	}
-	return args.Get(0).([]map[string]interface{}), nil
+	for _, chunk := range m.Data {
+		if err := handleChunk(chunk); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // MockDataWriter is a mock implementation of the DataWriter interface.
@@ -66,14 +72,11 @@ func TestService_Run(t *testing.T) {
 	}{
 		{
 			name: "Successful migration",
-			reader: func() *MockDataReader {
-				m := new(MockDataReader)
-				m.On("Read", mock.Anything).Return([]map[string]interface{}{
-					{"id": "1", "name": "test1"},
-					{"id": "2", "name": "test2"},
-				}, nil)
-				return m
-			}(),
+			reader: &MockDataReader{
+				Data: [][]map[string]interface{}{
+					{{"id": "1", "name": "test1"}, {"id": "2", "name": "test2"}},
+				},
+			},
 			writer: func() *MockDataWriter {
 				m := new(MockDataWriter)
 				m.On("Write", mock.Anything, mock.Anything).Return(nil)
@@ -81,17 +84,15 @@ func TestService_Run(t *testing.T) {
 			}(),
 			dryRun:         false,
 			wantErr:        false,
-			expectedOutput: []string{"Found 2 documents to migrate", "Successfully migrated 2 documents"},
+			expectedOutput: []string{"Successfully migrated 2 documents"},
 		},
 		{
 			name: "Dry run mode",
-			reader: func() *MockDataReader {
-				m := new(MockDataReader)
-				m.On("Read", mock.Anything).Return([]map[string]interface{}{
-					{"id": "1", "name": "test1"},
-				}, nil)
-				return m
-			}(),
+			reader: &MockDataReader{
+				Data: [][]map[string]interface{}{
+					{{"id": "1", "name": "test1"}},
+				},
+			},
 			writer:         nil,
 			dryRun:         true,
 			wantErr:        false,
@@ -99,11 +100,9 @@ func TestService_Run(t *testing.T) {
 		},
 		{
 			name: "Data read failure",
-			reader: func() *MockDataReader {
-				m := new(MockDataReader)
-				m.On("Read", mock.Anything).Return([]map[string]interface{}{}, assert.AnError)
-				return m
-			}(),
+			reader: &MockDataReader{
+				Err: assert.AnError,
+			},
 			writer:         nil,
 			dryRun:         false,
 			wantErr:        true,
@@ -111,13 +110,11 @@ func TestService_Run(t *testing.T) {
 		},
 		{
 			name: "Data write failure",
-			reader: func() *MockDataReader {
-				m := new(MockDataReader)
-				m.On("Read", mock.Anything).Return([]map[string]interface{}{
-					{"id": "1", "name": "test1"},
-				}, nil)
-				return m
-			}(),
+			reader: &MockDataReader{
+				Data: [][]map[string]interface{}{
+					{{"id": "1", "name": "test1"}},
+				},
+			},
 			writer: func() *MockDataWriter {
 				m := new(MockDataWriter)
 				m.On("Write", mock.Anything, mock.Anything).Return(assert.AnError)
@@ -125,7 +122,7 @@ func TestService_Run(t *testing.T) {
 			}(),
 			dryRun:         false,
 			wantErr:        true,
-			expectedOutput: []string{"Found 1 documents to migrate"},
+			expectedOutput: []string{},
 		},
 	}
 
@@ -151,7 +148,6 @@ func TestService_Run(t *testing.T) {
 				assert.NotContains(t, output, "Successfully migrated", "Success message should not appear in dry run or error cases")
 			}
 
-			tt.reader.AssertExpectations(t)
 			if tt.writer != nil {
 				tt.writer.AssertExpectations(t)
 			}
