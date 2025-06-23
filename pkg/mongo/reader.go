@@ -25,39 +25,48 @@ func newReader(collection *mongo.Collection) *Reader {
 	}
 }
 
-// Read retrieves all documents from the MongoDB collection.
-func (r *Reader) Read(ctx context.Context) ([]map[string]interface{}, error) {
-	// Configure cursor with batch size for efficient document retrieval.
-	findOptions := options.Find().SetBatchSize(int32(r.batchSize))
+// Read retrieves documents from the MongoDB collection in fixed-size chunks and processes them using the provided callback.
+func (r *Reader) Read(ctx context.Context, handleChunk func([]map[string]interface{}) error) error {
+	const chunkSize = 1000
+	findOptions := options.Find().SetBatchSize(chunkSize)
 	cursor, err := r.collection.Find(ctx, bson.M{}, findOptions)
 	if err != nil {
-		return nil, &common.DatabaseOperationError{Database: "MongoDB", Op: "find", Reason: err.Error(), Err: err}
+		return &common.DatabaseOperationError{Database: "MongoDB", Op: "find", Reason: err.Error(), Err: err}
 	}
 	defer cursor.Close(ctx)
 
-	documents := make([]map[string]interface{}, 0, r.batchSize)
-
-	// Iterate through the cursor to read all documents.
+	chunk := make([]map[string]interface{}, 0, chunkSize)
 	for cursor.Next(ctx) {
 		var doc map[string]interface{}
 		if err := cursor.Decode(&doc); err != nil {
-			return nil, &common.DataValidationError{
+			return &common.DataValidationError{
 				Database: "MongoDB",
 				Op:       "decode",
 				Reason:   err.Error(),
 				Err:      err,
 			}
 		}
-
-		documents = append(documents, doc)
+		chunk = append(chunk, doc)
+		if len(chunk) >= chunkSize {
+			if err := handleChunk(chunk); err != nil {
+				return err
+			}
+			chunk = make([]map[string]interface{}, 0, chunkSize)
+		}
 	}
 
 	// Check for any cursor errors after iteration.
 	if err := cursor.Err(); err != nil {
-		return nil, &common.DatabaseOperationError{Database: "MongoDB", Op: "cursor", Reason: err.Error(), Err: err}
+		return &common.DatabaseOperationError{Database: "MongoDB", Op: "cursor", Reason: err.Error(), Err: err}
 	}
 
-	return documents, nil
+	if len(chunk) > 0 {
+		if err := handleChunk(chunk); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // NewDataReader creates a DataReader for MongoDB based on the configuration.

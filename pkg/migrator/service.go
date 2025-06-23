@@ -24,21 +24,36 @@ func NewService(reader common.DataReader, writer common.DataWriter, dryRun bool)
 
 // Run executes the migration process.
 func (s *Service) Run(ctx context.Context) error {
-	data, err := s.reader.Read(ctx)
-	if err != nil {
-		return &common.MigrationStepError{Step: "read", Reason: err.Error(), Err: err}
+	processChunks := func(processFunc func([]map[string]interface{}) error) error {
+		return s.reader.Read(ctx, func(chunk []map[string]interface{}) error {
+			return processFunc(chunk)
+		})
 	}
 
-	fmt.Printf("Found %s documents to migrate\n", common.FormatNumber(len(data)))
-
 	if s.dryRun {
+		total := 0
+		err := processChunks(func(chunk []map[string]interface{}) error {
+			total += len(chunk)
+			return nil
+		})
+		if err != nil {
+			return &common.MigrationStepError{Step: "read", Reason: err.Error(), Err: err}
+		}
+		fmt.Printf("Found %s documents to migrate\n", common.FormatNumber(total))
 		return nil
 	}
 
-	if err := s.writer.Write(ctx, data); err != nil {
+	migrated := 0
+	err := processChunks(func(chunk []map[string]interface{}) error {
+		if err := s.writer.Write(ctx, chunk); err != nil {
+			return &common.MigrationStepError{Step: "write", Reason: err.Error(), Err: err}
+		}
+		migrated += len(chunk)
+		return nil
+	})
+	if err != nil {
 		return &common.MigrationStepError{Step: "write", Reason: err.Error(), Err: err}
 	}
-
-	fmt.Printf("Successfully migrated %s documents\n", common.FormatNumber(len(data)))
+	fmt.Printf("Successfully migrated %s documents\n", common.FormatNumber(migrated))
 	return nil
 }

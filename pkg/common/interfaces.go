@@ -6,9 +6,8 @@ import (
 
 // DataReader defines the interface for reading data from a source.
 type DataReader interface {
-	// Read retrieves data from the source.
-	// Returns a slice of maps containing the data and any error that occurred.
-	Read(ctx context.Context) ([]map[string]interface{}, error)
+	// Read retrieves data from the source and processes it chunk by chunk using the provided callback.
+	Read(ctx context.Context, handleChunk func([]map[string]interface{}) error) error
 }
 
 // DataWriter defines the interface for writing data to a destination.
