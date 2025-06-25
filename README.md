@@ -20,7 +20,6 @@ Download the latest release from the [releases page](https://github.com/dutymate
 - Migrate data from MongoDB to DynamoDB
 - Support for MongoDB authentication
 - Support for local DynamoDB
-- Dry run mode for testing
 - Auto-approve option for automation
 
 ## Usage
@@ -70,7 +69,6 @@ mongo2dynamo apply \
 | `--dynamo-table` | DynamoDB table name | Yes* | - |
 | `--aws-region` | AWS region | No | us-east-1 |
 | `--auto-approve` | Skip confirmation prompt | No | false |
-| `--dry-run` | Show what would be migrated without actually migrating | No | false |
 
 ## Environment Variables
 
