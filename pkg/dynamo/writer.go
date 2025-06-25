@@ -13,20 +13,35 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
+// DBClient defines the interface for DynamoDB operations used by Writer.
+type DBClient interface {
+	BatchWriteItem(ctx context.Context, params *dynamodb.BatchWriteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.BatchWriteItemOutput, error)
+}
+
+// MarshalFunc defines the interface for marshaling items to DynamoDB format.
+type MarshalFunc func(item interface{}) (map[string]types.AttributeValue, error)
+
 // Writer implements the DataWriter interface for DynamoDB.
 type Writer struct {
-	client *dynamodb.Client
-	table  string
+	client  DBClient
+	table   string
+	marshal MarshalFunc
 }
 
 const batchSize = 25
 
 // newWriter creates a new DynamoDB writer.
-func newWriter(client *dynamodb.Client, table string) *Writer {
+func newWriter(client DBClient, table string) *Writer {
 	return &Writer{
-		client: client,
-		table:  table,
+		client:  client,
+		table:   table,
+		marshal: attributevalue.MarshalMap,
 	}
+}
+
+// marshalItem marshals a single item to DynamoDB format.
+func (w *Writer) marshalItem(item map[string]interface{}) (map[string]types.AttributeValue, error) {
+	return w.marshal(item)
 }
 
 // Write saves all documents to DynamoDB.
@@ -34,7 +49,7 @@ func (w *Writer) Write(ctx context.Context, data []map[string]interface{}) error
 	var writeRequests []types.WriteRequest
 
 	for _, item := range data {
-		av, err := attributevalue.MarshalMap(item)
+		av, err := w.marshalItem(item)
 		if err != nil {
 			return &common.DataValidationError{
 				Database: "DynamoDB",
