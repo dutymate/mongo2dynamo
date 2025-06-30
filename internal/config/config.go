@@ -3,7 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
-	"mongo2dynamo/pkg/common"
+	"mongo2dynamo/internal/common"
 	"os"
 	"path/filepath"
 

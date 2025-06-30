@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"mongo2dynamo/pkg/common"
-	"mongo2dynamo/pkg/config"
+	"mongo2dynamo/internal/common"
+	"mongo2dynamo/internal/config"
 
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"

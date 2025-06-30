@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"mongo2dynamo/pkg/common"
+	"mongo2dynamo/internal/common"
 )
 
 func TestConfig_Load(t *testing.T) {

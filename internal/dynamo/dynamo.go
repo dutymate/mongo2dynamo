@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"mongo2dynamo/pkg/common"
-	"mongo2dynamo/pkg/config"
+	"mongo2dynamo/internal/common"
+	"mongo2dynamo/internal/config"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"mongo2dynamo/pkg/common"
-	"mongo2dynamo/pkg/config"
+	"mongo2dynamo/internal/common"
+	"mongo2dynamo/internal/config"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
