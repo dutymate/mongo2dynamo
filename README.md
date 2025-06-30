@@ -19,11 +19,12 @@
 
 ## Features
 
-- **Reliable MongoDB → DynamoDB migration**
-- **Batch-based, memory-efficient processing**
-- **Auto-approve and interactive confirmation**
-- **Flexible configuration** (CLI flags, environment variables, config file)
-- **Error handling and retry logic**
+- **Reliable MongoDB → DynamoDB migration**: Ensures safe and accurate transfer of your data from MongoDB collections to DynamoDB tables, minimizing the risk of data loss or duplication.
+- **Batch-based, memory-efficient processing**: Migrates data in configurable batches (default: 1000 documents per batch), allowing efficient handling of large datasets without excessive memory usage.
+- **Auto-approve and interactive confirmation**: Supports both automated migrations (for CI/CD or scripting) and interactive confirmation prompts to prevent accidental data transfers.
+- **Flexible configuration**: Easily configure all options via command-line flags, environment variables, or a YAML config file—whichever fits your workflow best.
+- **Error handling and retry logic**: Automatically retries failed operations with exponential backoff, and provides clear error messages to help you quickly resolve issues.
+- **Test and dry-run support**: Use the `plan` command to preview migrations before performing any actual data transfer.
 
 ## Why mongo2dynamo?
 
