@@ -1,6 +1,35 @@
 # mongo2dynamo
 
-A command-line tool for migrating data from MongoDB to DynamoDB.
+<p align="center">
+  <img src="images/logo.png" alt="mongo2dynamo Logo" width="200"/>
+</p>
+
+**mongo2dynamo** is a command-line tool for migrating data from MongoDB to DynamoDB.
+
+[![Build](https://github.com/dutymate/mongo2dynamo/actions/workflows/build.yaml/badge.svg)](https://github.com/dutymate/mongo2dynamo/actions/workflows/build.yaml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+- [Features](#features)
+- [Why mongo2dynamo?](#why-mongo2dynamo)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Configuration](#configuration)
+- [How It Works](#how-it-works)
+- [License](#license)
+
+## Features
+
+- **Reliable MongoDB → DynamoDB migration**
+- **Batch-based, memory-efficient processing**
+- **Auto-approve and interactive confirmation**
+- **Flexible configuration** (CLI flags, environment variables, config file)
+- **Error handling and retry logic**
+
+## Why mongo2dynamo?
+
+- **Reliability**: Safely migrates data without loss or duplication
+- **Scalability**: Handles millions of documents efficiently
+- **Easy to Use**: Intuitive CLI and configuration options
 
 ## Installation
 
@@ -11,24 +40,13 @@ brew tap dutymate/tap
 brew install mongo2dynamo
 ```
 
-### Binary
+### Download Binary
 
 Download the latest release from the [releases page](https://github.com/dutymate/mongo2dynamo/releases).
 
-## Features
+## Quick Start
 
-- Migrate data from MongoDB to DynamoDB
-- Support for MongoDB authentication
-- Support for local DynamoDB
-- Auto-approve option for automation
-
-## Usage
-
-mongo2dynamo provides two main commands: `plan` and `apply`.
-
-### Plan Command
-
-The `plan` command shows what would be migrated without actually performing the migration:
+### 1. Preview Migration Plan
 
 ```bash
 mongo2dynamo plan \
@@ -38,9 +56,7 @@ mongo2dynamo plan \
   --mongo-collection your_collection
 ```
 
-### Apply Command
-
-The `apply` command performs the actual migration:
+### 2. Run Actual Migration
 
 ```bash
 mongo2dynamo apply \
@@ -52,27 +68,9 @@ mongo2dynamo apply \
   --dynamo-table your_table
 ```
 
-### Command-line Flags
+## Configuration
 
-> [!NOTE]
-> \* Required for `apply` command, optional for `plan` command.
-
-| Flag | Description | Required | Default |
-|------|-------------|----------|---------|
-| `--mongo-host` | MongoDB host | No | localhost |
-| `--mongo-port` | MongoDB port | No | 27017 |
-| `--mongo-user` | MongoDB username | No | - |
-| `--mongo-password` | MongoDB password | No | - |
-| `--mongo-db` | MongoDB database name | Yes | - |
-| `--mongo-collection` | MongoDB collection name | Yes | - |
-| `--dynamo-endpoint` | DynamoDB endpoint | No | http://localhost:8000 |
-| `--dynamo-table` | DynamoDB table name | Yes* | - |
-| `--aws-region` | AWS region | No | us-east-1 |
-| `--auto-approve` | Skip confirmation prompt | No | false |
-
-## Environment Variables
-
-You can also set configuration using environment variables:
+### Environment Variables
 
 ```bash
 export MONGO2DYNAMO_MONGO_HOST=localhost
@@ -86,9 +84,9 @@ export MONGO2DYNAMO_DYNAMO_ENDPOINT=http://localhost:8000
 export MONGO2DYNAMO_AWS_REGION=us-east-1
 ```
 
-## Configuration File
+### Config File
 
-You can also create a configuration file at `~/.mongo2dynamo/config.yaml`:
+Configuration file at `~/.mongo2dynamo/config.yaml`:
 
 ```yaml
 mongo_host: localhost
@@ -102,9 +100,23 @@ dynamo_endpoint: http://localhost:8000
 aws_region: us-east-1
 ```
 
-## Contributing
+## How It Works
 
-Check out [Contributing guide](.github/CONTRIBUTING.md) for ideas on contributing and setup steps for getting our repositories up.
+mongo2dynamo follows a simple yet robust two-step process:
+
+### 1. Plan Phase
+The `plan` command performs a dry-run of the migration:
+- Connects to MongoDB and counts documents in the specified collection
+- Displays the total number of documents that would be migrated
+- No actual data transfer occurs during this phase
+
+### 2. Apply Phase
+The `apply` command executes the actual migration:
+- **Connection Setup**: Establishes connections to both MongoDB and DynamoDB
+- **Batch Reading**: Reads documents from MongoDB in configurable chunks (default: 1000 documents)
+- **Data Processing**: Converts MongoDB BSON documents to DynamoDB format
+- **Batch Writing**: Writes data to DynamoDB using BatchWriteItem API
+- **Error Handling**: Implements retry logic with exponential backoff for failed operations
 
 ## License
 
