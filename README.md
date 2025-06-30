@@ -28,9 +28,9 @@
 
 ## Why mongo2dynamo?
 
-- **Reliability**: Safely migrates data without loss or duplication
-- **Scalability**: Handles millions of documents efficiently
-- **Easy to Use**: Intuitive CLI and configuration options
+- **Reliability**: Safely migrates data without loss or duplication.
+- **Scalability**: Handles millions of documents efficiently.
+- **Easy to Use**: Intuitive CLI and configuration options.
 
 ## Installation
 
@@ -107,17 +107,17 @@ mongo2dynamo follows a simple yet robust two-step process:
 
 ### 1. Plan Phase
 The `plan` command performs a dry-run of the migration:
-- Connects to MongoDB and counts documents in the specified collection
-- Displays the total number of documents that would be migrated
-- No actual data transfer occurs during this phase
+- Connects to MongoDB and counts documents in the specified collection.
+- Displays the total number of documents that would be migrated.
+- No actual data transfer occurs during this phase.
 
 ### 2. Apply Phase
 The `apply` command executes the actual migration:
-- **Connection Setup**: Establishes connections to both MongoDB and DynamoDB
-- **Batch Reading**: Reads documents from MongoDB in configurable chunks (default: 1000 documents)
-- **Data Processing**: Converts MongoDB BSON documents to DynamoDB format
-- **Batch Writing**: Writes data to DynamoDB using BatchWriteItem API
-- **Error Handling**: Implements retry logic with exponential backoff for failed operations
+- **Connection Setup**: Establishes connections to both MongoDB and DynamoDB.
+- **Batch Reading**: Reads documents from MongoDB in configurable chunks (default: 1000 documents).
+- **Data Processing**: Converts MongoDB BSON documents to DynamoDB format.
+- **Batch Writing**: Writes data to DynamoDB using BatchWriteItem API.
+- **Error Handling**: Implements retry logic with exponential backoff for failed operations.
 
 ## License
 
