@@ -5,8 +5,8 @@ import (
 	"errors"
 	"strings"
 
-	"mongo2dynamo/pkg/common"
-	"mongo2dynamo/pkg/config"
+	"mongo2dynamo/internal/common"
+	"mongo2dynamo/internal/config"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"

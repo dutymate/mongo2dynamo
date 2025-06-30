@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"testing"
 
-	"mongo2dynamo/pkg/common"
+	"mongo2dynamo/internal/common"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

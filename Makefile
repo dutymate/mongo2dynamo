@@ -31,7 +31,7 @@ build: deps
 	@echo "Building mongo2dynamo..."
 	@echo "GIT_COMMIT=$(GIT_COMMIT)"
 	@echo "BUILD_DATE=$(BUILD_DATE)"
-	go build -ldflags="-s -w -X mongo2dynamo/pkg/version.GitCommit=$(GIT_COMMIT) -X mongo2dynamo/pkg/version.BuildDate=$(BUILD_DATE)" -o $(BIN_DIR)/mongo2dynamo main.go
+	go build -ldflags="-s -w -X mongo2dynamo/internal/version.GitCommit=$(GIT_COMMIT) -X mongo2dynamo/internal/version.BuildDate=$(BUILD_DATE)" -o $(BIN_DIR)/mongo2dynamo main.go
 	@echo "Done"
 
 # Run all tests.

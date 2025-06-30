@@ -3,7 +3,7 @@ package version
 import (
 	"fmt"
 
-	"mongo2dynamo/pkg/version"
+	"mongo2dynamo/internal/version"
 
 	"github.com/spf13/cobra"
 )

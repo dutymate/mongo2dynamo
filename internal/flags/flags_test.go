@@ -3,7 +3,7 @@ package flags_test
 import (
 	"testing"
 
-	"mongo2dynamo/pkg/flags"
+	"mongo2dynamo/internal/flags"
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"

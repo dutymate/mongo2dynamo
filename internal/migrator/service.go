@@ -3,7 +3,8 @@ package migrator
 import (
 	"context"
 	"fmt"
-	"mongo2dynamo/pkg/common"
+
+	"mongo2dynamo/internal/common"
 )
 
 // Service handles the migration process between MongoDB and DynamoDB.

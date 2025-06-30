@@ -2,12 +2,12 @@ package apply
 
 import (
 	"fmt"
-	"mongo2dynamo/pkg/common"
-	"mongo2dynamo/pkg/config"
-	"mongo2dynamo/pkg/dynamo"
-	"mongo2dynamo/pkg/flags"
-	"mongo2dynamo/pkg/migrator"
-	"mongo2dynamo/pkg/mongo"
+	"mongo2dynamo/internal/common"
+	"mongo2dynamo/internal/config"
+	"mongo2dynamo/internal/dynamo"
+	"mongo2dynamo/internal/flags"
+	"mongo2dynamo/internal/migrator"
+	"mongo2dynamo/internal/mongo"
 
 	"github.com/spf13/cobra"
 )

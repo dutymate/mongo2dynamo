@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"testing"
 
-	"mongo2dynamo/pkg/common"
+	"mongo2dynamo/internal/common"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
