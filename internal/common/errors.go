@@ -49,6 +49,57 @@ func (e *DatabaseOperationError) Unwrap() error {
 	return e.Err
 }
 
+// ReaderError is returned when creating or initializing a reader fails.
+type ReaderError struct {
+	Reason string
+	Err    error
+}
+
+func (e *ReaderError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf("reader error: %s: %v", e.Reason, e.Err)
+	}
+	return fmt.Sprintf("reader error: %s", e.Reason)
+}
+
+func (e *ReaderError) Unwrap() error {
+	return e.Err
+}
+
+// WriterError is returned when creating, initializing, or writing to the destination fails.
+type WriterError struct {
+	Reason string
+	Err    error
+}
+
+func (e *WriterError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf("writer error: %s: %v", e.Reason, e.Err)
+	}
+	return fmt.Sprintf("writer error: %s", e.Reason)
+}
+
+func (e *WriterError) Unwrap() error {
+	return e.Err
+}
+
+// TransformError is returned when a data transformation fails.
+type TransformError struct {
+	Reason string
+	Err    error
+}
+
+func (e *TransformError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf("transform error: %s: %v", e.Reason, e.Err)
+	}
+	return fmt.Sprintf("transform error: %s", e.Reason)
+}
+
+func (e *TransformError) Unwrap() error {
+	return e.Err
+}
+
 // ChunkCallbackError is returned when a chunk processing callback returns an error.
 type ChunkCallbackError struct {
 	Reason string
@@ -63,24 +114,6 @@ func (e *ChunkCallbackError) Error() string {
 }
 
 func (e *ChunkCallbackError) Unwrap() error {
-	return e.Err
-}
-
-// MigrationStepError is returned when a migration operation fails at a specific step.
-type MigrationStepError struct {
-	Step   string
-	Reason string
-	Err    error
-}
-
-func (e *MigrationStepError) Error() string {
-	if e.Err != nil {
-		return fmt.Sprintf("migration failed during '%s' step: %s: %v", e.Step, e.Reason, e.Err)
-	}
-	return fmt.Sprintf("migration failed during '%s' step: %s", e.Step, e.Reason)
-}
-
-func (e *MigrationStepError) Unwrap() error {
 	return e.Err
 }
 

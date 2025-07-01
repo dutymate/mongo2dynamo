@@ -2,10 +2,11 @@ package plan
 
 import (
 	"fmt"
+	"mongo2dynamo/internal/common"
 	"mongo2dynamo/internal/config"
 	"mongo2dynamo/internal/flags"
-	"mongo2dynamo/internal/migrator"
 	"mongo2dynamo/internal/mongo"
+	"mongo2dynamo/internal/transformer"
 
 	"github.com/spf13/cobra"
 )
@@ -42,15 +43,25 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 	// Create reader using configuration.
 	reader, err := mongo.NewDataReader(cmd.Context(), cfg)
 	if err != nil {
-		return fmt.Errorf("failed to create mongo reader: %w", err)
+		return &common.ReaderError{Reason: "failed to create mongo reader", Err: err}
 	}
 
-	// Create and run migration service in dry run mode.
-	service := migrator.NewService(reader, nil, true)
-	if err := service.Run(cmd.Context()); err != nil {
-		return fmt.Errorf("migration service failed: %w", err)
+	// Create transformer.
+	trans := transformer.NewMongoToDynamoTransformer()
+	total := 0
+	err = reader.Read(cmd.Context(), func(chunk []map[string]interface{}) error {
+		// Apply transformation.
+		transformed, err := trans.Transform(chunk)
+		if err != nil {
+			return &common.TransformError{Reason: "failed to transform chunk", Err: err}
+		}
+		total += len(transformed)
+		return nil
+	})
+	if err != nil {
+		return &common.ReaderError{Reason: "failed to read from mongo", Err: err}
 	}
-
+	fmt.Printf("Found %d documents to migrate\n", total)
 	return nil
 }
 

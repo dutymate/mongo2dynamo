@@ -76,7 +76,13 @@ func setupMongoDB(t *testing.T, mongoHost, mongoPort string) *mongo.Client {
 
 	// Insert test data.
 	collection := mongoClient.Database("testdb").Collection("testcol")
-	_, err = collection.InsertOne(ctx, bson.M{"name": "test", "value": 123})
+	_, err = collection.InsertOne(ctx, bson.M{
+		"_id":    "mongoid-001",
+		"__v":    7,
+		"_class": "com.example.MyEntity",
+		"name":   "test",
+		"value":  123,
+	})
 	require.NoError(t, err)
 
 	return mongoClient
@@ -187,8 +193,12 @@ func TestApplyCommand(t *testing.T) {
 	var item map[string]interface{}
 	err = attributevalue.UnmarshalMap(result.Item, &item)
 	require.NoError(t, err)
+	require.Equal(t, "mongoid-001", item["id"])
 	require.Equal(t, "test", item["name"])
 	require.Equal(t, float64(123), item["value"])
+	require.NotContains(t, item, "_id")
+	require.NotContains(t, item, "__v")
+	require.NotContains(t, item, "_class")
 }
 
 // TestPlanCommand tests the plan command functionality.
