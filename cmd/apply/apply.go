@@ -6,8 +6,8 @@ import (
 	"mongo2dynamo/internal/config"
 	"mongo2dynamo/internal/dynamo"
 	"mongo2dynamo/internal/flags"
-	"mongo2dynamo/internal/migrator"
 	"mongo2dynamo/internal/mongo"
+	"mongo2dynamo/internal/transformer"
 
 	"github.com/spf13/cobra"
 )
@@ -52,19 +52,33 @@ func runApply(cmd *cobra.Command, _ []string) error {
 	// Create reader and writer using configuration.
 	reader, err := mongo.NewDataReader(cmd.Context(), cfg)
 	if err != nil {
-		return fmt.Errorf("failed to create mongo reader: %w", err)
+		return &common.ReaderError{Reason: "failed to create mongo reader", Err: err}
 	}
 	writer, err := dynamo.NewDataWriter(cmd.Context(), cfg)
 	if err != nil {
-		return fmt.Errorf("failed to create dynamo writer: %w", err)
+		return &common.WriterError{Reason: "failed to create dynamo writer", Err: err}
 	}
 
-	// Create and run migration service.
-	service := migrator.NewService(reader, writer, false)
-	if err := service.Run(cmd.Context()); err != nil {
-		return fmt.Errorf("migration service failed: %w", err)
-	}
+	// Create transformer for MongoDB to DynamoDB document conversion.
+	trans := transformer.NewMongoToDynamoTransformer()
 
+	migrated := 0
+	err = reader.Read(cmd.Context(), func(chunk []map[string]interface{}) error {
+		// Apply transformation to each chunk before writing to DynamoDB.
+		transformed, err := trans.Transform(chunk)
+		if err != nil {
+			return &common.TransformError{Reason: "failed to transform chunk", Err: err}
+		}
+		if err := writer.Write(cmd.Context(), transformed); err != nil {
+			return &common.WriterError{Reason: "failed to write chunk", Err: err}
+		}
+		migrated += len(transformed)
+		return nil
+	})
+	if err != nil {
+		return &common.ReaderError{Reason: "failed to read from mongo", Err: err}
+	}
+	fmt.Printf("Successfully migrated %d documents\n", migrated)
 	return nil
 }
 
