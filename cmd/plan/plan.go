@@ -1,6 +1,7 @@
 package plan
 
 import (
+	"errors"
 	"fmt"
 	"mongo2dynamo/internal/common"
 	"mongo2dynamo/internal/config"
@@ -59,6 +60,10 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 		return nil
 	})
 	if err != nil {
+		var transformErr *common.TransformError
+		if errors.As(err, &transformErr) {
+			return transformErr
+		}
 		return &common.ReaderError{Reason: "failed to read from mongo", Err: err}
 	}
 	fmt.Printf("Found %d documents to migrate\n", total)

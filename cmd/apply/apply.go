@@ -1,6 +1,7 @@
 package apply
 
 import (
+	"errors"
 	"fmt"
 	"mongo2dynamo/internal/common"
 	"mongo2dynamo/internal/config"
@@ -76,6 +77,14 @@ func runApply(cmd *cobra.Command, _ []string) error {
 		return nil
 	})
 	if err != nil {
+		var transformErr *common.TransformError
+		var writerErr *common.WriterError
+		if errors.As(err, &transformErr) {
+			return transformErr
+		}
+		if errors.As(err, &writerErr) {
+			return writerErr
+		}
 		return &common.ReaderError{Reason: "failed to read from mongo", Err: err}
 	}
 	fmt.Printf("Successfully migrated %d documents\n", migrated)
