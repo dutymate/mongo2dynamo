@@ -59,7 +59,7 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 		return nil
 	})
 	if err != nil {
-		return &common.ReaderError{Reason: "failed to read from mongo", Err: err}
+		return &common.PlanError{Reason: "unexpected error during plan callback", Err: err}
 	}
 	fmt.Printf("Found %d documents to migrate\n", total)
 	return nil

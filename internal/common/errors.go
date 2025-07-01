@@ -12,6 +12,25 @@ func (e *ConfigFieldError) Error() string {
 	return fmt.Sprintf("invalid configuration for field '%s': %s", e.Field, e.Reason)
 }
 
+// DataValidationError is returned for data validation errors not related to config.
+type DataValidationError struct {
+	Database string
+	Op       string
+	Reason   string
+	Err      error
+}
+
+func (e *DataValidationError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf("data validation error on '%s' (%s): %s: %v", e.Database, e.Op, e.Reason, e.Err)
+	}
+	return fmt.Sprintf("data validation error on '%s' (%s): %s", e.Database, e.Op, e.Reason)
+}
+
+func (e *DataValidationError) Unwrap() error {
+	return e.Err
+}
+
 // DatabaseConnectionError is returned when a connection to a database fails.
 type DatabaseConnectionError struct {
 	Database string
@@ -46,6 +65,77 @@ func (e *DatabaseOperationError) Error() string {
 }
 
 func (e *DatabaseOperationError) Unwrap() error {
+	return e.Err
+}
+
+// FileIOError is returned for file I/O related errors.
+type FileIOError struct {
+	Op     string
+	Reason string
+	Err    error
+}
+
+func (e *FileIOError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf("file I/O error during '%s': %s: %v", e.Op, e.Reason, e.Err)
+	}
+	return fmt.Sprintf("file I/O error during '%s': %s", e.Op, e.Reason)
+}
+
+func (e *FileIOError) Unwrap() error {
+	return e.Err
+}
+
+// AuthError is returned for authentication/authorization errors.
+type AuthError struct {
+	Database string
+	Op       string
+	Reason   string
+	Err      error
+}
+
+func (e *AuthError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf("authentication/authorization error on '%s' (%s): %s: %v", e.Database, e.Op, e.Reason, e.Err)
+	}
+	return fmt.Sprintf("authentication/authorization error on '%s' (%s): %s", e.Database, e.Op, e.Reason)
+}
+
+func (e *AuthError) Unwrap() error {
+	return e.Err
+}
+
+// PlanError is returned for unexpected errors during the plan command.
+type PlanError struct {
+	Reason string
+	Err    error
+}
+
+func (e *PlanError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf("plan error: %s: %v", e.Reason, e.Err)
+	}
+	return fmt.Sprintf("plan error: %s", e.Reason)
+}
+
+func (e *PlanError) Unwrap() error {
+	return e.Err
+}
+
+// ApplyError is returned for unexpected errors during the apply command.
+type ApplyError struct {
+	Reason string
+	Err    error
+}
+
+func (e *ApplyError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf("apply error: %s: %v", e.Reason, e.Err)
+	}
+	return fmt.Sprintf("apply error: %s", e.Reason)
+}
+
+func (e *ApplyError) Unwrap() error {
 	return e.Err
 }
 
@@ -114,61 +204,5 @@ func (e *ChunkCallbackError) Error() string {
 }
 
 func (e *ChunkCallbackError) Unwrap() error {
-	return e.Err
-}
-
-// DataValidationError is returned for data validation errors not related to config.
-type DataValidationError struct {
-	Database string
-	Op       string
-	Reason   string
-	Err      error
-}
-
-func (e *DataValidationError) Error() string {
-	if e.Err != nil {
-		return fmt.Sprintf("data validation error on '%s' (%s): %s: %v", e.Database, e.Op, e.Reason, e.Err)
-	}
-	return fmt.Sprintf("data validation error on '%s' (%s): %s", e.Database, e.Op, e.Reason)
-}
-
-func (e *DataValidationError) Unwrap() error {
-	return e.Err
-}
-
-// FileIOError is returned for file I/O related errors.
-type FileIOError struct {
-	Op     string
-	Reason string
-	Err    error
-}
-
-func (e *FileIOError) Error() string {
-	if e.Err != nil {
-		return fmt.Sprintf("file I/O error during '%s': %s: %v", e.Op, e.Reason, e.Err)
-	}
-	return fmt.Sprintf("file I/O error during '%s': %s", e.Op, e.Reason)
-}
-
-func (e *FileIOError) Unwrap() error {
-	return e.Err
-}
-
-// AuthError is returned for authentication/authorization errors.
-type AuthError struct {
-	Database string
-	Op       string
-	Reason   string
-	Err      error
-}
-
-func (e *AuthError) Error() string {
-	if e.Err != nil {
-		return fmt.Sprintf("authentication/authorization error on '%s' (%s): %s: %v", e.Database, e.Op, e.Reason, e.Err)
-	}
-	return fmt.Sprintf("authentication/authorization error on '%s' (%s): %s", e.Database, e.Op, e.Reason)
-}
-
-func (e *AuthError) Unwrap() error {
 	return e.Err
 }

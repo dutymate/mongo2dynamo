@@ -76,7 +76,7 @@ func runApply(cmd *cobra.Command, _ []string) error {
 		return nil
 	})
 	if err != nil {
-		return &common.ReaderError{Reason: "failed to read from mongo", Err: err}
+		return &common.ApplyError{Reason: "unexpected error during apply callback", Err: err}
 	}
 	fmt.Printf("Successfully migrated %d documents\n", migrated)
 	return nil
