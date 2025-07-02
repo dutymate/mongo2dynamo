@@ -49,28 +49,28 @@ func runApply(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	// Create reader and writer using configuration.
-	reader, err := mongo.NewDataReader(cmd.Context(), cfg)
+	// Create extractor and loader using configuration.
+	extractor, err := mongo.NewDataExtractor(cmd.Context(), cfg)
 	if err != nil {
-		return &common.ReaderError{Reason: "failed to create mongo reader", Err: err}
+		return &common.ExtractError{Reason: "failed to create mongo extractor", Err: err}
 	}
-	writer, err := dynamo.NewDataWriter(cmd.Context(), cfg)
+	loader, err := dynamo.NewDataLoader(cmd.Context(), cfg)
 	if err != nil {
-		return &common.WriterError{Reason: "failed to create dynamo writer", Err: err}
+		return &common.LoadError{Reason: "failed to create dynamo loader", Err: err}
 	}
 
 	// Create transformer for MongoDB to DynamoDB document conversion.
 	trans := transformer.NewMongoToDynamoTransformer()
 
 	migrated := 0
-	err = reader.Read(cmd.Context(), func(chunk []map[string]interface{}) error {
-		// Apply transformation to each chunk before writing to DynamoDB.
+	err = extractor.Extract(cmd.Context(), func(chunk []map[string]interface{}) error {
+		// Apply transformation to each chunk before loading to DynamoDB.
 		transformed, err := trans.Transform(chunk)
 		if err != nil {
 			return &common.TransformError{Reason: "failed to transform chunk", Err: err}
 		}
-		if err := writer.Write(cmd.Context(), transformed); err != nil {
-			return &common.WriterError{Reason: "failed to write chunk", Err: err}
+		if err := loader.Load(cmd.Context(), transformed); err != nil {
+			return &common.LoadError{Reason: "failed to load chunk", Err: err}
 		}
 		migrated += len(transformed)
 		return nil

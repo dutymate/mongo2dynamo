@@ -139,37 +139,37 @@ func (e *ApplyError) Unwrap() error {
 	return e.Err
 }
 
-// ReaderError is returned when creating or initializing a reader fails.
-type ReaderError struct {
+// ExtractError is returned when creating or initializing an extractor fails.
+type ExtractError struct {
 	Reason string
 	Err    error
 }
 
-func (e *ReaderError) Error() string {
+func (e *ExtractError) Error() string {
 	if e.Err != nil {
-		return fmt.Sprintf("reader error: %s: %v", e.Reason, e.Err)
+		return fmt.Sprintf("extract error: %s: %v", e.Reason, e.Err)
 	}
-	return fmt.Sprintf("reader error: %s", e.Reason)
+	return fmt.Sprintf("extract error: %s", e.Reason)
 }
 
-func (e *ReaderError) Unwrap() error {
+func (e *ExtractError) Unwrap() error {
 	return e.Err
 }
 
-// WriterError is returned when creating, initializing, or writing to the destination fails.
-type WriterError struct {
+// LoadError is returned when creating, initializing, or loading to the destination fails.
+type LoadError struct {
 	Reason string
 	Err    error
 }
 
-func (e *WriterError) Error() string {
+func (e *LoadError) Error() string {
 	if e.Err != nil {
-		return fmt.Sprintf("writer error: %s: %v", e.Reason, e.Err)
+		return fmt.Sprintf("load error: %s: %v", e.Reason, e.Err)
 	}
-	return fmt.Sprintf("writer error: %s", e.Reason)
+	return fmt.Sprintf("load error: %s", e.Reason)
 }
 
-func (e *WriterError) Unwrap() error {
+func (e *LoadError) Unwrap() error {
 	return e.Err
 }
 

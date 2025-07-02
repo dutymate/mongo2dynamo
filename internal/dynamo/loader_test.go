@@ -28,30 +28,30 @@ func (m *MockDBClient) BatchWriteItem(ctx context.Context, params *dynamodb.Batc
 	return args.Get(0).(*dynamodb.BatchWriteItemOutput), nil
 }
 
-// newTestWriter creates a new DynamoDB writer with custom marshal function for testing.
-func newTestWriter(client DBClient, table string, marshal MarshalFunc) *Writer {
-	return &Writer{
+// newTestLoader creates a new DynamoDB loader with custom marshal function for testing.
+func newTestLoader(client DBClient, table string, marshal MarshalFunc) *Loader {
+	return &Loader{
 		client:  client,
 		table:   table,
 		marshal: marshal,
 	}
 }
 
-func TestNewWriter(t *testing.T) {
+func TestNewLoader(t *testing.T) {
 	mockClient := &MockDBClient{}
 	table := "test-table"
 
-	writer := newWriter(mockClient, table)
+	loader := newLoader(mockClient, table)
 
-	assert.NotNil(t, writer)
-	assert.Equal(t, mockClient, writer.client)
-	assert.Equal(t, table, writer.table)
-	assert.NotNil(t, writer.marshal)
+	assert.NotNil(t, loader)
+	assert.Equal(t, mockClient, loader.client)
+	assert.Equal(t, table, loader.table)
+	assert.NotNil(t, loader.marshal)
 }
 
-func TestWriter_Write_Success(t *testing.T) {
+func TestLoader_Load_Success(t *testing.T) {
 	mockClient := &MockDBClient{}
-	writer := newWriter(mockClient, "test-table")
+	loader := newLoader(mockClient, "test-table")
 
 	data := []map[string]interface{}{
 		{"id": "1", "name": "test1"},
@@ -65,15 +65,15 @@ func TestWriter_Write_Success(t *testing.T) {
 		UnprocessedItems: map[string][]types.WriteRequest{},
 	}, nil)
 
-	err := writer.Write(context.Background(), data)
+	err := loader.Load(context.Background(), data)
 
 	assert.NoError(t, err)
 	mockClient.AssertExpectations(t)
 }
 
-func TestWriter_Write_ComplexDataTypes(t *testing.T) {
+func TestLoader_Load_ComplexDataTypes(t *testing.T) {
 	mockClient := &MockDBClient{}
-	writer := newWriter(mockClient, "test-table")
+	loader := newLoader(mockClient, "test-table")
 
 	data := []map[string]interface{}{
 		{
@@ -92,31 +92,31 @@ func TestWriter_Write_ComplexDataTypes(t *testing.T) {
 		UnprocessedItems: map[string][]types.WriteRequest{},
 	}, nil)
 
-	err := writer.Write(context.Background(), data)
+	err := loader.Load(context.Background(), data)
 
 	assert.NoError(t, err)
 	mockClient.AssertExpectations(t)
 }
 
-func TestWriter_Write_EmptyData(t *testing.T) {
+func TestLoader_Load_EmptyData(t *testing.T) {
 	mockClient := &MockDBClient{}
-	writer := newWriter(mockClient, "test-table")
+	loader := newLoader(mockClient, "test-table")
 
 	data := []map[string]interface{}{}
 
-	err := writer.Write(context.Background(), data)
+	err := loader.Load(context.Background(), data)
 
 	assert.NoError(t, err)
 	mockClient.AssertNotCalled(t, "BatchWriteItem")
 }
 
-func TestWriter_Write_ExactBatchSize(t *testing.T) {
+func TestLoader_Load_ExactBatchSize(t *testing.T) {
 	mockClient := &MockDBClient{}
-	writer := newWriter(mockClient, "test-table")
+	loader := newLoader(mockClient, "test-table")
 
 	// Data with exactly batchSize (25) items.
 	data := make([]map[string]interface{}, 25)
-	for i := range 25 {
+	for i := 0; i < 25; i++ {
 		data[i] = map[string]interface{}{"id": i, "name": "test"}
 	}
 
@@ -126,19 +126,19 @@ func TestWriter_Write_ExactBatchSize(t *testing.T) {
 		UnprocessedItems: map[string][]types.WriteRequest{},
 	}, nil)
 
-	err := writer.Write(context.Background(), data)
+	err := loader.Load(context.Background(), data)
 
 	assert.NoError(t, err)
 	mockClient.AssertNumberOfCalls(t, "BatchWriteItem", 1)
 }
 
-func TestWriter_Write_BatchSizeExceeded(t *testing.T) {
+func TestLoader_Load_BatchSizeExceeded(t *testing.T) {
 	mockClient := &MockDBClient{}
-	writer := newWriter(mockClient, "test-table")
+	loader := newLoader(mockClient, "test-table")
 
 	// Create data that exceeds batch size (25 items).
 	data := make([]map[string]interface{}, 30)
-	for i := range 30 {
+	for i := 0; i < 30; i++ {
 		data[i] = map[string]interface{}{"id": i, "name": "test"}
 	}
 
@@ -155,15 +155,15 @@ func TestWriter_Write_BatchSizeExceeded(t *testing.T) {
 		UnprocessedItems: map[string][]types.WriteRequest{},
 	}, nil)
 
-	err := writer.Write(context.Background(), data)
+	err := loader.Load(context.Background(), data)
 
 	assert.NoError(t, err)
 	mockClient.AssertNumberOfCalls(t, "BatchWriteItem", 2)
 }
 
-func TestWriter_Write_UnprocessedItemsRetry(t *testing.T) {
+func TestLoader_Load_UnprocessedItemsRetry(t *testing.T) {
 	mockClient := &MockDBClient{}
-	writer := newWriter(mockClient, "test-table")
+	loader := newLoader(mockClient, "test-table")
 
 	data := []map[string]interface{}{
 		{"id": "1", "name": "test1"},
@@ -189,15 +189,15 @@ func TestWriter_Write_UnprocessedItemsRetry(t *testing.T) {
 		UnprocessedItems: map[string][]types.WriteRequest{},
 	}, nil)
 
-	err := writer.Write(context.Background(), data)
+	err := loader.Load(context.Background(), data)
 
 	assert.NoError(t, err)
 	mockClient.AssertNumberOfCalls(t, "BatchWriteItem", 2)
 }
 
-func TestWriter_Write_ExponentialBackoff(t *testing.T) {
+func TestLoader_Load_ExponentialBackoff(t *testing.T) {
 	mockClient := &MockDBClient{}
-	writer := newWriter(mockClient, "test-table")
+	loader := newLoader(mockClient, "test-table")
 
 	data := []map[string]interface{}{
 		{"id": "1", "name": "test1"},
@@ -217,13 +217,13 @@ func TestWriter_Write_ExponentialBackoff(t *testing.T) {
 		UnprocessedItems: map[string][]types.WriteRequest{},
 	}, nil).Once()
 
-	err := writer.Write(context.Background(), data)
+	err := loader.Load(context.Background(), data)
 
 	assert.NoError(t, err)
 	mockClient.AssertNumberOfCalls(t, "BatchWriteItem", 2)
 }
 
-func TestWriter_Write_MarshalError(t *testing.T) {
+func TestLoader_Load_MarshalError(t *testing.T) {
 	mockClient := &MockDBClient{}
 
 	// Mock marshal function that returns an error.
@@ -231,13 +231,13 @@ func TestWriter_Write_MarshalError(t *testing.T) {
 		return nil, errors.New("marshal error")
 	}
 
-	writer := newTestWriter(mockClient, "test-table", mockMarshal)
+	loader := newTestLoader(mockClient, "test-table", mockMarshal)
 
 	data := []map[string]interface{}{
 		{"id": "1", "name": "test1"},
 	}
 
-	err := writer.Write(context.Background(), data)
+	err := loader.Load(context.Background(), data)
 
 	assert.Error(t, err)
 	var validationError *common.DataValidationError
@@ -248,9 +248,9 @@ func TestWriter_Write_MarshalError(t *testing.T) {
 	mockClient.AssertNotCalled(t, "BatchWriteItem")
 }
 
-func TestWriter_Write_DynamoDBError(t *testing.T) {
+func TestLoader_Load_DynamoDBError(t *testing.T) {
 	mockClient := &MockDBClient{}
-	writer := newWriter(mockClient, "test-table")
+	loader := newLoader(mockClient, "test-table")
 
 	data := []map[string]interface{}{
 		{"id": "1", "name": "test1"},
@@ -260,7 +260,7 @@ func TestWriter_Write_DynamoDBError(t *testing.T) {
 	mockClient.On("BatchWriteItem", mock.Anything, mock.Anything).Return(
 		&dynamodb.BatchWriteItemOutput{}, expectedError)
 
-	err := writer.Write(context.Background(), data)
+	err := loader.Load(context.Background(), data)
 
 	assert.Error(t, err)
 	var dbError *common.DatabaseOperationError
@@ -270,9 +270,9 @@ func TestWriter_Write_DynamoDBError(t *testing.T) {
 	assert.Contains(t, dbError.Reason, expectedError.Error())
 }
 
-func TestWriter_Write_UnprocessedItemsMaxRetriesExceeded(t *testing.T) {
+func TestLoader_Load_UnprocessedItemsMaxRetriesExceeded(t *testing.T) {
 	mockClient := &MockDBClient{}
-	writer := newWriter(mockClient, "test-table")
+	loader := newLoader(mockClient, "test-table")
 
 	data := []map[string]interface{}{
 		{"id": "1", "name": "test1"},
@@ -283,7 +283,7 @@ func TestWriter_Write_UnprocessedItemsMaxRetriesExceeded(t *testing.T) {
 	}
 
 	// All retries return unprocessed items.
-	for range 5 {
+	for i := 0; i < 5; i++ {
 		mockClient.On("BatchWriteItem", mock.Anything, mock.Anything).Return(&dynamodb.BatchWriteItemOutput{
 			UnprocessedItems: map[string][]types.WriteRequest{
 				"test-table": unprocessedItems,
@@ -291,7 +291,7 @@ func TestWriter_Write_UnprocessedItemsMaxRetriesExceeded(t *testing.T) {
 		}, nil)
 	}
 
-	err := writer.Write(context.Background(), data)
+	err := loader.Load(context.Background(), data)
 
 	assert.Error(t, err)
 	var dbError *common.DatabaseOperationError
@@ -302,9 +302,9 @@ func TestWriter_Write_UnprocessedItemsMaxRetriesExceeded(t *testing.T) {
 	mockClient.AssertNumberOfCalls(t, "BatchWriteItem", 5)
 }
 
-func TestWriter_Write_ContextCancellation(t *testing.T) {
+func TestLoader_Load_ContextCancellation(t *testing.T) {
 	mockClient := &MockDBClient{}
-	writer := newWriter(mockClient, "test-table")
+	loader := newLoader(mockClient, "test-table")
 
 	data := []map[string]interface{}{
 		{"id": "1", "name": "test1"},
@@ -317,7 +317,7 @@ func TestWriter_Write_ContextCancellation(t *testing.T) {
 	mockClient.On("BatchWriteItem", mock.Anything, mock.Anything).Return(
 		&dynamodb.BatchWriteItemOutput{}, expectedError)
 
-	err := writer.Write(ctx, data)
+	err := loader.Load(ctx, data)
 
 	assert.Error(t, err)
 	var dbError *common.DatabaseOperationError

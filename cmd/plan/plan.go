@@ -40,16 +40,16 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
-	// Create reader using configuration.
-	reader, err := mongo.NewDataReader(cmd.Context(), cfg)
+	// Create extractor using configuration.
+	extractor, err := mongo.NewDataExtractor(cmd.Context(), cfg)
 	if err != nil {
-		return &common.ReaderError{Reason: "failed to create mongo reader", Err: err}
+		return &common.ExtractError{Reason: "failed to create mongo extractor", Err: err}
 	}
 
 	// Create transformer.
 	trans := transformer.NewMongoToDynamoTransformer()
 	total := 0
-	err = reader.Read(cmd.Context(), func(chunk []map[string]interface{}) error {
+	err = extractor.Extract(cmd.Context(), func(chunk []map[string]interface{}) error {
 		// Apply transformation.
 		transformed, err := trans.Transform(chunk)
 		if err != nil {

@@ -82,7 +82,7 @@ func (m *MockCursor) Err() error {
 	return fmt.Errorf("mock Err error: %w", args.Error(0))
 }
 
-func TestReader_Read_EmptyCollection(t *testing.T) {
+func TestExtractor_Extract_EmptyCollection(t *testing.T) {
 	mockCollection := new(MockCollection)
 	mockCursor := &MockCursor{
 		docs: []map[string]interface{}{},
@@ -91,10 +91,10 @@ func TestReader_Read_EmptyCollection(t *testing.T) {
 	mockCursor.On("Err").Return(nil)
 	mockCollection.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(mockCursor, nil)
 
-	reader := newReader(mockCollection)
+	extractor := newExtractor(mockCollection)
 	var processedDocs []map[string]interface{}
 
-	err := reader.Read(context.Background(), func(chunk []map[string]interface{}) error {
+	err := extractor.Extract(context.Background(), func(chunk []map[string]interface{}) error {
 		processedDocs = append(processedDocs, chunk...)
 		return nil
 	})
@@ -105,7 +105,7 @@ func TestReader_Read_EmptyCollection(t *testing.T) {
 	mockCursor.AssertExpectations(t)
 }
 
-func TestReader_Read_SingleChunk(t *testing.T) {
+func TestExtractor_Extract_SingleChunk(t *testing.T) {
 	mockCollection := new(MockCollection)
 	testDocs := []map[string]interface{}{
 		{"_id": "1", "name": "doc1"},
@@ -118,10 +118,10 @@ func TestReader_Read_SingleChunk(t *testing.T) {
 	mockCursor.On("Err").Return(nil)
 	mockCollection.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(mockCursor, nil)
 
-	reader := newReader(mockCollection)
+	extractor := newExtractor(mockCollection)
 	var processedDocs []map[string]interface{}
 
-	err := reader.Read(context.Background(), func(chunk []map[string]interface{}) error {
+	err := extractor.Extract(context.Background(), func(chunk []map[string]interface{}) error {
 		processedDocs = append(processedDocs, chunk...)
 		return nil
 	})
@@ -132,7 +132,7 @@ func TestReader_Read_SingleChunk(t *testing.T) {
 	mockCursor.AssertExpectations(t)
 }
 
-func TestReader_Read_MultipleChunks(t *testing.T) {
+func TestExtractor_Extract_MultipleChunks(t *testing.T) {
 	mockCollection := new(MockCollection)
 	testDocs := make([]map[string]interface{}, 1500) // More than chunkSize (1000).
 	for i := range testDocs {
@@ -148,11 +148,11 @@ func TestReader_Read_MultipleChunks(t *testing.T) {
 	mockCursor.On("Err").Return(nil)
 	mockCollection.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(mockCursor, nil)
 
-	reader := newReader(mockCollection)
+	extractor := newExtractor(mockCollection)
 	var processedDocs []map[string]interface{}
 	chunkCount := 0
 
-	err := reader.Read(context.Background(), func(chunk []map[string]interface{}) error {
+	err := extractor.Extract(context.Background(), func(chunk []map[string]interface{}) error {
 		processedDocs = append(processedDocs, chunk...)
 		chunkCount++
 		return nil
@@ -165,13 +165,13 @@ func TestReader_Read_MultipleChunks(t *testing.T) {
 	mockCursor.AssertExpectations(t)
 }
 
-func TestReader_Read_FindError(t *testing.T) {
+func TestExtractor_Extract_FindError(t *testing.T) {
 	mockCollection := new(MockCollection)
 	expectedErr := errors.New("find error")
 	mockCollection.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(nil, expectedErr)
 
-	reader := newReader(mockCollection)
-	err := reader.Read(context.Background(), func(_ []map[string]interface{}) error {
+	extractor := newExtractor(mockCollection)
+	err := extractor.Extract(context.Background(), func(_ []map[string]interface{}) error {
 		return nil
 	})
 
@@ -183,7 +183,7 @@ func TestReader_Read_FindError(t *testing.T) {
 	mockCollection.AssertExpectations(t)
 }
 
-func TestReader_Read_DecodeError(t *testing.T) {
+func TestExtractor_Extract_DecodeError(t *testing.T) {
 	mockColl := new(MockCollection)
 	mockCursor := &MockCursor{
 		docs:      []map[string]interface{}{{"_id": "1"}},
@@ -192,9 +192,9 @@ func TestReader_Read_DecodeError(t *testing.T) {
 	mockCursor.On("Close", mock.Anything).Return(nil)
 	mockColl.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(mockCursor, nil)
 
-	reader := newReader(mockColl)
+	extractor := newExtractor(mockColl)
 
-	err := reader.Read(context.Background(), func(_ []map[string]interface{}) error {
+	err := extractor.Extract(context.Background(), func(_ []map[string]interface{}) error {
 		return nil
 	})
 
@@ -207,7 +207,7 @@ func TestReader_Read_DecodeError(t *testing.T) {
 	mockCursor.AssertExpectations(t)
 }
 
-func TestReader_Read_CallbackError(t *testing.T) {
+func TestExtractor_Extract_CallbackError(t *testing.T) {
 	mockCollection := new(MockCollection)
 	testDocs := []map[string]interface{}{
 		{"_id": "1", "name": "doc1"},
@@ -219,10 +219,10 @@ func TestReader_Read_CallbackError(t *testing.T) {
 	mockCursor.On("Close", mock.Anything).Return(nil)
 	mockCollection.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(mockCursor, nil)
 
-	reader := newReader(mockCollection)
+	extractor := newExtractor(mockCollection)
 	expectedErr := errors.New("callback error")
 
-	err := reader.Read(context.Background(), func(_ []map[string]interface{}) error {
+	err := extractor.Extract(context.Background(), func(_ []map[string]interface{}) error {
 		return expectedErr
 	})
 
@@ -235,7 +235,7 @@ func TestReader_Read_CallbackError(t *testing.T) {
 	mockCursor.AssertExpectations(t)
 }
 
-func TestReader_Read_CursorError(t *testing.T) {
+func TestExtractor_Extract_CursorError(t *testing.T) {
 	mockCollection := new(MockCollection)
 	mockCursor := &MockCursor{
 		docs: []map[string]interface{}{{"_id": "1"}},
@@ -245,8 +245,8 @@ func TestReader_Read_CursorError(t *testing.T) {
 	mockCursor.On("Err").Return(expectedErr)
 	mockCollection.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(mockCursor, nil)
 
-	reader := newReader(mockCollection)
-	err := reader.Read(context.Background(), func(_ []map[string]interface{}) error {
+	extractor := newExtractor(mockCollection)
+	err := extractor.Extract(context.Background(), func(_ []map[string]interface{}) error {
 		return nil
 	})
 
