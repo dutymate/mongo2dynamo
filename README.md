@@ -19,17 +19,17 @@
 
 ## Features
 
-- **Reliable MongoDB → DynamoDB migration**: Ensures safe and accurate transfer of your data from MongoDB collections to DynamoDB tables, minimizing the risk of data loss or duplication.
-- **Batch-based, memory-efficient processing**: Migrates data in configurable batches (default: 1000 documents per batch), allowing efficient handling of large datasets without excessive memory usage.
-- **Auto-approve and interactive confirmation**: Supports both automated migrations (for CI/CD or scripting) and interactive confirmation prompts to prevent accidental data transfers.
+- **ETL-based MongoDB → DynamoDB migration**: Extracts data from MongoDB collections, transforms it, and loads it into DynamoDB tables, minimizing the risk of data loss or duplication.
+- **Batch-based, memory-efficient processing**: Extracts and loads data in configurable batches (default: 1000 documents per chunk), allowing efficient handling of large datasets without excessive memory usage.
+- **Auto-approve and interactive confirmation**: Supports both automated ETL runs (for CI/CD or scripting) and interactive confirmation prompts to prevent accidental data transfers.
 - **Flexible configuration**: Easily configure all options via command-line flags, environment variables, or a YAML config file—whichever fits your workflow best.
-- **Error handling and retry logic**: Automatically retries failed operations with exponential backoff, and provides clear error messages to help you quickly resolve issues.
-- **Test and dry-run support**: Use the `plan` command to preview migrations before performing any actual data transfer.
+- **Error handling and retry logic**: Automatically retries failed extract/load operations with exponential backoff, and provides clear error messages to help you quickly resolve issues.
+- **Dry-run support**: Use the `plan` command to preview ETL operations before performing any actual data transfer.
 
 ## Why mongo2dynamo?
 
-- **Reliability**: Safely migrates data without loss or duplication.
-- **Scalability**: Handles millions of documents efficiently.
+- **Reliability**: Safely extracts, transforms, and loads data without loss or duplication.
+- **Scalability**: Handles millions of documents efficiently with ETL best practices.
 - **Easy to Use**: Intuitive CLI and configuration options.
 
 ## Installation
@@ -103,20 +103,21 @@ aws_region: us-east-1
 
 ## How It Works
 
-mongo2dynamo follows a simple yet robust two-step process:
+mongo2dynamo follows a robust ETL (Extract, Transform, Load) process:
 
 ### 1. Plan Phase
-The `plan` command performs a dry-run of the migration:
-- Connects to MongoDB and counts documents in the specified collection.
-- Displays the total number of documents that would be migrated.
-- No actual data transfer occurs during this phase.
+The `plan` command performs a dry-run of the ETL process:
+- **Connection Setup**: Establishes connection to MongoDB using the Extractor.
+- **Document Counting**: Counts documents in the specified collection to estimate migration scope.
+- **Preview Display**: Shows the total number of documents that would be processed.
+- **No Data Transfer**: No actual extraction, transformation, or loading occurs during this phase.
 
 ### 2. Apply Phase
-The `apply` command executes the actual migration:
+The `apply` command executes the full ETL pipeline:
 - **Connection Setup**: Establishes connections to both MongoDB and DynamoDB.
-- **Batch Reading**: Reads documents from MongoDB in configurable chunks (default: 1000 documents).
-- **Data Processing**: Converts MongoDB BSON documents to DynamoDB format.
-- **Batch Writing**: Writes data to DynamoDB using BatchWriteItem API.
+- **Extraction**: Extracts documents from MongoDB in configurable batches (default: 1000 documents per chunk).
+- **Transformation**: Transforms MongoDB BSON documents to DynamoDB-compatible format.
+- **Loading**: Loads transformed data into DynamoDB using the BatchWriteItem API.
 - **Error Handling**: Implements retry logic with exponential backoff for failed operations.
 
 ## License
