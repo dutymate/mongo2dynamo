@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"mongo2dynamo/internal/common"
 	"mongo2dynamo/internal/config"
-	"mongo2dynamo/internal/dynamo"
+	"mongo2dynamo/internal/extractor"
 	"mongo2dynamo/internal/flags"
-	"mongo2dynamo/internal/mongo"
+	"mongo2dynamo/internal/loader"
 	"mongo2dynamo/internal/transformer"
 
 	"github.com/spf13/cobra"
@@ -49,27 +49,27 @@ func runApply(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	// Create extractor and loader using configuration.
-	extractor, err := mongo.NewDataExtractor(cmd.Context(), cfg)
+	// Create dataExtractor and loader using configuration.
+	dataExtractor, err := extractor.NewDataExtractor(cmd.Context(), cfg)
 	if err != nil {
-		return &common.ExtractError{Reason: "failed to create mongo extractor", Err: err}
+		return &common.ExtractError{Reason: "failed to create extractor", Err: err}
 	}
-	loader, err := dynamo.NewDataLoader(cmd.Context(), cfg)
+	dataLoader, err := loader.NewDataLoader(cmd.Context(), cfg)
 	if err != nil {
-		return &common.LoadError{Reason: "failed to create dynamo loader", Err: err}
+		return &common.LoadError{Reason: "failed to create loader", Err: err}
 	}
 
-	// Create transformer for MongoDB to DynamoDB document conversion.
-	trans := transformer.NewMongoToDynamoTransformer()
+	// Create dataTransformer for MongoDB to DynamoDB document conversion.
+	dataTransformer := transformer.NewMongoToDynamoTransformer()
 
 	migrated := 0
-	err = extractor.Extract(cmd.Context(), func(chunk []map[string]interface{}) error {
+	err = dataExtractor.Extract(cmd.Context(), func(chunk []map[string]interface{}) error {
 		// Apply transformation to each chunk before loading to DynamoDB.
-		transformed, err := trans.Transform(chunk)
+		transformed, err := dataTransformer.Transform(chunk)
 		if err != nil {
 			return &common.TransformError{Reason: "failed to transform chunk", Err: err}
 		}
-		if err := loader.Load(cmd.Context(), transformed); err != nil {
+		if err := dataLoader.Load(cmd.Context(), transformed); err != nil {
 			return &common.LoadError{Reason: "failed to load chunk", Err: err}
 		}
 		migrated += len(transformed)

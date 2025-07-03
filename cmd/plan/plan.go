@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"mongo2dynamo/internal/common"
 	"mongo2dynamo/internal/config"
+	"mongo2dynamo/internal/extractor"
 	"mongo2dynamo/internal/flags"
-	"mongo2dynamo/internal/mongo"
 	"mongo2dynamo/internal/transformer"
 
 	"github.com/spf13/cobra"
@@ -40,18 +40,18 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
-	// Create extractor using configuration.
-	extractor, err := mongo.NewDataExtractor(cmd.Context(), cfg)
+	// Create dataExtractor using configuration.
+	dataExtractor, err := extractor.NewDataExtractor(cmd.Context(), cfg)
 	if err != nil {
-		return &common.ExtractError{Reason: "failed to create mongo extractor", Err: err}
+		return &common.ExtractError{Reason: "failed to create extractor", Err: err}
 	}
 
-	// Create transformer.
-	trans := transformer.NewMongoToDynamoTransformer()
+	// Create dataTransformer for MongoDB to DynamoDB document conversion.
+	dataTransformer := transformer.NewMongoToDynamoTransformer()
 	total := 0
-	err = extractor.Extract(cmd.Context(), func(chunk []map[string]interface{}) error {
+	err = dataExtractor.Extract(cmd.Context(), func(chunk []map[string]interface{}) error {
 		// Apply transformation.
-		transformed, err := trans.Transform(chunk)
+		transformed, err := dataTransformer.Transform(chunk)
 		if err != nil {
 			return &common.TransformError{Reason: "failed to transform chunk", Err: err}
 		}
