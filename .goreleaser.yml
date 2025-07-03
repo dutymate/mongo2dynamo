@@ -41,11 +41,4 @@ changelog:
   sort: asc
   filters:
     exclude:
-      - '^chore(?:\(.*\))?:'
-      - '^docs(?:\(.*\))?:'
-      - '^misc(?:\(.*\))?:'
-      - '^perf(?:\(.*\))?:'
-      - '^refactor(?:\(.*\))?:'
-      - '^revert(?:\(.*\))?:'
-      - '^style(?:\(.*\))?:'
-      - '^test(?:\(.*\))?:'
+      - "^chore\\(deps\\):"
