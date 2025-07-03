@@ -1,12 +1,13 @@
-package mongo
+package extractor
 
 import (
 	"context"
 	"mongo2dynamo/internal/common"
 	"mongo2dynamo/internal/config"
+	"mongo2dynamo/internal/mongo"
 
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
+	goMongo "go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
@@ -84,9 +85,9 @@ func (e *Extractor) Extract(ctx context.Context, handleChunk func([]map[string]i
 
 // NewDataExtractor creates a DataExtractor for MongoDB based on the configuration.
 func NewDataExtractor(ctx context.Context, cfg *config.Config) (common.DataExtractor, error) {
-	client, err := Connect(ctx, cfg)
+	client, err := mongo.Connect(ctx, cfg)
 	if err != nil {
-		return nil, err
+		return nil, &common.DatabaseConnectionError{Database: "MongoDB", Reason: err.Error(), Err: err}
 	}
 	collection := client.Database(cfg.MongoDB).Collection(cfg.MongoCollection)
 	return newExtractor(&mongoCollectionWrapper{collection}), nil
@@ -94,7 +95,7 @@ func NewDataExtractor(ctx context.Context, cfg *config.Config) (common.DataExtra
 
 // mongoCollectionWrapper wraps *mongo.Collection to implement Collection interface.
 type mongoCollectionWrapper struct {
-	Collection *mongo.Collection
+	Collection *goMongo.Collection
 }
 
 func (w *mongoCollectionWrapper) Find(ctx context.Context, filter interface{}, opts ...*options.FindOptions) (Cursor, error) {
@@ -112,5 +113,5 @@ func (w *mongoCollectionWrapper) Find(ctx context.Context, filter interface{}, o
 
 // mongoCursorWrapper wraps *mongo.Cursor to implement Cursor interface.
 type mongoCursorWrapper struct {
-	*mongo.Cursor
+	*goMongo.Cursor
 }

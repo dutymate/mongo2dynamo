@@ -1,4 +1,4 @@
-package dynamo
+package loader
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 
 	"mongo2dynamo/internal/common"
 	"mongo2dynamo/internal/config"
+	"mongo2dynamo/internal/dynamo"
 
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -128,9 +129,9 @@ func (l *Loader) batchWrite(ctx context.Context, writeRequests []types.WriteRequ
 
 // NewDataLoader creates a DataLoader for DynamoDB based on the configuration.
 func NewDataLoader(ctx context.Context, cfg *config.Config) (*Loader, error) {
-	client, err := Connect(ctx, cfg)
+	client, err := dynamo.Connect(ctx, cfg)
 	if err != nil {
-		return nil, err // Already wrapped by Connect.
+		return nil, &common.DatabaseConnectionError{Database: "DynamoDB", Reason: err.Error(), Err: err}
 	}
 	return newLoader(client, cfg.DynamoTable), nil
 }
