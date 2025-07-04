@@ -17,10 +17,14 @@ var skipFields = map[string]struct{}{
 	"_class": {},
 }
 
-// NewDocTransformer returns a new DocTransformer.
-// This transformer can be used to convert MongoDB documents to a DynamoDB-compatible format.
-func NewDocTransformer() *DocTransformer {
+// newDocTransformer creates a new DocTransformer.
+func newDocTransformer() *DocTransformer {
 	return &DocTransformer{}
+}
+
+// NewDocTransformer creates a new DocTransformer.
+func NewDocTransformer() common.Transformer {
+	return newDocTransformer()
 }
 
 // Transform renames the '_id' field to 'id' and removes the '__v' and '_class' fields from each document.

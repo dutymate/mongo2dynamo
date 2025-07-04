@@ -117,13 +117,20 @@ func (c *Config) validate() error {
 	return nil
 }
 
-// GetMongoURI returns the MongoDB connection URI.
-func (c *Config) GetMongoURI() string {
-	if c.MongoUser != "" && c.MongoPassword != "" {
-		return fmt.Sprintf("mongodb://%s:%s@%s:%s",
-			c.MongoUser, c.MongoPassword, c.MongoHost, c.MongoPort)
-	}
-	return fmt.Sprintf("mongodb://%s:%s", c.MongoHost, c.MongoPort)
+func (c *Config) GetMongoHost() string {
+	return c.MongoHost
+}
+
+func (c *Config) GetMongoPort() string {
+	return c.MongoPort
+}
+
+func (c *Config) GetMongoUser() string {
+	return c.MongoUser
+}
+
+func (c *Config) GetMongoPassword() string {
+	return c.MongoPassword
 }
 
 func (c *Config) GetMongoDB() string {
@@ -134,8 +141,24 @@ func (c *Config) GetMongoCollection() string {
 	return c.MongoCollection
 }
 
+func (c *Config) GetMongoURI() string {
+	if c.MongoUser != "" && c.MongoPassword != "" {
+		return fmt.Sprintf("mongodb://%s:%s@%s:%s",
+			c.MongoUser, c.MongoPassword, c.MongoHost, c.MongoPort)
+	}
+	return fmt.Sprintf("mongodb://%s:%s", c.MongoHost, c.MongoPort)
+}
+
+func (c *Config) GetDynamoEndpoint() string {
+	return c.DynamoEndpoint
+}
+
 func (c *Config) GetDynamoTable() string {
 	return c.DynamoTable
+}
+
+func (c *Config) GetAWSRegion() string {
+	return c.AWSRegion
 }
 
 func (c *Config) GetAutoApprove() bool {

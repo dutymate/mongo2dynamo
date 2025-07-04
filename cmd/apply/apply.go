@@ -49,18 +49,20 @@ func runApply(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	// Create mongoExtractor and dynamoLoader using configuration.
+	// Create mongoExtractor using configuration.
 	mongoExtractor, err := extractor.NewMongoExtractor(cmd.Context(), cfg)
 	if err != nil {
 		return &common.ExtractError{Reason: "failed to create extractor", Err: err}
 	}
+
+	// Create docTransformer for MongoDB to DynamoDB document conversion.
+	docTransformer := transformer.NewDocTransformer()
+
+	// Create dynamoLoader using configuration.
 	dynamoLoader, err := loader.NewDynamoLoader(cmd.Context(), cfg)
 	if err != nil {
 		return &common.LoadError{Reason: "failed to create loader", Err: err}
 	}
-
-	// Create docTransformer for MongoDB to DynamoDB document conversion.
-	docTransformer := transformer.NewDocTransformer()
 
 	migrated := 0
 	err = mongoExtractor.Extract(cmd.Context(), func(chunk []map[string]interface{}) error {

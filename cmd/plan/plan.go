@@ -48,6 +48,7 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 
 	// Create docTransformer for MongoDB to DynamoDB document conversion.
 	docTransformer := transformer.NewDocTransformer()
+
 	total := 0
 	err = mongoExtractor.Extract(cmd.Context(), func(chunk []map[string]interface{}) error {
 		// Apply transformation.
