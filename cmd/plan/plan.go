@@ -40,18 +40,18 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
-	// Create dataExtractor using configuration.
-	dataExtractor, err := extractor.NewDataExtractor(cmd.Context(), cfg)
+	// Create mongoExtractor using configuration.
+	mongoExtractor, err := extractor.NewMongoExtractor(cmd.Context(), cfg)
 	if err != nil {
 		return &common.ExtractError{Reason: "failed to create extractor", Err: err}
 	}
 
-	// Create dataTransformer for MongoDB to DynamoDB document conversion.
-	dataTransformer := transformer.NewMongoToDynamoTransformer()
+	// Create docTransformer for MongoDB to DynamoDB document conversion.
+	docTransformer := transformer.NewDocTransformer()
 	total := 0
-	err = dataExtractor.Extract(cmd.Context(), func(chunk []map[string]interface{}) error {
+	err = mongoExtractor.Extract(cmd.Context(), func(chunk []map[string]interface{}) error {
 		// Apply transformation.
-		transformed, err := dataTransformer.Transform(chunk)
+		transformed, err := docTransformer.Transform(chunk)
 		if err != nil {
 			return &common.TransformError{Reason: "failed to transform chunk", Err: err}
 		}

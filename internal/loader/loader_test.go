@@ -29,29 +29,29 @@ func (m *MockDBClient) BatchWriteItem(ctx context.Context, params *dynamodb.Batc
 }
 
 // newTestLoader creates a new DynamoDB loader with custom marshal function for testing.
-func newTestLoader(client DBClient, table string, marshal MarshalFunc) *Loader {
-	return &Loader{
+func newTestLoader(client DBClient, table string, marshal MarshalFunc) *DynamoLoader {
+	return &DynamoLoader{
 		client:  client,
 		table:   table,
 		marshal: marshal,
 	}
 }
 
-func TestNewLoader(t *testing.T) {
+func TestNewDynamoLoader(t *testing.T) {
 	mockClient := &MockDBClient{}
 	table := "test-table"
 
-	loader := newLoader(mockClient, table)
+	dynamoLoader := newDynamoLoader(mockClient, table)
 
-	assert.NotNil(t, loader)
-	assert.Equal(t, mockClient, loader.client)
-	assert.Equal(t, table, loader.table)
-	assert.NotNil(t, loader.marshal)
+	assert.NotNil(t, dynamoLoader)
+	assert.Equal(t, mockClient, dynamoLoader.client)
+	assert.Equal(t, table, dynamoLoader.table)
+	assert.NotNil(t, dynamoLoader.marshal)
 }
 
-func TestLoader_Load_Success(t *testing.T) {
+func TestDynamoLoader_Load_Success(t *testing.T) {
 	mockClient := &MockDBClient{}
-	loader := newLoader(mockClient, "test-table")
+	dynamoLoader := newDynamoLoader(mockClient, "test-table")
 
 	data := []map[string]interface{}{
 		{"id": "1", "name": "test1"},
@@ -65,15 +65,15 @@ func TestLoader_Load_Success(t *testing.T) {
 		UnprocessedItems: map[string][]types.WriteRequest{},
 	}, nil)
 
-	err := loader.Load(context.Background(), data)
+	err := dynamoLoader.Load(context.Background(), data)
 
 	assert.NoError(t, err)
 	mockClient.AssertExpectations(t)
 }
 
-func TestLoader_Load_ComplexDataTypes(t *testing.T) {
+func TestDynamoLoader_Load_ComplexDataTypes(t *testing.T) {
 	mockClient := &MockDBClient{}
-	loader := newLoader(mockClient, "test-table")
+	dynamoLoader := newDynamoLoader(mockClient, "test-table")
 
 	data := []map[string]interface{}{
 		{
@@ -92,27 +92,27 @@ func TestLoader_Load_ComplexDataTypes(t *testing.T) {
 		UnprocessedItems: map[string][]types.WriteRequest{},
 	}, nil)
 
-	err := loader.Load(context.Background(), data)
+	err := dynamoLoader.Load(context.Background(), data)
 
 	assert.NoError(t, err)
 	mockClient.AssertExpectations(t)
 }
 
-func TestLoader_Load_EmptyData(t *testing.T) {
+func TestDynamoLoader_Load_EmptyData(t *testing.T) {
 	mockClient := &MockDBClient{}
-	loader := newLoader(mockClient, "test-table")
+	dynamoLoader := newDynamoLoader(mockClient, "test-table")
 
 	data := []map[string]interface{}{}
 
-	err := loader.Load(context.Background(), data)
+	err := dynamoLoader.Load(context.Background(), data)
 
 	assert.NoError(t, err)
 	mockClient.AssertNotCalled(t, "BatchWriteItem")
 }
 
-func TestLoader_Load_ExactBatchSize(t *testing.T) {
+func TestDynamoLoader_Load_ExactBatchSize(t *testing.T) {
 	mockClient := &MockDBClient{}
-	loader := newLoader(mockClient, "test-table")
+	dynamoLoader := newDynamoLoader(mockClient, "test-table")
 
 	// Data with exactly batchSize (25) items.
 	data := make([]map[string]interface{}, 25)
@@ -126,15 +126,15 @@ func TestLoader_Load_ExactBatchSize(t *testing.T) {
 		UnprocessedItems: map[string][]types.WriteRequest{},
 	}, nil)
 
-	err := loader.Load(context.Background(), data)
+	err := dynamoLoader.Load(context.Background(), data)
 
 	assert.NoError(t, err)
 	mockClient.AssertNumberOfCalls(t, "BatchWriteItem", 1)
 }
 
-func TestLoader_Load_BatchSizeExceeded(t *testing.T) {
+func TestDynamoLoader_Load_BatchSizeExceeded(t *testing.T) {
 	mockClient := &MockDBClient{}
-	loader := newLoader(mockClient, "test-table")
+	dynamoLoader := newDynamoLoader(mockClient, "test-table")
 
 	// Create data that exceeds batch size (25 items).
 	data := make([]map[string]interface{}, 30)
@@ -155,15 +155,15 @@ func TestLoader_Load_BatchSizeExceeded(t *testing.T) {
 		UnprocessedItems: map[string][]types.WriteRequest{},
 	}, nil)
 
-	err := loader.Load(context.Background(), data)
+	err := dynamoLoader.Load(context.Background(), data)
 
 	assert.NoError(t, err)
 	mockClient.AssertNumberOfCalls(t, "BatchWriteItem", 2)
 }
 
-func TestLoader_Load_UnprocessedItemsRetry(t *testing.T) {
+func TestDynamoLoader_Load_UnprocessedItemsRetry(t *testing.T) {
 	mockClient := &MockDBClient{}
-	loader := newLoader(mockClient, "test-table")
+	dynamoLoader := newDynamoLoader(mockClient, "test-table")
 
 	data := []map[string]interface{}{
 		{"id": "1", "name": "test1"},
@@ -189,15 +189,15 @@ func TestLoader_Load_UnprocessedItemsRetry(t *testing.T) {
 		UnprocessedItems: map[string][]types.WriteRequest{},
 	}, nil)
 
-	err := loader.Load(context.Background(), data)
+	err := dynamoLoader.Load(context.Background(), data)
 
 	assert.NoError(t, err)
 	mockClient.AssertNumberOfCalls(t, "BatchWriteItem", 2)
 }
 
-func TestLoader_Load_ExponentialBackoff(t *testing.T) {
+func TestDynamoLoader_Load_ExponentialBackoff(t *testing.T) {
 	mockClient := &MockDBClient{}
-	loader := newLoader(mockClient, "test-table")
+	dynamoLoader := newDynamoLoader(mockClient, "test-table")
 
 	data := []map[string]interface{}{
 		{"id": "1", "name": "test1"},
@@ -217,13 +217,13 @@ func TestLoader_Load_ExponentialBackoff(t *testing.T) {
 		UnprocessedItems: map[string][]types.WriteRequest{},
 	}, nil).Once()
 
-	err := loader.Load(context.Background(), data)
+	err := dynamoLoader.Load(context.Background(), data)
 
 	assert.NoError(t, err)
 	mockClient.AssertNumberOfCalls(t, "BatchWriteItem", 2)
 }
 
-func TestLoader_Load_MarshalError(t *testing.T) {
+func TestDynamoLoader_Load_MarshalError(t *testing.T) {
 	mockClient := &MockDBClient{}
 
 	// Mock marshal function that returns an error.
@@ -231,13 +231,13 @@ func TestLoader_Load_MarshalError(t *testing.T) {
 		return nil, errors.New("marshal error")
 	}
 
-	loader := newTestLoader(mockClient, "test-table", mockMarshal)
+	dynamoLoader := newTestLoader(mockClient, "test-table", mockMarshal)
 
 	data := []map[string]interface{}{
 		{"id": "1", "name": "test1"},
 	}
 
-	err := loader.Load(context.Background(), data)
+	err := dynamoLoader.Load(context.Background(), data)
 
 	assert.Error(t, err)
 	var validationError *common.DataValidationError
@@ -248,9 +248,9 @@ func TestLoader_Load_MarshalError(t *testing.T) {
 	mockClient.AssertNotCalled(t, "BatchWriteItem")
 }
 
-func TestLoader_Load_DynamoDBError(t *testing.T) {
+func TestDynamoLoader_Load_DynamoDBError(t *testing.T) {
 	mockClient := &MockDBClient{}
-	loader := newLoader(mockClient, "test-table")
+	dynamoLoader := newDynamoLoader(mockClient, "test-table")
 
 	data := []map[string]interface{}{
 		{"id": "1", "name": "test1"},
@@ -260,7 +260,7 @@ func TestLoader_Load_DynamoDBError(t *testing.T) {
 	mockClient.On("BatchWriteItem", mock.Anything, mock.Anything).Return(
 		&dynamodb.BatchWriteItemOutput{}, expectedError)
 
-	err := loader.Load(context.Background(), data)
+	err := dynamoLoader.Load(context.Background(), data)
 
 	assert.Error(t, err)
 	var dbError *common.DatabaseOperationError
@@ -270,9 +270,9 @@ func TestLoader_Load_DynamoDBError(t *testing.T) {
 	assert.Contains(t, dbError.Reason, expectedError.Error())
 }
 
-func TestLoader_Load_UnprocessedItemsMaxRetriesExceeded(t *testing.T) {
+func TestDynamoLoader_Load_UnprocessedItemsMaxRetriesExceeded(t *testing.T) {
 	mockClient := &MockDBClient{}
-	loader := newLoader(mockClient, "test-table")
+	dynamoLoader := newDynamoLoader(mockClient, "test-table")
 
 	data := []map[string]interface{}{
 		{"id": "1", "name": "test1"},
@@ -291,7 +291,7 @@ func TestLoader_Load_UnprocessedItemsMaxRetriesExceeded(t *testing.T) {
 		}, nil)
 	}
 
-	err := loader.Load(context.Background(), data)
+	err := dynamoLoader.Load(context.Background(), data)
 
 	assert.Error(t, err)
 	var dbError *common.DatabaseOperationError
@@ -302,9 +302,9 @@ func TestLoader_Load_UnprocessedItemsMaxRetriesExceeded(t *testing.T) {
 	mockClient.AssertNumberOfCalls(t, "BatchWriteItem", 5)
 }
 
-func TestLoader_Load_ContextCancellation(t *testing.T) {
+func TestDynamoLoader_Load_ContextCancellation(t *testing.T) {
 	mockClient := &MockDBClient{}
-	loader := newLoader(mockClient, "test-table")
+	dynamoLoader := newDynamoLoader(mockClient, "test-table")
 
 	data := []map[string]interface{}{
 		{"id": "1", "name": "test1"},
@@ -317,7 +317,7 @@ func TestLoader_Load_ContextCancellation(t *testing.T) {
 	mockClient.On("BatchWriteItem", mock.Anything, mock.Anything).Return(
 		&dynamodb.BatchWriteItemOutput{}, expectedError)
 
-	err := loader.Load(ctx, data)
+	err := dynamoLoader.Load(ctx, data)
 
 	assert.Error(t, err)
 	var dbError *common.DatabaseOperationError

@@ -24,16 +24,16 @@ type Cursor interface {
 	Err() error
 }
 
-// Extractor implements the DataExtractor interface for MongoDB.
-type Extractor struct {
+// MongoExtractor implements the Extractor interface for MongoDB.
+type MongoExtractor struct {
 	collection Collection
 	batchSize  int // Number of documents to fetch from MongoDB per batch.
 	chunkSize  int // Number of documents to pass to handleChunk per chunk.
 }
 
-// newExtractor creates a new MongoDB extractor with the specified collection, batchSize, and chunkSize.
-func newExtractor(collection Collection) *Extractor {
-	return &Extractor{
+// newMongoExtractor creates a new MongoDB extractor with the specified collection, batchSize, and chunkSize.
+func newMongoExtractor(collection Collection) *MongoExtractor {
+	return &MongoExtractor{
 		collection: collection,
 		batchSize:  500,
 		chunkSize:  1000,
@@ -41,7 +41,7 @@ func newExtractor(collection Collection) *Extractor {
 }
 
 // Extract retrieves documents from the MongoDB collection in fixed-size chunks and processes them using the provided callback.
-func (e *Extractor) Extract(ctx context.Context, handleChunk func([]map[string]interface{}) error) error {
+func (e *MongoExtractor) Extract(ctx context.Context, handleChunk func([]map[string]interface{}) error) error {
 	findOptions := options.Find().SetBatchSize(int32(e.batchSize))
 	cursor, err := e.collection.Find(ctx, bson.M{}, findOptions)
 	if err != nil {
@@ -83,14 +83,14 @@ func (e *Extractor) Extract(ctx context.Context, handleChunk func([]map[string]i
 	return nil
 }
 
-// NewDataExtractor creates a DataExtractor for MongoDB based on the configuration.
-func NewDataExtractor(ctx context.Context, cfg *config.Config) (common.DataExtractor, error) {
+// NewMongoExtractor creates a MongoExtractor for MongoDB based on the configuration.
+func NewMongoExtractor(ctx context.Context, cfg *config.Config) (common.Extractor, error) {
 	client, err := mongo.Connect(ctx, cfg)
 	if err != nil {
 		return nil, &common.DatabaseConnectionError{Database: "MongoDB", Reason: err.Error(), Err: err}
 	}
 	collection := client.Database(cfg.MongoDB).Collection(cfg.MongoCollection)
-	return newExtractor(&mongoCollectionWrapper{collection}), nil
+	return newMongoExtractor(&mongoCollectionWrapper{collection}), nil
 }
 
 // mongoCollectionWrapper wraps *mongo.Collection to implement Collection interface.

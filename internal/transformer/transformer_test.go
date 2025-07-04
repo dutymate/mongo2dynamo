@@ -7,8 +7,8 @@ import (
 	"time"
 )
 
-func TestMongoToDynamoTransformer_Transform(t *testing.T) {
-	trans := NewMongoToDynamoTransformer()
+func TestDocTransformer_Transform(t *testing.T) {
+	docTransformer := NewDocTransformer()
 	input := []map[string]interface{}{
 		{"_id": "abc123", "__v": 1, "_class": "com.example.MyEntity", "name": "test"},
 		{"_id": "def456", "__v": 2, "name": "test2", "other": 42},
@@ -29,7 +29,7 @@ func TestMongoToDynamoTransformer_Transform(t *testing.T) {
 			k := r.Intn(j + 1)
 			shuffled[j], shuffled[k] = shuffled[k], shuffled[j]
 		}
-		output, err := trans.Transform(shuffled)
+		output, err := docTransformer.Transform(shuffled)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -73,10 +73,10 @@ func TestMongoToDynamoTransformer_Transform(t *testing.T) {
 	}
 }
 
-func TestMongoToDynamoTransformer_Transform_EmptyInput(t *testing.T) {
-	trans := NewMongoToDynamoTransformer()
+func TestDocTransformer_Transform_EmptyInput(t *testing.T) {
+	docTransformer := NewDocTransformer()
 	input := []map[string]interface{}{}
-	output, err := trans.Transform(input)
+	output, err := docTransformer.Transform(input)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

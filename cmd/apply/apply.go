@@ -49,27 +49,27 @@ func runApply(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	// Create dataExtractor and loader using configuration.
-	dataExtractor, err := extractor.NewDataExtractor(cmd.Context(), cfg)
+	// Create mongoExtractor and dynamoLoader using configuration.
+	mongoExtractor, err := extractor.NewMongoExtractor(cmd.Context(), cfg)
 	if err != nil {
 		return &common.ExtractError{Reason: "failed to create extractor", Err: err}
 	}
-	dataLoader, err := loader.NewDataLoader(cmd.Context(), cfg)
+	dynamoLoader, err := loader.NewDynamoLoader(cmd.Context(), cfg)
 	if err != nil {
 		return &common.LoadError{Reason: "failed to create loader", Err: err}
 	}
 
-	// Create dataTransformer for MongoDB to DynamoDB document conversion.
-	dataTransformer := transformer.NewMongoToDynamoTransformer()
+	// Create docTransformer for MongoDB to DynamoDB document conversion.
+	docTransformer := transformer.NewDocTransformer()
 
 	migrated := 0
-	err = dataExtractor.Extract(cmd.Context(), func(chunk []map[string]interface{}) error {
+	err = mongoExtractor.Extract(cmd.Context(), func(chunk []map[string]interface{}) error {
 		// Apply transformation to each chunk before loading to DynamoDB.
-		transformed, err := dataTransformer.Transform(chunk)
+		transformed, err := docTransformer.Transform(chunk)
 		if err != nil {
 			return &common.TransformError{Reason: "failed to transform chunk", Err: err}
 		}
-		if err := dataLoader.Load(cmd.Context(), transformed); err != nil {
+		if err := dynamoLoader.Load(cmd.Context(), transformed); err != nil {
 			return &common.LoadError{Reason: "failed to load chunk", Err: err}
 		}
 		migrated += len(transformed)

@@ -22,8 +22,8 @@ type DBClient interface {
 // MarshalFunc defines the interface for marshaling items to DynamoDB format.
 type MarshalFunc func(item interface{}) (map[string]types.AttributeValue, error)
 
-// Loader implements the DataLoader interface for DynamoDB.
-type Loader struct {
+// DynamoLoader implements the Loader interface for DynamoDB.
+type DynamoLoader struct {
 	client  DBClient
 	table   string
 	marshal MarshalFunc
@@ -31,9 +31,9 @@ type Loader struct {
 
 const batchSize = 25
 
-// newLoader creates a new DynamoDB loader.
-func newLoader(client DBClient, table string) *Loader {
-	return &Loader{
+// newDynamoLoader creates a new DynamoDB loader.
+func newDynamoLoader(client DBClient, table string) *DynamoLoader {
+	return &DynamoLoader{
 		client:  client,
 		table:   table,
 		marshal: attributevalue.MarshalMap,
@@ -41,12 +41,12 @@ func newLoader(client DBClient, table string) *Loader {
 }
 
 // marshalItem marshals a single item to DynamoDB format.
-func (l *Loader) marshalItem(item map[string]interface{}) (map[string]types.AttributeValue, error) {
+func (l *DynamoLoader) marshalItem(item map[string]interface{}) (map[string]types.AttributeValue, error) {
 	return l.marshal(item)
 }
 
 // Load saves all documents to DynamoDB.
-func (l *Loader) Load(ctx context.Context, data []map[string]interface{}) error {
+func (l *DynamoLoader) Load(ctx context.Context, data []map[string]interface{}) error {
 	var writeRequests []types.WriteRequest
 
 	for _, item := range data {
@@ -85,7 +85,7 @@ func (l *Loader) Load(ctx context.Context, data []map[string]interface{}) error 
 }
 
 // batchWrite writes a batch of items to DynamoDB.
-func (l *Loader) batchWrite(ctx context.Context, writeRequests []types.WriteRequest) error {
+func (l *DynamoLoader) batchWrite(ctx context.Context, writeRequests []types.WriteRequest) error {
 	const maxRetries = 5
 	var lastUnprocessed []types.WriteRequest
 	for attempt := 0; attempt < maxRetries; attempt++ {
@@ -127,11 +127,11 @@ func (l *Loader) batchWrite(ctx context.Context, writeRequests []types.WriteRequ
 	return nil
 }
 
-// NewDataLoader creates a DataLoader for DynamoDB based on the configuration.
-func NewDataLoader(ctx context.Context, cfg *config.Config) (*Loader, error) {
+// NewDynamoLoader creates a DynamoLoader for DynamoDB based on the configuration.
+func NewDynamoLoader(ctx context.Context, cfg *config.Config) (*DynamoLoader, error) {
 	client, err := dynamo.Connect(ctx, cfg)
 	if err != nil {
 		return nil, &common.DatabaseConnectionError{Database: "DynamoDB", Reason: err.Error(), Err: err}
 	}
-	return newLoader(client, cfg.DynamoTable), nil
+	return newDynamoLoader(client, cfg.DynamoTable), nil
 }
