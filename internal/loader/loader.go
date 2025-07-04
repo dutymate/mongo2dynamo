@@ -29,7 +29,8 @@ type DynamoLoader struct {
 	marshal MarshalFunc
 }
 
-const batchSize = 25
+const batchSize = 500
+const dynamoBatchSize = 25 // DynamoDB BatchWriteItem API limit.
 
 // newDynamoLoader creates a new DynamoDB loader.
 func newDynamoLoader(client DBClient, table string) *DynamoLoader {
@@ -87,43 +88,47 @@ func (l *DynamoLoader) Load(ctx context.Context, data []map[string]interface{}) 
 // batchWrite writes a batch of items to DynamoDB.
 func (l *DynamoLoader) batchWrite(ctx context.Context, writeRequests []types.WriteRequest) error {
 	const maxRetries = 5
-	var lastUnprocessed []types.WriteRequest
-	for attempt := 0; attempt < maxRetries; attempt++ {
-		input := &dynamodb.BatchWriteItemInput{
-			RequestItems: map[string][]types.WriteRequest{
-				l.table: writeRequests,
-			},
+	// Split writeRequests into chunks of dynamoBatchSize (25).
+	for i := 0; i < len(writeRequests); i += dynamoBatchSize {
+		end := min(i+dynamoBatchSize, len(writeRequests))
+		chunk := writeRequests[i:end]
+		var lastUnprocessed []types.WriteRequest
+		for attempt := 0; attempt < maxRetries; attempt++ {
+			input := &dynamodb.BatchWriteItemInput{
+				RequestItems: map[string][]types.WriteRequest{
+					l.table: chunk,
+				},
+			}
+			output, err := l.client.BatchWriteItem(ctx, input)
+			if err != nil {
+				return &common.DatabaseOperationError{
+					Database: "DynamoDB",
+					Op:       "batch write",
+					Reason:   err.Error(),
+					Err:      err,
+				}
+			}
+			unprocessed := output.UnprocessedItems[l.table]
+			if len(unprocessed) == 0 {
+				break // All items in this chunk processed successfully.
+			}
+			// Prepare for retry.
+			chunk = unprocessed
+			lastUnprocessed = unprocessed
+			// Exponential backoff.
+			backoffDuration := time.Duration(attempt+1) * time.Second
+			time.Sleep(backoffDuration)
 		}
-		output, err := l.client.BatchWriteItem(ctx, input)
-		if err != nil {
+		// Log unprocessed items after exhausting retries.
+		if len(lastUnprocessed) > 0 {
 			return &common.DatabaseOperationError{
 				Database: "DynamoDB",
-				Op:       "batch write",
-				Reason:   err.Error(),
-				Err:      err,
+				Op:       "batch write (unprocessed items)",
+				Reason:   fmt.Sprintf("failed to process all items after %d retries", maxRetries),
+				Err:      fmt.Errorf("unprocessed items: %v", lastUnprocessed),
 			}
 		}
-		unprocessed := output.UnprocessedItems[l.table]
-		if len(unprocessed) == 0 {
-			return nil // All items processed successfully.
-		}
-		// Prepare for retry.
-		writeRequests = unprocessed
-		lastUnprocessed = unprocessed
-		// Exponential backoff.
-		backoffDuration := time.Duration(attempt+1) * time.Second
-		time.Sleep(backoffDuration)
 	}
-	// Log unprocessed items after exhausting retries.
-	if len(lastUnprocessed) > 0 {
-		return &common.DatabaseOperationError{
-			Database: "DynamoDB",
-			Op:       "batch write (unprocessed items)",
-			Reason:   fmt.Sprintf("failed to process all items after %d retries", maxRetries),
-			Err:      fmt.Errorf("unprocessed items: %v", lastUnprocessed),
-		}
-	}
-
 	return nil
 }
 
