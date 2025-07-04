@@ -72,3 +72,15 @@ func TestMongoToDynamoTransformer_Transform(t *testing.T) {
 		}
 	}
 }
+
+func TestMongoToDynamoTransformer_Transform_EmptyInput(t *testing.T) {
+	trans := NewMongoToDynamoTransformer()
+	input := []map[string]interface{}{}
+	output, err := trans.Transform(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(output) != 0 {
+		t.Errorf("expected output length 0, got %d", len(output))
+	}
+}
