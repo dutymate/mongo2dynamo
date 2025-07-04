@@ -3,7 +3,6 @@ package extractor
 import (
 	"context"
 	"mongo2dynamo/internal/common"
-	"mongo2dynamo/internal/config"
 	"mongo2dynamo/internal/mongo"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -31,6 +30,30 @@ type MongoExtractor struct {
 	chunkSize  int // Number of documents to pass to handleChunk per chunk.
 }
 
+// mongoCollectionWrapper wraps *mongo.Collection to implement Collection interface.
+type mongoCollectionWrapper struct {
+	Collection *goMongo.Collection
+}
+
+// mongoCursorWrapper wraps *mongo.Cursor to implement Cursor interface.
+type mongoCursorWrapper struct {
+	*goMongo.Cursor
+}
+
+// Find executes a MongoDB find operation on the wrapped collection.
+func (w *mongoCollectionWrapper) Find(ctx context.Context, filter interface{}, opts ...*options.FindOptions) (Cursor, error) {
+	cursor, err := w.Collection.Find(ctx, filter, opts...)
+	if err != nil {
+		return nil, &common.DatabaseOperationError{
+			Database: "MongoDB",
+			Op:       "find",
+			Reason:   err.Error(),
+			Err:      err,
+		}
+	}
+	return &mongoCursorWrapper{cursor}, nil
+}
+
 // newMongoExtractor creates a new MongoDB extractor with the specified collection, batchSize, and chunkSize.
 func newMongoExtractor(collection Collection) *MongoExtractor {
 	return &MongoExtractor{
@@ -40,8 +63,18 @@ func newMongoExtractor(collection Collection) *MongoExtractor {
 	}
 }
 
+// NewMongoExtractor creates a MongoExtractor for MongoDB based on the configuration.
+func NewMongoExtractor(ctx context.Context, cfg common.ConfigProvider) (common.Extractor, error) {
+	client, err := mongo.Connect(ctx, cfg)
+	if err != nil {
+		return nil, &common.DatabaseConnectionError{Database: "MongoDB", Reason: err.Error(), Err: err}
+	}
+	collection := client.Database(cfg.GetMongoDB()).Collection(cfg.GetMongoCollection())
+	return newMongoExtractor(&mongoCollectionWrapper{collection}), nil
+}
+
 // Extract retrieves documents from the MongoDB collection in fixed-size chunks and processes them using the provided callback.
-func (e *MongoExtractor) Extract(ctx context.Context, handleChunk func([]map[string]interface{}) error) error {
+func (e *MongoExtractor) Extract(ctx context.Context, handleChunk common.ChunkHandler) error {
 	findOptions := options.Find().SetBatchSize(int32(e.batchSize))
 	cursor, err := e.collection.Find(ctx, bson.M{}, findOptions)
 	if err != nil {
@@ -81,37 +114,4 @@ func (e *MongoExtractor) Extract(ctx context.Context, handleChunk func([]map[str
 	}
 
 	return nil
-}
-
-// NewMongoExtractor creates a MongoExtractor for MongoDB based on the configuration.
-func NewMongoExtractor(ctx context.Context, cfg *config.Config) (common.Extractor, error) {
-	client, err := mongo.Connect(ctx, cfg)
-	if err != nil {
-		return nil, &common.DatabaseConnectionError{Database: "MongoDB", Reason: err.Error(), Err: err}
-	}
-	collection := client.Database(cfg.MongoDB).Collection(cfg.MongoCollection)
-	return newMongoExtractor(&mongoCollectionWrapper{collection}), nil
-}
-
-// mongoCollectionWrapper wraps *mongo.Collection to implement Collection interface.
-type mongoCollectionWrapper struct {
-	Collection *goMongo.Collection
-}
-
-func (w *mongoCollectionWrapper) Find(ctx context.Context, filter interface{}, opts ...*options.FindOptions) (Cursor, error) {
-	cursor, err := w.Collection.Find(ctx, filter, opts...)
-	if err != nil {
-		return nil, &common.DatabaseOperationError{
-			Database: "MongoDB",
-			Op:       "find",
-			Reason:   err.Error(),
-			Err:      err,
-		}
-	}
-	return &mongoCursorWrapper{cursor}, nil
-}
-
-// mongoCursorWrapper wraps *mongo.Cursor to implement Cursor interface.
-type mongoCursorWrapper struct {
-	*goMongo.Cursor
 }

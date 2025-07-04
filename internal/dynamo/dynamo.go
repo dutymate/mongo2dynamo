@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"mongo2dynamo/internal/common"
-	"mongo2dynamo/internal/config"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
@@ -13,10 +12,10 @@ import (
 )
 
 // Connect establishes a connection to DynamoDB.
-func Connect(ctx context.Context, cfg *config.Config) (*dynamodb.Client, error) {
+func Connect(ctx context.Context, cfg common.ConfigProvider) (*dynamodb.Client, error) {
 	// Load AWS configuration.
 	awsCfg, err := awsconfig.LoadDefaultConfig(ctx,
-		awsconfig.WithRegion(cfg.AWSRegion),
+		awsconfig.WithRegion(cfg.GetAWSRegion()),
 	)
 	if err != nil {
 		return nil, &common.DatabaseConnectionError{Database: "DynamoDB", Reason: err.Error(), Err: err}
@@ -24,7 +23,7 @@ func Connect(ctx context.Context, cfg *config.Config) (*dynamodb.Client, error) 
 
 	// Create DynamoDB client with custom endpoint.
 	client := dynamodb.NewFromConfig(awsCfg, func(o *dynamodb.Options) {
-		o.BaseEndpoint = aws.String(cfg.DynamoEndpoint)
+		o.BaseEndpoint = aws.String(cfg.GetDynamoEndpoint())
 	})
 
 	// Verify connection with timeout.

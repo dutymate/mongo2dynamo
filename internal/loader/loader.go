@@ -6,13 +6,14 @@ import (
 	"time"
 
 	"mongo2dynamo/internal/common"
-	"mongo2dynamo/internal/config"
 	"mongo2dynamo/internal/dynamo"
 
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
+
+const batchSize = 25
 
 // DBClient defines the interface for DynamoDB operations used by Loader.
 type DBClient interface {
@@ -29,8 +30,6 @@ type DynamoLoader struct {
 	marshal MarshalFunc
 }
 
-const batchSize = 25
-
 // newDynamoLoader creates a new DynamoDB loader.
 func newDynamoLoader(client DBClient, table string) *DynamoLoader {
 	return &DynamoLoader{
@@ -38,6 +37,15 @@ func newDynamoLoader(client DBClient, table string) *DynamoLoader {
 		table:   table,
 		marshal: attributevalue.MarshalMap,
 	}
+}
+
+// NewDynamoLoader creates a DynamoLoader for DynamoDB based on the configuration.
+func NewDynamoLoader(ctx context.Context, cfg common.ConfigProvider) (*DynamoLoader, error) {
+	client, err := dynamo.Connect(ctx, cfg)
+	if err != nil {
+		return nil, &common.DatabaseConnectionError{Database: "DynamoDB", Reason: err.Error(), Err: err}
+	}
+	return newDynamoLoader(client, cfg.GetDynamoTable()), nil
 }
 
 // marshalItem marshals a single item to DynamoDB format.
@@ -125,13 +133,4 @@ func (l *DynamoLoader) batchWrite(ctx context.Context, writeRequests []types.Wri
 	}
 
 	return nil
-}
-
-// NewDynamoLoader creates a DynamoLoader for DynamoDB based on the configuration.
-func NewDynamoLoader(ctx context.Context, cfg *config.Config) (*DynamoLoader, error) {
-	client, err := dynamo.Connect(ctx, cfg)
-	if err != nil {
-		return nil, &common.DatabaseConnectionError{Database: "DynamoDB", Reason: err.Error(), Err: err}
-	}
-	return newDynamoLoader(client, cfg.DynamoTable), nil
 }

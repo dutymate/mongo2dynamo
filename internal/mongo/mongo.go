@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"mongo2dynamo/internal/common"
-	"mongo2dynamo/internal/config"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -26,14 +25,14 @@ var mongoAuthErrorPatterns = []string{
 }
 
 // Connect establishes a connection to MongoDB.
-func Connect(ctx context.Context, cfg *config.Config) (*mongo.Client, error) {
+func Connect(ctx context.Context, cfg common.ConfigProvider) (*mongo.Client, error) {
 	clientOpts := options.Client().ApplyURI(cfg.GetMongoURI())
 
 	// Explicitly set authentication credentials if provided.
-	if cfg.MongoUser != "" && cfg.MongoPassword != "" {
+	if cfg.GetMongoUser() != "" && cfg.GetMongoPassword() != "" {
 		clientOpts.SetAuth(options.Credential{
-			Username: cfg.MongoUser,
-			Password: cfg.MongoPassword,
+			Username: cfg.GetMongoUser(),
+			Password: cfg.GetMongoPassword(),
 		})
 	}
 
