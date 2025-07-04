@@ -7,16 +7,9 @@ import (
 	"sync"
 )
 
-// Transformer provides an interface for transforming documents between formats.
-type Transformer interface {
-	// Transform returns a new slice of documents with the transformation applied.
-	// Returns an error if transformation fails.
-	Transform([]map[string]interface{}) ([]map[string]interface{}, error)
-}
-
-// MongoToDynamoTransformer transforms MongoDB documents for DynamoDB.
+// DocTransformer transforms MongoDB documents for DynamoDB.
 // It renames the '_id' field to 'id' and removes the '__v' and '_class' fields.
-type MongoToDynamoTransformer struct{}
+type DocTransformer struct{}
 
 // skipFields lists field names to be excluded from the output.
 var skipFields = map[string]struct{}{
@@ -24,10 +17,10 @@ var skipFields = map[string]struct{}{
 	"_class": {},
 }
 
-// NewMongoToDynamoTransformer returns a new MongoToDynamoTransformer.
+// NewDocTransformer returns a new DocTransformer.
 // This transformer can be used to convert MongoDB documents to a DynamoDB-compatible format.
-func NewMongoToDynamoTransformer() *MongoToDynamoTransformer {
-	return &MongoToDynamoTransformer{}
+func NewDocTransformer() *DocTransformer {
+	return &DocTransformer{}
 }
 
 // Transform renames the '_id' field to 'id' and removes the '__v' and '_class' fields from each document.
@@ -37,7 +30,7 @@ func NewMongoToDynamoTransformer() *MongoToDynamoTransformer {
 // The resulting slice contains documents ready to be written to DynamoDB, with no '_id', '__v', or '_class' fields present.
 // Returns an error only if an unexpected issue occurs during transformation (none in current implementation).
 // This function uses a worker pool to parallelize transformation for better performance on large batches.
-func (t *MongoToDynamoTransformer) Transform(input []map[string]interface{}) ([]map[string]interface{}, error) {
+func (t *DocTransformer) Transform(input []map[string]interface{}) ([]map[string]interface{}, error) {
 	output := make([]map[string]interface{}, len(input))
 	if len(input) == 0 {
 		return output, nil

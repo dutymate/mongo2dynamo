@@ -82,7 +82,7 @@ func (m *MockCursor) Err() error {
 	return fmt.Errorf("mock Err error: %w", args.Error(0))
 }
 
-func TestExtractor_Extract_EmptyCollection(t *testing.T) {
+func TestMongoExtractor_Extract_EmptyCollection(t *testing.T) {
 	mockCollection := new(MockCollection)
 	mockCursor := &MockCursor{
 		docs: []map[string]interface{}{},
@@ -91,10 +91,10 @@ func TestExtractor_Extract_EmptyCollection(t *testing.T) {
 	mockCursor.On("Err").Return(nil)
 	mockCollection.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(mockCursor, nil)
 
-	extractor := newExtractor(mockCollection)
+	mongoExtractor := newMongoExtractor(mockCollection)
 	var processedDocs []map[string]interface{}
 
-	err := extractor.Extract(context.Background(), func(chunk []map[string]interface{}) error {
+	err := mongoExtractor.Extract(context.Background(), func(chunk []map[string]interface{}) error {
 		processedDocs = append(processedDocs, chunk...)
 		return nil
 	})
@@ -118,10 +118,10 @@ func TestExtractor_Extract_SingleChunk(t *testing.T) {
 	mockCursor.On("Err").Return(nil)
 	mockCollection.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(mockCursor, nil)
 
-	extractor := newExtractor(mockCollection)
+	mongoExtractor := newMongoExtractor(mockCollection)
 	var processedDocs []map[string]interface{}
 
-	err := extractor.Extract(context.Background(), func(chunk []map[string]interface{}) error {
+	err := mongoExtractor.Extract(context.Background(), func(chunk []map[string]interface{}) error {
 		processedDocs = append(processedDocs, chunk...)
 		return nil
 	})
@@ -148,11 +148,11 @@ func TestExtractor_Extract_MultipleChunks(t *testing.T) {
 	mockCursor.On("Err").Return(nil)
 	mockCollection.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(mockCursor, nil)
 
-	extractor := newExtractor(mockCollection)
+	mongoExtractor := newMongoExtractor(mockCollection)
 	var processedDocs []map[string]interface{}
 	chunkCount := 0
 
-	err := extractor.Extract(context.Background(), func(chunk []map[string]interface{}) error {
+	err := mongoExtractor.Extract(context.Background(), func(chunk []map[string]interface{}) error {
 		processedDocs = append(processedDocs, chunk...)
 		chunkCount++
 		return nil
@@ -170,8 +170,8 @@ func TestExtractor_Extract_FindError(t *testing.T) {
 	expectedErr := errors.New("find error")
 	mockCollection.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(nil, expectedErr)
 
-	extractor := newExtractor(mockCollection)
-	err := extractor.Extract(context.Background(), func(_ []map[string]interface{}) error {
+	mongoExtractor := newMongoExtractor(mockCollection)
+	err := mongoExtractor.Extract(context.Background(), func(_ []map[string]interface{}) error {
 		return nil
 	})
 
@@ -192,9 +192,9 @@ func TestExtractor_Extract_DecodeError(t *testing.T) {
 	mockCursor.On("Close", mock.Anything).Return(nil)
 	mockColl.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(mockCursor, nil)
 
-	extractor := newExtractor(mockColl)
+	mongoExtractor := newMongoExtractor(mockColl)
 
-	err := extractor.Extract(context.Background(), func(_ []map[string]interface{}) error {
+	err := mongoExtractor.Extract(context.Background(), func(_ []map[string]interface{}) error {
 		return nil
 	})
 
@@ -219,10 +219,10 @@ func TestExtractor_Extract_CallbackError(t *testing.T) {
 	mockCursor.On("Close", mock.Anything).Return(nil)
 	mockCollection.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(mockCursor, nil)
 
-	extractor := newExtractor(mockCollection)
+	mongoExtractor := newMongoExtractor(mockCollection)
 	expectedErr := errors.New("callback error")
 
-	err := extractor.Extract(context.Background(), func(_ []map[string]interface{}) error {
+	err := mongoExtractor.Extract(context.Background(), func(_ []map[string]interface{}) error {
 		return expectedErr
 	})
 
@@ -245,8 +245,8 @@ func TestExtractor_Extract_CursorError(t *testing.T) {
 	mockCursor.On("Err").Return(expectedErr)
 	mockCollection.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(mockCursor, nil)
 
-	extractor := newExtractor(mockCollection)
-	err := extractor.Extract(context.Background(), func(_ []map[string]interface{}) error {
+	mongoExtractor := newMongoExtractor(mockCollection)
+	err := mongoExtractor.Extract(context.Background(), func(_ []map[string]interface{}) error {
 		return nil
 	})
 

@@ -4,14 +4,19 @@ import (
 	"context"
 )
 
-// DataExtractor defines the interface for extracting data from a source.
-type DataExtractor interface {
+// Extractor defines the interface for extracting data from a source.
+type Extractor interface {
 	// Extract retrieves data from the source and processes it chunk by chunk using the provided callback.
 	Extract(ctx context.Context, handleChunk func([]map[string]interface{}) error) error
 }
 
-// DataLoader defines the interface for loading data to a destination.
-type DataLoader interface {
+// Transformer defines the interface for transforming data between formats.
+type Transformer interface {
+	Transform([]map[string]interface{}) ([]map[string]interface{}, error)
+}
+
+// Loader defines the interface for loading data to a destination.
+type Loader interface {
 	// Load saves the provided data to the destination.
 	// Returns any error that occurred during the load operation.
 	Load(ctx context.Context, data []map[string]interface{}) error
