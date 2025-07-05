@@ -102,13 +102,13 @@ func (c *Config) Load() error {
 // Validate checks if all required fields are set.
 func (c *Config) Validate() error {
 	if c.MongoDB == "" {
-		return &common.ConfigFieldError{Field: "mongo_db", Reason: "required"}
+		return &common.ConfigError{Op: "validate", Reason: "mongo_db field is required"}
 	}
 	if c.MongoCollection == "" {
-		return &common.ConfigFieldError{Field: "mongo_collection", Reason: "required"}
+		return &common.ConfigError{Op: "validate", Reason: "mongo_collection field is required"}
 	}
 	if c.DynamoTable == "" && !c.DryRun {
-		return &common.ConfigFieldError{Field: "dynamo_table", Reason: "required unless dry run"}
+		return &common.ConfigError{Op: "validate", Reason: "dynamo_table field is required unless dry run"}
 	}
 	return nil
 }

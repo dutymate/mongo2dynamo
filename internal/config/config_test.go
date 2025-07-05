@@ -216,9 +216,9 @@ func TestConfig_validate(t *testing.T) {
 
 			if tt.wantErr && err != nil {
 				// Check error type.
-				var configErr *common.ConfigFieldError
+				var configErr *common.ConfigError
 				if !errors.As(err, &configErr) {
-					t.Errorf("Expected ConfigFieldError, got %T", err)
+					t.Errorf("Expected ConfigError, got %T", err)
 				}
 
 				// Check error message content.
@@ -229,9 +229,9 @@ func TestConfig_validate(t *testing.T) {
 					}
 				}
 
-				// Check ConfigFieldError fields.
-				if configErr.Field != tt.expectedErr {
-					t.Errorf("ConfigFieldError.Field should be '%s', got '%s'", tt.expectedErr, configErr.Field)
+				// Check ConfigError fields.
+				if !strings.Contains(configErr.Reason, tt.expectedErr) {
+					t.Errorf("ConfigError.Reason should contain '%s', got '%s'", tt.expectedErr, configErr.Reason)
 				}
 			}
 		})

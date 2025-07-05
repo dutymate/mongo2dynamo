@@ -26,7 +26,7 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 
 	// Load configuration from environment variables, config file, and defaults first.
 	if err := cfg.Load(); err != nil {
-		return fmt.Errorf("failed to load configuration: %w", err)
+		return &common.ConfigError{Op: "load", Reason: "failed to load from environment variables and config file", Err: err}
 	}
 
 	// Then override with flag values if they were explicitly set.
@@ -54,7 +54,7 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 
 	// Validate configuration after all values are set.
 	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("invalid configuration: %w", err)
+		return &common.ConfigError{Op: "validate", Reason: "invalid configuration", Err: err}
 	}
 
 	// Create mongoExtractor using configuration.
