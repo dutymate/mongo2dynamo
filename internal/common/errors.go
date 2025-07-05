@@ -2,14 +2,22 @@ package common
 
 import "fmt"
 
-// ConfigFieldError is returned when configuration is invalid or missing required fields.
-type ConfigFieldError struct {
-	Field  string
+// ConfigError is returned for general configuration loading and validation errors.
+type ConfigError struct {
+	Op     string
 	Reason string
+	Err    error
 }
 
-func (e *ConfigFieldError) Error() string {
-	return fmt.Sprintf("invalid configuration for field '%s': %s", e.Field, e.Reason)
+func (e *ConfigError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf("configuration error during '%s': %s: %v", e.Op, e.Reason, e.Err)
+	}
+	return fmt.Sprintf("configuration error during '%s': %s", e.Op, e.Reason)
+}
+
+func (e *ConfigError) Unwrap() error {
+	return e.Err
 }
 
 // DataValidationError is returned for data validation errors not related to config.
