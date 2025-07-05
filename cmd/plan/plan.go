@@ -24,21 +24,33 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 	// Create config.
 	cfg := &config.Config{}
 
-	// Get flag values.
-	cfg.MongoHost, _ = cmd.Flags().GetString("mongo-host")
-	cfg.MongoPort, _ = cmd.Flags().GetString("mongo-port")
-	cfg.MongoUser, _ = cmd.Flags().GetString("mongo-user")
-	cfg.MongoPassword, _ = cmd.Flags().GetString("mongo-password")
-	cfg.MongoDB, _ = cmd.Flags().GetString("mongo-db")
-	cfg.MongoCollection, _ = cmd.Flags().GetString("mongo-collection")
-
-	// Set dry run mode.
-	cfg.SetDryRun(true)
-
-	// Load configuration from environment variables.
+	// Load configuration from environment variables, config file, and defaults first.
 	if err := cfg.Load(); err != nil {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
+
+	// Then override with flag values if they were explicitly set.
+	if cmd.Flags().Changed("mongo-host") {
+		cfg.MongoHost, _ = cmd.Flags().GetString("mongo-host")
+	}
+	if cmd.Flags().Changed("mongo-port") {
+		cfg.MongoPort, _ = cmd.Flags().GetString("mongo-port")
+	}
+	if cmd.Flags().Changed("mongo-user") {
+		cfg.MongoUser, _ = cmd.Flags().GetString("mongo-user")
+	}
+	if cmd.Flags().Changed("mongo-password") {
+		cfg.MongoPassword, _ = cmd.Flags().GetString("mongo-password")
+	}
+	if cmd.Flags().Changed("mongo-db") {
+		cfg.MongoDB, _ = cmd.Flags().GetString("mongo-db")
+	}
+	if cmd.Flags().Changed("mongo-collection") {
+		cfg.MongoCollection, _ = cmd.Flags().GetString("mongo-collection")
+	}
+
+	// Set dry run mode.
+	cfg.SetDryRun(true)
 
 	// Create mongoExtractor using configuration.
 	mongoExtractor, err := extractor.NewMongoExtractor(cmd.Context(), cfg)
