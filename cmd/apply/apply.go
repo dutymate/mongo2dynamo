@@ -62,6 +62,11 @@ func runApply(cmd *cobra.Command, _ []string) error {
 		cfg.AutoApprove, _ = cmd.Flags().GetBool("auto-approve")
 	}
 
+	// Validate configuration after all values are set.
+	if err := cfg.Validate(); err != nil {
+		return fmt.Errorf("invalid configuration: %w", err)
+	}
+
 	// Confirm before proceeding.
 	if !cfg.AutoApprove {
 		if !common.Confirm("Are you sure you want to proceed with the migration? (y/N) ") {
