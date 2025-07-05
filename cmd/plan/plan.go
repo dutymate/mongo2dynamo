@@ -52,6 +52,11 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 	// Set dry run mode.
 	cfg.SetDryRun(true)
 
+	// Validate configuration after all values are set.
+	if err := cfg.Validate(); err != nil {
+		return fmt.Errorf("invalid configuration: %w", err)
+	}
+
 	// Create mongoExtractor using configuration.
 	mongoExtractor, err := extractor.NewMongoExtractor(cmd.Context(), cfg)
 	if err != nil {

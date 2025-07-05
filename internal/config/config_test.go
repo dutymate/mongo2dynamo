@@ -208,7 +208,7 @@ func TestConfig_validate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.config.validate()
+			err := tt.config.Validate()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Config.validate() error = %v, wantErr %v", err, tt.wantErr)
 				return

@@ -96,15 +96,11 @@ func (c *Config) Load() error {
 		c.DryRun = v.GetBool("dry_run")
 	}
 
-	if err := c.validate(); err != nil {
-		return err
-	}
-
 	return nil
 }
 
-// validate checks if all required fields are set.
-func (c *Config) validate() error {
+// Validate checks if all required fields are set.
+func (c *Config) Validate() error {
 	if c.MongoDB == "" {
 		return &common.ConfigFieldError{Field: "mongo_db", Reason: "required"}
 	}
