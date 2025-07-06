@@ -13,14 +13,16 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "mongo2dynamo",
-	Short: "CLI tool to migrate data from MongoDB to DynamoDB",
-	Long:  `A command-line tool to copy all documents from MongoDB into AWS DynamoDB.`,
+	Use:           "mongo2dynamo",
+	Short:         "CLI tool to migrate data from MongoDB to DynamoDB",
+	Long:          `A command-line tool to copy all documents from MongoDB into AWS DynamoDB.`,
+	SilenceErrors: true,
+	SilenceUsage:  true,
 }
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		rootCmd.PrintErrf("Error: %v\n", err)
 		os.Exit(1)
 	}
 }
