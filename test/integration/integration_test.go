@@ -184,7 +184,7 @@ func TestApplyCommand_WithExistingTable(t *testing.T) {
 
 	// Verify apply command output messages.
 	outputStr := string(output)
-	require.Contains(t, outputStr, "Successfully migrated 1 documents", "Apply output should show successful migration")
+	require.Contains(t, outputStr, "Successfully migrated 1 documents.", "Apply output should show successful migration")
 	require.Contains(t, outputStr, "Table 'test_table' already exists.", "Should detect existing table")
 
 	// Verify data in DynamoDB.
@@ -255,7 +255,7 @@ func TestApplyCommand_WithAutoCreateTable(t *testing.T) {
 
 	// Verify apply command output messages.
 	outputStr := string(output)
-	require.Contains(t, outputStr, "Successfully migrated 1 documents", "Apply output should show successful migration")
+	require.Contains(t, outputStr, "Successfully migrated 1 documents.", "Apply output should show successful migration")
 	require.Contains(t, outputStr, "Auto-creating table 'test_table_auto'...", "Should show auto-creation message")
 	require.Contains(t, outputStr, "Creating DynamoDB table 'test_table_auto'...", "Should show table creation message")
 	require.Contains(t, outputStr, "Waiting for table 'test_table_auto' to become active...", "Should show waiting message")
@@ -318,7 +318,7 @@ func TestPlanCommand(t *testing.T) {
 
 	// Verify plan command output messages.
 	outputStr := string(output)
-	require.Contains(t, outputStr, "Found 1 documents to migrate", "Plan output should show found documents")
+	require.Contains(t, outputStr, "Found 1 documents to migrate.", "Plan output should show found documents")
 	require.NotContains(t, outputStr, "Successfully migrated", "Plan output should not show success message in dry run mode")
 }
 
