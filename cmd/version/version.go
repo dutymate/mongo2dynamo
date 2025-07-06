@@ -3,9 +3,9 @@ package version
 import (
 	"fmt"
 
-	"mongo2dynamo/internal/version"
-
 	"github.com/spf13/cobra"
+
+	"mongo2dynamo/internal/version"
 )
 
 // VersionCmd represents the version command.

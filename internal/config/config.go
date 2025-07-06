@@ -3,11 +3,12 @@ package config
 import (
 	"errors"
 	"fmt"
-	"mongo2dynamo/internal/common"
 	"os"
 	"path/filepath"
 
 	"github.com/spf13/viper"
+
+	"mongo2dynamo/internal/common"
 )
 
 // Config holds all configuration for the application.

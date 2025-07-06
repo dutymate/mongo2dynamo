@@ -7,11 +7,11 @@ import (
 	"strconv"
 	"testing"
 
-	"mongo2dynamo/internal/common"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"go.mongodb.org/mongo-driver/mongo/options"
+
+	"mongo2dynamo/internal/common"
 )
 
 // MockCollection is a mock implementation of Collection interface.

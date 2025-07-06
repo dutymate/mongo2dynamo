@@ -3,10 +3,10 @@ package flags_test
 import (
 	"testing"
 
-	"mongo2dynamo/internal/flags"
-
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
+
+	"mongo2dynamo/internal/flags"
 )
 
 func TestAddMongoFlags(t *testing.T) {

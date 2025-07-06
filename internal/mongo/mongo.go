@@ -5,10 +5,10 @@ import (
 	"errors"
 	"strings"
 
-	"mongo2dynamo/internal/common"
-
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+
+	"mongo2dynamo/internal/common"
 )
 
 // mongoAuthErrorPatterns contains common authentication failure patterns for MongoDB errors.
