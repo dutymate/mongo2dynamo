@@ -2,12 +2,14 @@ package loader
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"mongo2dynamo/internal/common"
 	"mongo2dynamo/internal/dynamo"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
@@ -18,6 +20,8 @@ const batchSize = 25
 // DBClient defines the interface for DynamoDB operations used by Loader.
 type DBClient interface {
 	BatchWriteItem(ctx context.Context, params *dynamodb.BatchWriteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.BatchWriteItemOutput, error)
+	DescribeTable(ctx context.Context, params *dynamodb.DescribeTableInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DescribeTableOutput, error)
+	CreateTable(ctx context.Context, params *dynamodb.CreateTableInput, optFns ...func(*dynamodb.Options)) (*dynamodb.CreateTableOutput, error)
 }
 
 // MarshalFunc defines the interface for marshaling items to DynamoDB format.
@@ -45,12 +49,137 @@ func NewDynamoLoader(ctx context.Context, cfg common.ConfigProvider) (*DynamoLoa
 	if err != nil {
 		return nil, &common.DatabaseConnectionError{Database: "DynamoDB", Reason: err.Error(), Err: err}
 	}
-	return newDynamoLoader(client, cfg.GetDynamoTable()), nil
+
+	loader := newDynamoLoader(client, cfg.GetDynamoTable())
+
+	// Ensure table exists, create if it doesn't.
+	if err := loader.ensureTableExists(ctx, cfg); err != nil {
+		return nil, err
+	}
+
+	return loader, nil
 }
 
 // marshalItem marshals a single item to DynamoDB format.
 func (l *DynamoLoader) marshalItem(item map[string]interface{}) (map[string]types.AttributeValue, error) {
 	return l.marshal(item)
+}
+
+// ensureTableExists checks if the table exists and creates it if it doesn't.
+func (l *DynamoLoader) ensureTableExists(ctx context.Context, cfg common.ConfigProvider) error {
+	// Check if table exists.
+	_, err := l.client.DescribeTable(ctx, &dynamodb.DescribeTableInput{
+		TableName: &l.table,
+	})
+
+	if err == nil {
+		// Table exists, nothing to do.
+		fmt.Printf("Table '%s' already exists.\n", l.table)
+		return nil
+	}
+
+	// Check if error is due to table not existing.
+	var resourceNotFoundErr *types.ResourceNotFoundException
+	if !errors.As(err, &resourceNotFoundErr) {
+		// Some other error occurred.
+		return &common.DatabaseOperationError{
+			Database: "DynamoDB",
+			Op:       "describe table",
+			Reason:   err.Error(),
+			Err:      err,
+		}
+	}
+
+	// Check if auto-approve is enabled.
+	if cfg.GetAutoApprove() {
+		fmt.Printf("Auto-creating table '%s'...\n", l.table)
+		return l.createTable(ctx)
+	}
+
+	// Ask for confirmation.
+	if !common.Confirm(fmt.Sprintf("Create DynamoDB table '%s'? (y/N) ", l.table)) {
+		return context.Canceled
+	}
+
+	return l.createTable(ctx)
+}
+
+// createTable creates a new DynamoDB table with a simple schema.
+func (l *DynamoLoader) createTable(ctx context.Context) error {
+	fmt.Printf("Creating DynamoDB table '%s'...\n", l.table)
+
+	// Create a simple table with 'id' as the primary key.
+	input := &dynamodb.CreateTableInput{
+		TableName: &l.table,
+		AttributeDefinitions: []types.AttributeDefinition{
+			{
+				AttributeName: aws.String("id"),
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+		},
+		KeySchema: []types.KeySchemaElement{
+			{
+				AttributeName: aws.String("id"),
+				KeyType:       types.KeyTypeHash,
+			},
+		},
+		BillingMode: types.BillingModePayPerRequest,
+	}
+
+	_, err := l.client.CreateTable(ctx, input)
+	if err != nil {
+		return &common.DatabaseOperationError{
+			Database: "DynamoDB",
+			Op:       "create table",
+			Reason:   err.Error(),
+			Err:      err,
+		}
+	}
+
+	fmt.Printf("Waiting for table '%s' to become active...\n", l.table)
+
+	// Wait for table to be created.
+	return l.waitForTableActive(ctx)
+}
+
+// waitForTableActive waits for the table to become active.
+func (l *DynamoLoader) waitForTableActive(ctx context.Context) error {
+	const maxWaitTime = 30 * time.Second
+	const checkInterval = 2 * time.Second
+
+	timeoutCtx, cancel := context.WithTimeout(ctx, maxWaitTime)
+	defer cancel()
+
+	for {
+		select {
+		case <-timeoutCtx.Done():
+			return &common.DatabaseOperationError{
+				Database: "DynamoDB",
+				Op:       "wait for table active",
+				Reason:   "timeout waiting for table to become active",
+				Err:      timeoutCtx.Err(),
+			}
+		default:
+			output, err := l.client.DescribeTable(ctx, &dynamodb.DescribeTableInput{
+				TableName: &l.table,
+			})
+			if err != nil {
+				return &common.DatabaseOperationError{
+					Database: "DynamoDB",
+					Op:       "describe table",
+					Reason:   err.Error(),
+					Err:      err,
+				}
+			}
+
+			if output.Table.TableStatus == types.TableStatusActive {
+				fmt.Printf("Table '%s' is now active and ready for use.\n", l.table)
+				return nil
+			}
+
+			time.Sleep(checkInterval)
+		}
+	}
 }
 
 // Load saves all documents to DynamoDB.
