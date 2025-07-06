@@ -2,13 +2,14 @@ package plan
 
 import (
 	"fmt"
+
+	"github.com/spf13/cobra"
+
 	"mongo2dynamo/internal/common"
 	"mongo2dynamo/internal/config"
 	"mongo2dynamo/internal/extractor"
 	"mongo2dynamo/internal/flags"
 	"mongo2dynamo/internal/transformer"
-
-	"github.com/spf13/cobra"
 )
 
 // PlanCmd represents the plan command.

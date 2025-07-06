@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"testing"
 
-	"mongo2dynamo/internal/common"
-
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	"mongo2dynamo/internal/common"
 )
 
 // MockDynamoDBClient is a mock implementation of DBClient for testing.

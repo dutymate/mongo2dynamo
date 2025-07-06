@@ -4,14 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
+	"github.com/spf13/cobra"
+
 	"mongo2dynamo/internal/common"
 	"mongo2dynamo/internal/config"
 	"mongo2dynamo/internal/extractor"
 	"mongo2dynamo/internal/flags"
 	"mongo2dynamo/internal/loader"
 	"mongo2dynamo/internal/transformer"
-
-	"github.com/spf13/cobra"
 )
 
 // ApplyCmd represents the apply command.

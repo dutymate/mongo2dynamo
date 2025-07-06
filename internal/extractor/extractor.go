@@ -2,12 +2,13 @@ package extractor
 
 import (
 	"context"
-	"mongo2dynamo/internal/common"
-	"mongo2dynamo/internal/mongo"
 
 	"go.mongodb.org/mongo-driver/bson"
 	goMongo "go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+
+	"mongo2dynamo/internal/common"
+	"mongo2dynamo/internal/mongo"
 )
 
 // Collection defines the interface for MongoDB collection operations needed by Extractor.
