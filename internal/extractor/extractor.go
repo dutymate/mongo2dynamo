@@ -3,7 +3,7 @@ package extractor
 import (
 	"context"
 
-	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	goMongo "go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -77,7 +77,7 @@ func NewMongoExtractor(ctx context.Context, cfg common.ConfigProvider) (common.E
 // Extract retrieves documents from the MongoDB collection in fixed-size chunks and processes them using the provided callback.
 func (e *MongoExtractor) Extract(ctx context.Context, handleChunk common.ChunkHandler) error {
 	findOptions := options.Find().SetBatchSize(int32(e.batchSize))
-	cursor, err := e.collection.Find(ctx, bson.M{}, findOptions)
+	cursor, err := e.collection.Find(ctx, primitive.M{}, findOptions)
 	if err != nil {
 		return &common.DatabaseOperationError{Database: "MongoDB", Op: "find", Reason: err.Error(), Err: err}
 	}
