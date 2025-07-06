@@ -22,6 +22,7 @@
 - **ETL-based MongoDB → DynamoDB migration**: Extracts data from MongoDB collections, transforms it, and loads it into DynamoDB tables, minimizing the risk of data loss or duplication.
 - **Batch-based, memory-efficient processing**: Extracts and loads data in configurable batches (default: 1000 documents per chunk), allowing efficient handling of large datasets without excessive memory usage.
 - **Auto-approve and interactive confirmation**: Supports both automated ETL runs (for CI/CD or scripting) and interactive confirmation prompts to prevent accidental data transfers.
+- **Automatic DynamoDB table creation**: Automatically creates DynamoDB tables if they don't exist, with configurable behavior through the auto-approve flag.
 - **Flexible configuration**: Easily configure all options via command-line flags, environment variables, or a YAML config file—whichever fits your workflow best.
 - **Error handling and retry logic**: Automatically retries failed extract/load operations with exponential backoff, and provides clear error messages to help you quickly resolve issues.
 - **Dry-run support**: Use the `plan` command to preview ETL operations before performing any actual data transfer.
@@ -60,6 +61,17 @@ mongo2dynamo plan \
 ### 2. Run Actual Migration
 
 ```bash
+# With auto-approve (automatically creates table if it doesn't exist)
+mongo2dynamo apply \
+  --mongo-host localhost \
+  --mongo-port 27017 \
+  --mongo-db your_database \
+  --mongo-collection your_collection \
+  --dynamo-endpoint your_endpoint \
+  --dynamo-table your_table \
+  --auto-approve
+
+# Without auto-approve (prompts for confirmation before creating table)
 mongo2dynamo apply \
   --mongo-host localhost \
   --mongo-port 27017 \
@@ -117,8 +129,14 @@ The `apply` command executes the full ETL pipeline:
 - **Connection Setup**: Establishes connections to both MongoDB and DynamoDB.
 - **Extraction**: Extracts documents from MongoDB in configurable batches (default: 1000 documents per chunk).
 - **Transformation**: Transforms MongoDB BSON documents to DynamoDB-compatible format.
+- **Table Management**: Automatically checks if the DynamoDB table exists and creates it if needed, with user confirmation based on the auto-approve setting.
 - **Loading**: Loads transformed data into DynamoDB using the BatchWriteItem API.
 - **Error Handling**: Implements retry logic with exponential backoff for failed operations.
+
+**Table Creation Behavior**: When the target DynamoDB table doesn't exist, mongo2dynamo can automatically create it:
+- **With `--auto-approve`**: Tables are created automatically with a simple schema (using `id` as the primary key).
+- **Without `--auto-approve`**: The tool prompts for user confirmation before creating the table.
+- **Existing tables**: If the table already exists, the tool uses it as-is without modification.
 
 ## License
 
