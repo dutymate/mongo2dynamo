@@ -1,6 +1,8 @@
 package apply
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"mongo2dynamo/internal/common"
 	"mongo2dynamo/internal/config"
@@ -70,6 +72,7 @@ func runApply(cmd *cobra.Command, _ []string) error {
 	// Confirm before proceeding.
 	if !cfg.AutoApprove {
 		if !common.Confirm("Are you sure you want to proceed with the migration? (y/N) ") {
+			fmt.Println("Migration canceled by user.")
 			return nil
 		}
 	}
@@ -86,6 +89,10 @@ func runApply(cmd *cobra.Command, _ []string) error {
 	// Create dynamoLoader using configuration.
 	dynamoLoader, err := loader.NewDynamoLoader(cmd.Context(), cfg)
 	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			fmt.Println("Migration canceled by user (table creation declined).")
+			return nil
+		}
 		return &common.LoadError{Reason: "failed to create loader", Err: err}
 	}
 

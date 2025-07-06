@@ -237,7 +237,7 @@ func TestApplyCommand_WithAutoCreateTable(t *testing.T) {
 	// Set up DynamoDB (table will be created automatically).
 	dynamoClient := setupDynamoDB(t, lsHost, lsPort)
 
-	// Run the apply command with auto-approve enabled (테이블 자동 생성).
+	// Run the apply command with auto-approve enabled.
 	cmd := exec.Command("go", "run", "../../main.go", "apply",
 		"--mongo-host", mongoHost,
 		"--mongo-port", mongoPort,

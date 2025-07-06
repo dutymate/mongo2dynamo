@@ -90,9 +90,6 @@ func (l *DynamoLoader) ensureTableExists(ctx context.Context, cfg common.ConfigP
 		}
 	}
 
-	// Table doesn't exist.
-	fmt.Printf("Table '%s' does not exist.\n", l.table)
-
 	// Check if auto-approve is enabled.
 	if cfg.GetAutoApprove() {
 		fmt.Printf("Auto-creating table '%s'...\n", l.table)
@@ -101,12 +98,7 @@ func (l *DynamoLoader) ensureTableExists(ctx context.Context, cfg common.ConfigP
 
 	// Ask for confirmation.
 	if !common.Confirm(fmt.Sprintf("Create DynamoDB table '%s'? (y/N) ", l.table)) {
-		return &common.DatabaseOperationError{
-			Database: "DynamoDB",
-			Op:       "create table",
-			Reason:   "user declined table creation",
-			Err:      fmt.Errorf("table creation cancelled by user"),
-		}
+		return context.Canceled
 	}
 
 	return l.createTable(ctx)
