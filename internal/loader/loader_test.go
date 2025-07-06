@@ -19,6 +19,24 @@ type MockDBClient struct {
 	mock.Mock
 }
 
+func (m *MockDBClient) CreateTable(ctx context.Context, params *dynamodb.CreateTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.CreateTableOutput, error) {
+	args := m.Called(ctx, params)
+	err := args.Error(1)
+	if err != nil {
+		return args.Get(0).(*dynamodb.CreateTableOutput), fmt.Errorf("mock error: %w", err)
+	}
+	return args.Get(0).(*dynamodb.CreateTableOutput), nil
+}
+
+func (m *MockDBClient) DescribeTable(ctx context.Context, params *dynamodb.DescribeTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.DescribeTableOutput, error) {
+	args := m.Called(ctx, params)
+	err := args.Error(1)
+	if err != nil {
+		return args.Get(0).(*dynamodb.DescribeTableOutput), fmt.Errorf("mock error: %w", err)
+	}
+	return args.Get(0).(*dynamodb.DescribeTableOutput), nil
+}
+
 func (m *MockDBClient) BatchWriteItem(ctx context.Context, params *dynamodb.BatchWriteItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.BatchWriteItemOutput, error) {
 	args := m.Called(ctx, params)
 	err := args.Error(1)

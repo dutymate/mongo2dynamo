@@ -88,7 +88,7 @@ func setupMongoDB(t *testing.T, mongoHost, mongoPort string) *mongo.Client {
 	return mongoClient
 }
 
-// setupDynamoDB sets up DynamoDB table.
+// setupDynamoDB sets up DynamoDB client (table will be created automatically by the loader).
 func setupDynamoDB(t *testing.T, lsHost, lsPort string) *dynamodb.Client {
 	ctx := context.Background()
 	awsCfg, err := awsConfig.LoadDefaultConfig(ctx)
@@ -98,17 +98,24 @@ func setupDynamoDB(t *testing.T, lsHost, lsPort string) *dynamodb.Client {
 		o.BaseEndpoint = aws.String("http://" + lsHost + ":" + lsPort)
 	})
 
-	_, err = client.CreateTable(ctx, &dynamodb.CreateTableInput{
-		TableName: aws.String("test_table"),
+	return client
+}
+
+// createDynamoTable creates a DynamoDB table manually for testing.
+func createDynamoTable(t *testing.T, client *dynamodb.Client, tableName string) {
+	ctx := context.Background()
+
+	_, err := client.CreateTable(ctx, &dynamodb.CreateTableInput{
+		TableName: aws.String(tableName),
 		AttributeDefinitions: []types.AttributeDefinition{
 			{
-				AttributeName: aws.String("name"),
+				AttributeName: aws.String("id"),
 				AttributeType: types.ScalarAttributeTypeS,
 			},
 		},
 		KeySchema: []types.KeySchemaElement{
 			{
-				AttributeName: aws.String("name"),
+				AttributeName: aws.String("id"),
 				KeyType:       types.KeyTypeHash,
 			},
 		},
@@ -119,7 +126,7 @@ func setupDynamoDB(t *testing.T, lsHost, lsPort string) *dynamodb.Client {
 	// Wait for table to be created.
 	for {
 		table, err := client.DescribeTable(ctx, &dynamodb.DescribeTableInput{
-			TableName: aws.String("test_table"),
+			TableName: aws.String(tableName),
 		})
 		require.NoError(t, err)
 		if table.Table.TableStatus == types.TableStatusActive {
@@ -127,12 +134,10 @@ func setupDynamoDB(t *testing.T, lsHost, lsPort string) *dynamodb.Client {
 		}
 		time.Sleep(500 * time.Millisecond) // Poll every 500ms.
 	}
-
-	return client
 }
 
-// TestApplyCommand tests the apply command functionality.
-func TestApplyCommand(t *testing.T) {
+// TestApplyCommand_WithExistingTable tests the apply command when DynamoDB table already exists.
+func TestApplyCommand_WithExistingTable(t *testing.T) {
 	// Set up test containers.
 	mongoC, lsC, mongoHost, mongoPort, lsHost, lsPort := setupTestContainers(t)
 	defer func() {
@@ -157,8 +162,9 @@ func TestApplyCommand(t *testing.T) {
 		}
 	}()
 
-	// Set up DynamoDB.
+	// Set up DynamoDB and create table manually.
 	dynamoClient := setupDynamoDB(t, lsHost, lsPort)
+	createDynamoTable(t, dynamoClient, "test_table")
 
 	// Run the apply command.
 	cmd := exec.Command("go", "run", "../../main.go", "apply",
@@ -179,12 +185,87 @@ func TestApplyCommand(t *testing.T) {
 	// Verify apply command output messages.
 	outputStr := string(output)
 	require.Contains(t, outputStr, "Successfully migrated 1 documents", "Apply output should show successful migration")
+	require.Contains(t, outputStr, "Table 'test_table' already exists.", "Should detect existing table")
 
 	// Verify data in DynamoDB.
 	result, err := dynamoClient.GetItem(context.Background(), &dynamodb.GetItemInput{
 		TableName: aws.String("test_table"),
 		Key: map[string]types.AttributeValue{
-			"name": &types.AttributeValueMemberS{Value: "test"},
+			"id": &types.AttributeValueMemberS{Value: "mongoid-001"},
+		},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, result.Item)
+
+	var item map[string]interface{}
+	err = attributevalue.UnmarshalMap(result.Item, &item)
+	require.NoError(t, err)
+	require.Equal(t, "mongoid-001", item["id"])
+	require.Equal(t, "test", item["name"])
+	require.Equal(t, float64(123), item["value"])
+	require.NotContains(t, item, "_id")
+	require.NotContains(t, item, "__v")
+	require.NotContains(t, item, "_class")
+}
+
+// TestApplyCommand_WithAutoCreateTable tests the apply command when DynamoDB table needs to be created automatically.
+func TestApplyCommand_WithAutoCreateTable(t *testing.T) {
+	// Set up test containers.
+	mongoC, lsC, mongoHost, mongoPort, lsHost, lsPort := setupTestContainers(t)
+	defer func() {
+		if err := mongoC.Terminate(context.Background()); err != nil {
+			t.Logf("Warning: failed to terminate MongoDB container: %v", err)
+		}
+		if err := lsC.Terminate(context.Background()); err != nil {
+			t.Logf("Warning: failed to terminate LocalStack container: %v", err)
+		}
+	}()
+
+	// Set up AWS environment variables.
+	t.Setenv("AWS_REGION", "us-east-1")
+	t.Setenv("AWS_ACCESS_KEY_ID", "test")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "test")
+
+	// Set up MongoDB.
+	mongoClient := setupMongoDB(t, mongoHost, mongoPort)
+	defer func() {
+		if err := mongoClient.Disconnect(context.Background()); err != nil {
+			t.Logf("Warning: failed to disconnect from MongoDB: %v", err)
+		}
+	}()
+
+	// Set up DynamoDB (table will be created automatically).
+	dynamoClient := setupDynamoDB(t, lsHost, lsPort)
+
+	// Run the apply command with auto-approve enabled (테이블 자동 생성).
+	cmd := exec.Command("go", "run", "../../main.go", "apply",
+		"--mongo-host", mongoHost,
+		"--mongo-port", mongoPort,
+		"--mongo-db", "testdb",
+		"--mongo-collection", "testcol",
+		"--dynamo-table", "test_table_auto",
+		"--dynamo-endpoint", "http://"+lsHost+":"+lsPort,
+		"--auto-approve",
+	)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Logf("CLI apply failed: %v\nOutput:\n%s", err, output)
+		t.Fail()
+	}
+
+	// Verify apply command output messages.
+	outputStr := string(output)
+	require.Contains(t, outputStr, "Successfully migrated 1 documents", "Apply output should show successful migration")
+	require.Contains(t, outputStr, "Auto-creating table 'test_table_auto'...", "Should show auto-creation message")
+	require.Contains(t, outputStr, "Creating DynamoDB table 'test_table_auto'...", "Should show table creation message")
+	require.Contains(t, outputStr, "Waiting for table 'test_table_auto' to become active...", "Should show waiting message")
+	require.Contains(t, outputStr, "Table 'test_table_auto' is now active and ready for use.", "Should show table ready message")
+
+	// Verify data in DynamoDB.
+	result, err := dynamoClient.GetItem(context.Background(), &dynamodb.GetItemInput{
+		TableName: aws.String("test_table_auto"),
+		Key: map[string]types.AttributeValue{
+			"id": &types.AttributeValueMemberS{Value: "mongoid-001"},
 		},
 	})
 	require.NoError(t, err)
