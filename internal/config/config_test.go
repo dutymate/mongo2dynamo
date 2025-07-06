@@ -151,7 +151,7 @@ dynamo_table: "configtable"
 	}
 }
 
-func TestConfig_validate(t *testing.T) {
+func TestConfig_Validate(t *testing.T) {
 	tests := []struct {
 		name        string
 		config      *Config
@@ -195,11 +195,12 @@ func TestConfig_validate(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "missing dynamo_table should be set to collection name",
+			name: "missing dynamo_table with auto-approve should set DynamoTable to collection name",
 			config: &Config{
 				MongoDB:         "testdb",
 				MongoCollection: "testcollection",
 				DryRun:          false,
+				AutoApprove:     true,
 			},
 			wantErr: false,
 		},
@@ -235,7 +236,8 @@ func TestConfig_validate(t *testing.T) {
 			}
 
 			// Check if DynamoTable is automatically set to MongoCollection when empty.
-			if tt.config.MongoCollection != "" && tt.config.DynamoTable == "" {
+			// Note: In dry run mode, DynamoTable is not set automatically.
+			if !tt.config.DryRun && tt.config.MongoCollection != "" && tt.config.DynamoTable == "" {
 				// This should not happen after Validate() is called.
 				t.Errorf("DynamoTable should be set to MongoCollection '%s' when empty, but it's still empty", tt.config.MongoCollection)
 			}

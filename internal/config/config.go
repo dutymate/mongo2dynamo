@@ -109,10 +109,13 @@ func (c *Config) Validate() error {
 		return &common.ConfigError{Op: "validate", Reason: "mongo_collection field is required"}
 	}
 
-	// If DynamoTable is not set, use MongoCollection name as the table name.
-	if c.DynamoTable == "" {
+	// If DynamoTable is not set and not in DryRun mode, use the collection name as the DynamoDB table name.
+	if !c.DryRun && c.DynamoTable == "" {
+		// If AutoApprove is false, prompt the user for confirmation before proceeding.
+		if !c.AutoApprove && !common.Confirm("Use collection name as DynamoDB table name? (y/N) ") {
+			return &common.ConfigError{Op: "validate", Reason: "user declined to use collection name as table name"}
+		}
 		c.DynamoTable = c.MongoCollection
-		fmt.Printf("Using collection name '%s' as DynamoDB table name.\n", c.DynamoTable)
 	}
 
 	return nil
