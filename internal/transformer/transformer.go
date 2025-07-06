@@ -1,10 +1,14 @@
 package transformer
 
 import (
+	"encoding/json"
 	"fmt"
-	"mongo2dynamo/internal/common"
 	"runtime"
 	"sync"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"mongo2dynamo/internal/common"
 )
 
 // DocTransformer transforms MongoDB documents for DynamoDB.
@@ -25,6 +29,32 @@ func newDocTransformer() *DocTransformer {
 // NewDocTransformer creates a new DocTransformer.
 func NewDocTransformer() common.Transformer {
 	return newDocTransformer()
+}
+
+// convertID converts MongoDB _id to DynamoDB compatible string.
+// It handles primitive.ObjectID, strings, and complex objects by converting them to JSON strings.
+func convertID(id interface{}) string {
+	switch v := id.(type) {
+	case primitive.ObjectID:
+		return v.Hex()
+	case string:
+		return v
+	case primitive.M:
+		// Convert MongoDB primitive.M objects to JSON string.
+		jsonBytes, err := json.Marshal(v)
+		if err != nil {
+			// Fallback to string representation if JSON marshaling fails.
+			return fmt.Sprintf("%v", v)
+		}
+		return string(jsonBytes)
+	default:
+		// For other types, try JSON marshaling first, then fallback to string.
+		jsonBytes, err := json.Marshal(v)
+		if err != nil {
+			return fmt.Sprintf("%v", v)
+		}
+		return string(jsonBytes)
+	}
 }
 
 // Transform renames the '_id' field to 'id' and removes the '__v' and '_class' fields from each document.
@@ -75,7 +105,8 @@ func (t *DocTransformer) Transform(input []map[string]interface{}) ([]map[string
 			newDoc := make(map[string]interface{}, kept+1)
 			for k, v := range doc {
 				if k == "_id" {
-					newDoc["id"] = v
+					// Convert ObjectId to string for DynamoDB compatibility.
+					newDoc["id"] = convertID(v)
 					continue
 				}
 				if _, skip := skipFields[k]; skip {
