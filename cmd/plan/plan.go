@@ -80,7 +80,7 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return &common.PlanError{Reason: "unexpected error during plan callback", Err: err}
 	}
-	fmt.Printf("Found %d documents to migrate\n", total)
+	fmt.Printf("Found %d documents to migrate.\n", total)
 	return nil
 }
 

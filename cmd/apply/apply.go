@@ -113,7 +113,7 @@ func runApply(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return &common.ApplyError{Reason: "unexpected error during apply callback", Err: err}
 	}
-	fmt.Printf("Successfully migrated %d documents\n", migrated)
+	fmt.Printf("Successfully migrated %d documents.\n", migrated)
 	return nil
 }
 
