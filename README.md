@@ -23,7 +23,7 @@
 - **Batch-based, memory-efficient processing**: Extracts and loads data in configurable batches (default: 1000 documents per chunk), allowing efficient handling of large datasets without excessive memory usage.
 - **Auto-approve and interactive confirmation**: Supports both automated ETL runs (for CI/CD or scripting) and interactive confirmation prompts to prevent accidental data transfers.
 - **Automatic DynamoDB table creation**: Automatically creates DynamoDB tables if they don't exist, with configurable behavior through the auto-approve flag.
-- **Smart table naming**: If `--dynamo-table` is not specified, automatically uses the MongoDB collection name as the DynamoDB table name.
+- **Smart table naming with confirmation**: If `--dynamo-table` is not specified, prompts for user confirmation before using the MongoDB collection name as the DynamoDB table name (only in `apply` command).
 - **Flexible configuration**: Easily configure all options via command-line flags, environment variables, or a YAML config file—whichever fits your workflow best.
 - **Error handling and retry logic**: Automatically retries failed extract/load operations with exponential backoff, and provides clear error messages to help you quickly resolve issues.
 - **Dry-run support**: Use the `plan` command to preview ETL operations before performing any actual data transfer.
@@ -62,14 +62,13 @@ mongo2dynamo plan \
 ### 2. Run Actual Migration
 
 ```bash
-# Using collection name as table name (recommended for simple migrations)
+# Using collection name as table name (will prompt for confirmation)
 mongo2dynamo apply \
   --mongo-host localhost \
   --mongo-port 27017 \
   --mongo-db your_database \
   --mongo-collection your_collection \
-  --dynamo-endpoint your_endpoint \
-  --auto-approve
+  --dynamo-endpoint your_endpoint
 
 # With custom table name
 mongo2dynamo apply \
@@ -81,14 +80,14 @@ mongo2dynamo apply \
   --dynamo-table your_custom_table \
   --auto-approve
 
-# Without auto-approve (prompts for confirmation before creating table)
+# With auto-approve (skips all confirmation prompts)
 mongo2dynamo apply \
   --mongo-host localhost \
   --mongo-port 27017 \
   --mongo-db your_database \
   --mongo-collection your_collection \
   --dynamo-endpoint your_endpoint \
-  --dynamo-table your_table
+  --auto-approve
 ```
 
 ## Configuration
@@ -102,7 +101,7 @@ export MONGO2DYNAMO_MONGO_USER=your_username
 export MONGO2DYNAMO_MONGO_PASSWORD=your_password
 export MONGO2DYNAMO_MONGO_DB=your_database
 export MONGO2DYNAMO_MONGO_COLLECTION=your_collection
-export MONGO2DYNAMO_DYNAMO_TABLE=your_table  # Optional: defaults to collection name
+export MONGO2DYNAMO_DYNAMO_TABLE=your_table
 export MONGO2DYNAMO_DYNAMO_ENDPOINT=http://localhost:8000
 export MONGO2DYNAMO_AWS_REGION=us-east-1
 ```
@@ -118,7 +117,7 @@ mongo_user: your_username
 mongo_password: your_password
 mongo_db: your_database
 mongo_collection: your_collection
-dynamo_table: your_table  # Optional: defaults to collection name
+dynamo_table: your_table
 dynamo_endpoint: http://localhost:8000
 aws_region: us-east-1
 ```
@@ -144,9 +143,9 @@ The `apply` command executes the full ETL pipeline:
 - **Error Handling**: Implements retry logic with exponential backoff for failed operations.
 
 **Table Creation Behavior**: When the target DynamoDB table doesn't exist, mongo2dynamo can automatically create it:
-- **Table Naming**: If `--dynamo-table` is not specified, the MongoDB collection name is automatically used as the DynamoDB table name.
-- **With `--auto-approve`**: Tables are created automatically with a simple schema (using `id` as the primary key).
-- **Without `--auto-approve`**: The tool prompts for user confirmation before creating the table.
+- **Table Naming**: If `--dynamo-table` is not specified, the tool prompts for user confirmation before using the MongoDB collection name as the DynamoDB table name.
+- **With `--auto-approve`**: Tables are created automatically with a simple schema (using `id` as the primary key), and table naming confirmation is skipped.
+- **Without `--auto-approve`**: The tool prompts for user confirmation before creating the table and before using collection name as table name.
 - **Existing tables**: If the table already exists, the tool uses it as-is without modification.
 
 ## License
