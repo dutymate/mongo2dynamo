@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -29,7 +28,7 @@ func Execute() {
 
 func bindPersistentFlags() {
 	if err := viper.BindPFlag("auto-approve", rootCmd.PersistentFlags().Lookup("auto-approve")); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to bind auto-approve flag: %v\n", err)
+		rootCmd.PrintErrf("Failed to bind auto-approve flag: %v\n", err)
 		os.Exit(1)
 	}
 }
