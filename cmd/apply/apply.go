@@ -30,7 +30,7 @@ func runApply(cmd *cobra.Command, _ []string) error {
 
 	// Load configuration from environment variables, config file, and defaults first.
 	if err := cfg.Load(); err != nil {
-		return &common.ConfigError{Op: "load", Reason: "failed to load from environment variables and config file", Err: err}
+		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
 	// Then override with flag values if they were explicitly set.
@@ -67,21 +67,23 @@ func runApply(cmd *cobra.Command, _ []string) error {
 
 	// Validate configuration after all values are set.
 	if err := cfg.Validate(); err != nil {
-		return &common.ConfigError{Op: "validate", Reason: "invalid configuration", Err: err}
+		if errors.Is(err, context.Canceled) {
+			fmt.Println("Migration canceled by user (table name confirmation declined).")
+			return nil
+		}
+		return fmt.Errorf("configuration validation failed: %w", err)
 	}
 
 	// Confirm before proceeding.
-	if !cfg.AutoApprove {
-		if !common.Confirm("Are you sure you want to proceed with the migration? (y/N) ") {
-			fmt.Println("Migration canceled by user.")
-			return nil
-		}
+	if !cfg.AutoApprove && !common.Confirm("Are you sure you want to proceed with the migration? (y/N) ") {
+		fmt.Println("Migration canceled by user.")
+		return nil
 	}
 
 	// Create mongoExtractor using configuration.
 	mongoExtractor, err := extractor.NewMongoExtractor(cmd.Context(), cfg)
 	if err != nil {
-		return &common.ExtractError{Reason: "failed to create extractor", Err: err}
+		return fmt.Errorf("failed to create MongoDB extractor: %w", err)
 	}
 
 	// Create docTransformer for MongoDB to DynamoDB document conversion.
@@ -94,7 +96,7 @@ func runApply(cmd *cobra.Command, _ []string) error {
 			fmt.Println("Migration canceled by user (table creation declined).")
 			return nil
 		}
-		return &common.LoadError{Reason: "failed to create loader", Err: err}
+		return fmt.Errorf("failed to create DynamoDB loader: %w", err)
 	}
 
 	migrated := 0
@@ -102,16 +104,16 @@ func runApply(cmd *cobra.Command, _ []string) error {
 		// Apply transformation to each chunk before loading to DynamoDB.
 		transformed, err := docTransformer.Transform(chunk)
 		if err != nil {
-			return &common.TransformError{Reason: "failed to transform chunk", Err: err}
+			return fmt.Errorf("failed to transform document chunk: %w", err)
 		}
 		if err := dynamoLoader.Load(cmd.Context(), transformed); err != nil {
-			return &common.LoadError{Reason: "failed to load chunk", Err: err}
+			return fmt.Errorf("failed to load document chunk to DynamoDB: %w", err)
 		}
 		migrated += len(transformed)
 		return nil
 	})
 	if err != nil {
-		return &common.ApplyError{Reason: "unexpected error during apply callback", Err: err}
+		return fmt.Errorf("unexpected error during apply callback: %w", err)
 	}
 	fmt.Printf("Successfully migrated %s documents.\n", common.FormatNumber(migrated))
 	return nil

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -113,8 +114,9 @@ func (c *Config) Validate() error {
 	if !c.DryRun && c.DynamoTable == "" {
 		// If AutoApprove is false, prompt the user for confirmation before proceeding.
 		if !c.AutoApprove && !common.Confirm("Use collection name as DynamoDB table name? (y/N) ") {
-			return &common.ConfigError{Op: "validate", Reason: "user declined to use collection name as table name"}
+			return fmt.Errorf("required field 'dynamo_table' not set: user declined to use collection name: %w", context.Canceled)
 		}
+		fmt.Printf("Using collection name '%s' as DynamoDB table name.\n", c.MongoCollection)
 		c.DynamoTable = c.MongoCollection
 	}
 

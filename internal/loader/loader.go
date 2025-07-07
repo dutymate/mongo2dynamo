@@ -98,7 +98,7 @@ func (l *DynamoLoader) ensureTableExists(ctx context.Context, cfg common.ConfigP
 
 	// Ask for confirmation.
 	if !common.Confirm(fmt.Sprintf("Create DynamoDB table '%s'? (y/N) ", l.table)) {
-		return context.Canceled
+		return fmt.Errorf("required DynamoDB table '%s' not created: user declined table creation: %w", l.table, context.Canceled)
 	}
 
 	return l.createTable(ctx)
@@ -205,7 +205,7 @@ func (l *DynamoLoader) Load(ctx context.Context, data []map[string]interface{}) 
 		if len(writeRequests) == batchSize {
 			err = l.batchWrite(ctx, writeRequests)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to write batch to DynamoDB: %w", err)
 			}
 			writeRequests = nil
 		}
@@ -214,7 +214,7 @@ func (l *DynamoLoader) Load(ctx context.Context, data []map[string]interface{}) 
 	if len(writeRequests) > 0 {
 		err := l.batchWrite(ctx, writeRequests)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to write final batch to DynamoDB: %w", err)
 		}
 	}
 

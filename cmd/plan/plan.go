@@ -1,6 +1,8 @@
 package plan
 
 import (
+	"context"
+	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -27,7 +29,7 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 
 	// Load configuration from environment variables, config file, and defaults first.
 	if err := cfg.Load(); err != nil {
-		return &common.ConfigError{Op: "load", Reason: "failed to load from environment variables and config file", Err: err}
+		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
 	// Then override with flag values if they were explicitly set.
@@ -55,30 +57,35 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 
 	// Validate configuration after all values are set.
 	if err := cfg.Validate(); err != nil {
-		return &common.ConfigError{Op: "validate", Reason: "invalid configuration", Err: err}
+		if errors.Is(err, context.Canceled) {
+			fmt.Println("Plan canceled by user (table name confirmation declined).")
+			return nil
+		}
+		return fmt.Errorf("configuration validation failed: %w", err)
 	}
 
 	// Create mongoExtractor using configuration.
 	mongoExtractor, err := extractor.NewMongoExtractor(cmd.Context(), cfg)
 	if err != nil {
-		return &common.ExtractError{Reason: "failed to create extractor", Err: err}
+		return fmt.Errorf("failed to create MongoDB extractor: %w", err)
 	}
 
 	// Create docTransformer for MongoDB to DynamoDB document conversion.
 	docTransformer := transformer.NewDocTransformer()
 
 	total := 0
+	fmt.Println("Starting migration plan analysis...")
 	err = mongoExtractor.Extract(cmd.Context(), func(chunk []map[string]interface{}) error {
 		// Apply transformation.
 		transformed, err := docTransformer.Transform(chunk)
 		if err != nil {
-			return &common.TransformError{Reason: "failed to transform chunk", Err: err}
+			return fmt.Errorf("failed to transform document chunk: %w", err)
 		}
 		total += len(transformed)
 		return nil
 	})
 	if err != nil {
-		return &common.PlanError{Reason: "unexpected error during plan callback", Err: err}
+		return fmt.Errorf("unexpected error during plan callback: %w", err)
 	}
 	fmt.Printf("Found %s documents to migrate.\n", common.FormatNumber(total))
 	return nil
