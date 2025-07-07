@@ -25,7 +25,7 @@
 - **Automatic DynamoDB table creation**: Automatically creates DynamoDB tables if they don't exist, with configurable behavior through the auto-approve flag.
 - **Smart table naming with confirmation**: If `--dynamo-table` is not specified, prompts for user confirmation before using the MongoDB collection name as the DynamoDB table name (only in `apply` command).
 - **Flexible configuration**: Easily configure all options via command-line flags, environment variables, or a YAML config file—whichever fits your workflow best.
-- **Error handling and retry logic**: Automatically retries failed extract/load operations with exponential backoff and jitter to prevent thundering herd problems, and provides clear error messages to help you quickly resolve issues.
+- **Error handling and retry logic**: Automatically retries failed extract/load operations with exponential backoff and jitter to prevent thundering herd problems, and provides clear error messages to help you quickly resolve issues. The maximum number of retries can be configured with the `--max-retries` flag (default: 5).
 - **Dry-run support**: Use the `plan` command to preview ETL operations before performing any actual data transfer.
 
 ## Why mongo2dynamo?
@@ -78,7 +78,8 @@ mongo2dynamo apply \
   --mongo-collection your_collection \
   --dynamo-endpoint your_endpoint \
   --dynamo-table your_custom_table \
-  --auto-approve
+  --auto-approve \
+  --max-retries 10
 
 # With auto-approve (skips all confirmation prompts)
 mongo2dynamo apply \
@@ -104,6 +105,7 @@ export MONGO2DYNAMO_MONGO_COLLECTION=your_collection
 export MONGO2DYNAMO_DYNAMO_TABLE=your_table
 export MONGO2DYNAMO_DYNAMO_ENDPOINT=http://localhost:8000
 export MONGO2DYNAMO_AWS_REGION=us-east-1
+export MONGO2DYNAMO_MAX_RETRIES=10
 ```
 
 ### Config File
@@ -120,6 +122,7 @@ mongo_collection: your_collection
 dynamo_table: your_table
 dynamo_endpoint: http://localhost:8000
 aws_region: us-east-1
+max_retries: 10
 ```
 
 ## How It Works
