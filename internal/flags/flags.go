@@ -19,4 +19,5 @@ func AddDynamoFlags(cmd *cobra.Command) {
 	cmd.Flags().String("dynamo-endpoint", "http://localhost:8000", "DynamoDB endpoint.")
 	cmd.Flags().String("dynamo-table", "", "DynamoDB table name.")
 	cmd.Flags().String("aws-region", "us-east-1", "AWS region.")
+	cmd.Flags().Int("max-retries", 5, "Maximum number of retries for DynamoDB batch write.")
 }

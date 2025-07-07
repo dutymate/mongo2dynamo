@@ -18,10 +18,9 @@ import (
 )
 
 const (
-	batchSize  = 25
-	maxRetries = 5
-	baseDelay  = 100 * time.Millisecond
-	maxDelay   = 30 * time.Second
+	batchSize = 25
+	baseDelay = 100 * time.Millisecond
+	maxDelay  = 30 * time.Second
 )
 
 // Global random source for jitter calculation.
@@ -39,17 +38,19 @@ type MarshalFunc func(item interface{}) (map[string]types.AttributeValue, error)
 
 // DynamoLoader implements the Loader interface for DynamoDB.
 type DynamoLoader struct {
-	client  DBClient
-	table   string
-	marshal MarshalFunc
+	client     DBClient
+	table      string
+	marshal    MarshalFunc
+	maxRetries int
 }
 
 // newDynamoLoader creates a new DynamoDB loader.
-func newDynamoLoader(client DBClient, table string) *DynamoLoader {
+func newDynamoLoader(client DBClient, table string, maxRetries int) *DynamoLoader {
 	return &DynamoLoader{
-		client:  client,
-		table:   table,
-		marshal: attributevalue.MarshalMap,
+		client:     client,
+		table:      table,
+		marshal:    attributevalue.MarshalMap,
+		maxRetries: maxRetries,
 	}
 }
 
@@ -60,7 +61,7 @@ func NewDynamoLoader(ctx context.Context, cfg common.ConfigProvider) (*DynamoLoa
 		return nil, &common.DatabaseConnectionError{Database: "DynamoDB", Reason: err.Error(), Err: err}
 	}
 
-	loader := newDynamoLoader(client, cfg.GetDynamoTable())
+	loader := newDynamoLoader(client, cfg.GetDynamoTable(), cfg.GetMaxRetries())
 
 	// Ensure table exists, create if it doesn't.
 	if err := loader.ensureTableExists(ctx, cfg); err != nil {
@@ -256,7 +257,7 @@ func calculateBackoffWithJitter(attempt int) time.Duration {
 // batchWrite writes a batch of items to DynamoDB.
 func (l *DynamoLoader) batchWrite(ctx context.Context, writeRequests []types.WriteRequest) error {
 	var lastUnprocessed []types.WriteRequest
-	for attempt := 0; attempt < maxRetries; attempt++ {
+	for attempt := 0; attempt < l.maxRetries; attempt++ {
 		input := &dynamodb.BatchWriteItemInput{
 			RequestItems: map[string][]types.WriteRequest{
 				l.table: writeRequests,
@@ -287,7 +288,7 @@ func (l *DynamoLoader) batchWrite(ctx context.Context, writeRequests []types.Wri
 		return &common.DatabaseOperationError{
 			Database: "DynamoDB",
 			Op:       "batch write (unprocessed items)",
-			Reason:   fmt.Sprintf("failed to process all items after %d retries", maxRetries),
+			Reason:   fmt.Sprintf("failed to process all items after %d retries", l.maxRetries),
 			Err:      fmt.Errorf("unprocessed items: %v", lastUnprocessed),
 		}
 	}
