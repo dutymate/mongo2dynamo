@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
@@ -341,4 +342,117 @@ func TestDynamoLoader_Load_ContextCancellation(t *testing.T) {
 	var dbError *common.DatabaseOperationError
 	assert.ErrorAs(t, err, &dbError)
 	assert.Contains(t, dbError.Reason, expectedError.Error())
+}
+
+func TestCalculateBackoffWithJitter(t *testing.T) {
+	tests := []struct {
+		name     string
+		attempt  int
+		expected time.Duration
+	}{
+		{
+			name:     "attempt 0",
+			attempt:  0,
+			expected: 100 * time.Millisecond, // baseDelay.
+		},
+		{
+			name:     "attempt 1",
+			attempt:  1,
+			expected: 200 * time.Millisecond, // 2^1 * baseDelay.
+		},
+		{
+			name:     "attempt 2",
+			attempt:  2,
+			expected: 400 * time.Millisecond, // 2^2 * baseDelay.
+		},
+		{
+			name:     "attempt 3",
+			attempt:  3,
+			expected: 800 * time.Millisecond, // 2^3 * baseDelay.
+		},
+		{
+			name:     "attempt 4",
+			attempt:  4,
+			expected: 1600 * time.Millisecond, // 2^4 * baseDelay.
+		},
+		{
+			name:     "attempt 5",
+			attempt:  5,
+			expected: 3200 * time.Millisecond, // 2^5 * baseDelay.
+		},
+		{
+			name:     "attempt 9 (should be capped at maxDelay)",
+			attempt:  9,
+			expected: 30 * time.Second, // maxDelay.
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := calculateBackoffWithJitter(tt.attempt)
+
+			// Check that result is within expected range (with jitter).
+			// Jitter range is 0.5 ~ 1.5, so result should be between 0.5x and 1.5x of expected.
+			minExpected := time.Duration(float64(tt.expected) * 0.5)
+			maxExpected := time.Duration(float64(tt.expected) * 1.5)
+
+			assert.GreaterOrEqual(t, result, minExpected,
+				"Backoff duration should be at least 0.5x of expected")
+			assert.LessOrEqual(t, result, maxExpected,
+				"Backoff duration should be at most 1.5x of expected")
+
+			// For attempts that should be capped, ensure they don't exceed maxDelay.
+			if tt.attempt >= 9 {
+				assert.LessOrEqual(t, result, maxDelay,
+					"Backoff duration should not exceed maxDelay for high attempts")
+			}
+		})
+	}
+}
+
+func TestCalculateBackoffWithJitter_JitterVariation(t *testing.T) {
+	// Test that jitter provides variation across multiple calls.
+	attempt := 2
+	expected := 400 * time.Millisecond // 2^2 * baseDelay.
+
+	results := make([]time.Duration, 100)
+	for i := 0; i < 100; i++ {
+		results[i] = calculateBackoffWithJitter(attempt)
+	}
+
+	// Check that we have some variation (not all results are the same).
+	firstResult := results[0]
+	allSame := true
+	for _, result := range results {
+		if result != firstResult {
+			allSame = false
+			break
+		}
+	}
+
+	assert.False(t, allSame, "Jitter should provide variation across multiple calls")
+
+	// Check that all results are within expected range.
+	minExpected := time.Duration(float64(expected) * 0.5)
+	maxExpected := time.Duration(float64(expected) * 1.5)
+
+	for _, result := range results {
+		assert.GreaterOrEqual(t, result, minExpected,
+			"All backoff durations should be at least 0.5x of expected")
+		assert.LessOrEqual(t, result, maxExpected,
+			"All backoff durations should be at most 1.5x of expected")
+	}
+}
+
+func TestCalculateBackoffWithJitter_EdgeCases(t *testing.T) {
+	// Test negative attempt (should be treated as 0).
+	result := calculateBackoffWithJitter(-1)
+	minExpected := time.Duration(float64(baseDelay) * 0.5)
+	maxExpected := time.Duration(float64(baseDelay) * 1.5)
+	assert.GreaterOrEqual(t, result, minExpected, "Negative attempt should be at least 0.5x baseDelay")
+	assert.LessOrEqual(t, result, maxExpected, "Negative attempt should be at most 1.5x baseDelay")
+
+	// Test very large attempt (should be capped).
+	result = calculateBackoffWithJitter(100)
+	assert.LessOrEqual(t, result, maxDelay, "Very large attempt should be capped at maxDelay")
 }
