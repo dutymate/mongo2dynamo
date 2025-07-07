@@ -2,7 +2,9 @@ package extractor
 
 import (
 	"context"
+	"encoding/json"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	goMongo "go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -29,6 +31,7 @@ type MongoExtractor struct {
 	collection Collection
 	batchSize  int // Number of documents to fetch from MongoDB per batch.
 	chunkSize  int // Number of documents to pass to handleChunk per chunk.
+	filter     primitive.M
 }
 
 // mongoCollectionWrapper wraps *mongo.Collection to implement Collection interface.
@@ -56,11 +59,12 @@ func (w *mongoCollectionWrapper) Find(ctx context.Context, filter interface{}, o
 }
 
 // newMongoExtractor creates a new MongoDB extractor with the specified collection, batchSize, and chunkSize.
-func newMongoExtractor(collection Collection) *MongoExtractor {
+func newMongoExtractor(collection Collection, filter primitive.M) *MongoExtractor {
 	return &MongoExtractor{
 		collection: collection,
 		batchSize:  500,
 		chunkSize:  1000,
+		filter:     filter,
 	}
 }
 
@@ -71,13 +75,71 @@ func NewMongoExtractor(ctx context.Context, cfg common.ConfigProvider) (common.E
 		return nil, &common.DatabaseConnectionError{Database: "MongoDB", Reason: err.Error(), Err: err}
 	}
 	collection := client.Database(cfg.GetMongoDB()).Collection(cfg.GetMongoCollection())
-	return newMongoExtractor(&mongoCollectionWrapper{collection}), nil
+
+	// Parse MongoDB filter if provided.
+	var filter primitive.M
+	if cfg.GetMongoFilter() != "" {
+		filter, err = parseMongoFilter(cfg.GetMongoFilter())
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return newMongoExtractor(&mongoCollectionWrapper{collection}, filter), nil
+}
+
+// parseMongoFilter parses a JSON string into a MongoDB BSON filter.
+func parseMongoFilter(filterStr string) (primitive.M, error) {
+	// Handle empty string case.
+	if filterStr == "" {
+		return primitive.M{}, nil
+	}
+
+	var filter map[string]interface{}
+	if err := json.Unmarshal([]byte(filterStr), &filter); err != nil {
+		return nil, &common.FilterParseError{
+			Filter: filterStr,
+			Op:     "json unmarshal",
+			Reason: "invalid JSON syntax",
+			Err:    err,
+		}
+	}
+
+	// Convert to BSON document.
+	bsonBytes, err := bson.Marshal(filter)
+	if err != nil {
+		return nil, &common.FilterParseError{
+			Filter: filterStr,
+			Op:     "bson marshal",
+			Reason: "failed to convert JSON to BSON format",
+			Err:    err,
+		}
+	}
+
+	var bsonFilter primitive.M
+	if err := bson.Unmarshal(bsonBytes, &bsonFilter); err != nil {
+		return nil, &common.FilterParseError{
+			Filter: filterStr,
+			Op:     "bson unmarshal",
+			Reason: "failed to convert BSON to MongoDB filter format",
+			Err:    err,
+		}
+	}
+
+	return bsonFilter, nil
 }
 
 // Extract retrieves documents from the MongoDB collection in fixed-size chunks and processes them using the provided callback.
 func (e *MongoExtractor) Extract(ctx context.Context, handleChunk common.ChunkHandler) error {
 	findOptions := options.Find().SetBatchSize(int32(e.batchSize))
-	cursor, err := e.collection.Find(ctx, primitive.M{}, findOptions)
+
+	// Parse MongoDB filter if provided.
+	filter := primitive.M{}
+	if e.filter != nil {
+		filter = e.filter
+	}
+
+	cursor, err := e.collection.Find(ctx, filter, findOptions)
 	if err != nil {
 		return &common.DatabaseOperationError{Database: "MongoDB", Op: "find", Reason: err.Error(), Err: err}
 	}

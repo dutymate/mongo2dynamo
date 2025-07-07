@@ -12,6 +12,7 @@ func AddMongoFlags(cmd *cobra.Command) {
 	cmd.Flags().String("mongo-password", "", "MongoDB password.")
 	cmd.Flags().String("mongo-db", "", "MongoDB database name.")
 	cmd.Flags().String("mongo-collection", "", "MongoDB collection name.")
+	cmd.Flags().String("mongo-filter", "", "MongoDB query filter (JSON string)")
 }
 
 // AddDynamoFlags adds DynamoDB-related flags to the command.

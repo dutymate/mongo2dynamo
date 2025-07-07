@@ -26,6 +26,7 @@ func TestConfig_Load(t *testing.T) {
 				"MONGO2DYNAMO_MONGO_PORT":       "27018",
 				"MONGO2DYNAMO_MONGO_DB":         "testdb",
 				"MONGO2DYNAMO_MONGO_COLLECTION": "testcollection",
+				"MONGO2DYNAMO_MONGO_FILTER":     `{"status": "active"}`,
 				"MONGO2DYNAMO_DYNAMO_TABLE":     "testtable",
 				"MONGO2DYNAMO_DYNAMO_ENDPOINT":  "http://test:8000",
 				"MONGO2DYNAMO_AWS_REGION":       "us-west-2",
@@ -77,6 +78,9 @@ func TestConfig_Load(t *testing.T) {
 				}
 				if tt.envVars["MONGO2DYNAMO_MONGO_PORT"] != "" && tt.config.MongoPort != tt.envVars["MONGO2DYNAMO_MONGO_PORT"] {
 					t.Errorf("MongoPort should be '%s', got '%s'", tt.envVars["MONGO2DYNAMO_MONGO_PORT"], tt.config.MongoPort)
+				}
+				if tt.envVars["MONGO2DYNAMO_MONGO_FILTER"] != "" && tt.config.MongoFilter != tt.envVars["MONGO2DYNAMO_MONGO_FILTER"] {
+					t.Errorf("MongoFilter should be '%s', got '%s'", tt.envVars["MONGO2DYNAMO_MONGO_FILTER"], tt.config.MongoFilter)
 				}
 				if tt.envVars["MONGO2DYNAMO_DYNAMO_ENDPOINT"] != "" && tt.config.DynamoEndpoint != tt.envVars["MONGO2DYNAMO_DYNAMO_ENDPOINT"] {
 					t.Errorf("DynamoEndpoint should be '%s', got '%s'", tt.envVars["MONGO2DYNAMO_DYNAMO_ENDPOINT"], tt.config.DynamoEndpoint)

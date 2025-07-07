@@ -21,6 +21,7 @@ type Config struct {
 	MongoPassword   string
 	MongoDB         string
 	MongoCollection string
+	MongoFilter     string
 
 	// DynamoDB configuration.
 	DynamoTable    string
@@ -43,6 +44,7 @@ func (c *Config) Load() error {
 	v.SetDefault("dynamo_endpoint", "http://localhost:8000")
 	v.SetDefault("aws_region", "us-east-1")
 	v.SetDefault("max_retries", 5)
+	v.SetDefault("mongo_filter", "")
 
 	// Read from environment variables.
 	v.SetEnvPrefix("MONGO2DYNAMO")
@@ -83,6 +85,9 @@ func (c *Config) Load() error {
 	}
 	if c.MongoCollection == "" {
 		c.MongoCollection = v.GetString("mongo_collection")
+	}
+	if c.MongoFilter == "" {
+		c.MongoFilter = v.GetString("mongo_filter")
 	}
 	if c.DynamoTable == "" {
 		c.DynamoTable = v.GetString("dynamo_table")
@@ -153,6 +158,10 @@ func (c *Config) GetMongoDB() string {
 
 func (c *Config) GetMongoCollection() string {
 	return c.MongoCollection
+}
+
+func (c *Config) GetMongoFilter() string {
+	return c.MongoFilter
 }
 
 func (c *Config) GetMongoURI() string {

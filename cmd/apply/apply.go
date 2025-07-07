@@ -67,6 +67,9 @@ func runApply(cmd *cobra.Command, _ []string) error {
 	if cmd.Flags().Changed("max-retries") {
 		cfg.MaxRetries, _ = cmd.Flags().GetInt("max-retries")
 	}
+	if cmd.Flags().Changed("mongo-filter") {
+		cfg.MongoFilter, _ = cmd.Flags().GetString("mongo-filter")
+	}
 
 	// Validate configuration after all values are set.
 	if err := cfg.Validate(); err != nil {
