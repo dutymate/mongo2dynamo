@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
+	"math/rand"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -15,7 +17,15 @@ import (
 	"mongo2dynamo/internal/dynamo"
 )
 
-const batchSize = 25
+const (
+	batchSize  = 25
+	maxRetries = 5
+	baseDelay  = 100 * time.Millisecond
+	maxDelay   = 30 * time.Second
+)
+
+// Global random source for jitter calculation.
+var randomSource = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 // DBClient defines the interface for DynamoDB operations used by Loader.
 type DBClient interface {
@@ -221,9 +231,30 @@ func (l *DynamoLoader) Load(ctx context.Context, data []map[string]interface{}) 
 	return nil
 }
 
+// calculateBackoffWithJitter calculates exponential backoff with jitter to prevent thundering herd.
+func calculateBackoffWithJitter(attempt int) time.Duration {
+	// Handle negative attempts.
+	if attempt < 0 {
+		attempt = 0
+	}
+
+	// Exponential backoff calculation.
+	exponentialDelay := time.Duration(math.Pow(2, float64(attempt))) * baseDelay
+
+	// Cap at maximum delay before applying jitter.
+	if exponentialDelay > maxDelay {
+		exponentialDelay = maxDelay
+	}
+
+	// Add jitter (0.5 ~ 1.5 range) to prevent synchronized retries.
+	jitter := 0.5 + randomSource.Float64()*1.0
+	jitteredDelay := min(time.Duration(float64(exponentialDelay)*jitter), maxDelay)
+
+	return jitteredDelay
+}
+
 // batchWrite writes a batch of items to DynamoDB.
 func (l *DynamoLoader) batchWrite(ctx context.Context, writeRequests []types.WriteRequest) error {
-	const maxRetries = 5
 	var lastUnprocessed []types.WriteRequest
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		input := &dynamodb.BatchWriteItemInput{
@@ -247,8 +278,8 @@ func (l *DynamoLoader) batchWrite(ctx context.Context, writeRequests []types.Wri
 		// Prepare for retry.
 		writeRequests = unprocessed
 		lastUnprocessed = unprocessed
-		// Exponential backoff.
-		backoffDuration := time.Duration(attempt+1) * time.Second
+		// Exponential backoff with jitter.
+		backoffDuration := calculateBackoffWithJitter(attempt)
 		time.Sleep(backoffDuration)
 	}
 	// Log unprocessed items after exhausting retries.
