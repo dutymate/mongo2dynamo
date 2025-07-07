@@ -15,6 +15,8 @@ import (
 	"mongo2dynamo/internal/common"
 )
 
+const defaultMaxRetries = 5
+
 // MockDynamoDBClient is a mock implementation of DBClient for testing.
 type MockDBClient struct {
 	mock.Mock
@@ -50,9 +52,10 @@ func (m *MockDBClient) BatchWriteItem(ctx context.Context, params *dynamodb.Batc
 // newTestLoader creates a new DynamoDB loader with custom marshal function for testing.
 func newTestLoader(client DBClient, table string, marshal MarshalFunc) *DynamoLoader {
 	return &DynamoLoader{
-		client:  client,
-		table:   table,
-		marshal: marshal,
+		client:     client,
+		table:      table,
+		marshal:    marshal,
+		maxRetries: defaultMaxRetries,
 	}
 }
 
@@ -60,7 +63,7 @@ func TestNewDynamoLoader(t *testing.T) {
 	mockClient := &MockDBClient{}
 	table := "test-table"
 
-	dynamoLoader := newDynamoLoader(mockClient, table)
+	dynamoLoader := newDynamoLoader(mockClient, table, defaultMaxRetries)
 
 	assert.NotNil(t, dynamoLoader)
 	assert.Equal(t, mockClient, dynamoLoader.client)
@@ -70,7 +73,7 @@ func TestNewDynamoLoader(t *testing.T) {
 
 func TestDynamoLoader_Load_Success(t *testing.T) {
 	mockClient := &MockDBClient{}
-	dynamoLoader := newDynamoLoader(mockClient, "test-table")
+	dynamoLoader := newDynamoLoader(mockClient, "test-table", defaultMaxRetries)
 
 	data := []map[string]interface{}{
 		{"id": "1", "name": "test1"},
@@ -92,7 +95,7 @@ func TestDynamoLoader_Load_Success(t *testing.T) {
 
 func TestDynamoLoader_Load_ComplexDataTypes(t *testing.T) {
 	mockClient := &MockDBClient{}
-	dynamoLoader := newDynamoLoader(mockClient, "test-table")
+	dynamoLoader := newDynamoLoader(mockClient, "test-table", defaultMaxRetries)
 
 	data := []map[string]interface{}{
 		{
@@ -119,7 +122,7 @@ func TestDynamoLoader_Load_ComplexDataTypes(t *testing.T) {
 
 func TestDynamoLoader_Load_EmptyData(t *testing.T) {
 	mockClient := &MockDBClient{}
-	dynamoLoader := newDynamoLoader(mockClient, "test-table")
+	dynamoLoader := newDynamoLoader(mockClient, "test-table", defaultMaxRetries)
 
 	data := []map[string]interface{}{}
 
@@ -131,7 +134,7 @@ func TestDynamoLoader_Load_EmptyData(t *testing.T) {
 
 func TestDynamoLoader_Load_ExactBatchSize(t *testing.T) {
 	mockClient := &MockDBClient{}
-	dynamoLoader := newDynamoLoader(mockClient, "test-table")
+	dynamoLoader := newDynamoLoader(mockClient, "test-table", defaultMaxRetries)
 
 	// Data with exactly batchSize (25) items.
 	data := make([]map[string]interface{}, 25)
@@ -153,7 +156,7 @@ func TestDynamoLoader_Load_ExactBatchSize(t *testing.T) {
 
 func TestDynamoLoader_Load_BatchSizeExceeded(t *testing.T) {
 	mockClient := &MockDBClient{}
-	dynamoLoader := newDynamoLoader(mockClient, "test-table")
+	dynamoLoader := newDynamoLoader(mockClient, "test-table", defaultMaxRetries)
 
 	// Create data that exceeds batch size (25 items).
 	data := make([]map[string]interface{}, 30)
@@ -182,7 +185,7 @@ func TestDynamoLoader_Load_BatchSizeExceeded(t *testing.T) {
 
 func TestDynamoLoader_Load_UnprocessedItemsRetry(t *testing.T) {
 	mockClient := &MockDBClient{}
-	dynamoLoader := newDynamoLoader(mockClient, "test-table")
+	dynamoLoader := newDynamoLoader(mockClient, "test-table", defaultMaxRetries)
 
 	data := []map[string]interface{}{
 		{"id": "1", "name": "test1"},
@@ -216,7 +219,7 @@ func TestDynamoLoader_Load_UnprocessedItemsRetry(t *testing.T) {
 
 func TestDynamoLoader_Load_ExponentialBackoff(t *testing.T) {
 	mockClient := &MockDBClient{}
-	dynamoLoader := newDynamoLoader(mockClient, "test-table")
+	dynamoLoader := newDynamoLoader(mockClient, "test-table", defaultMaxRetries)
 
 	data := []map[string]interface{}{
 		{"id": "1", "name": "test1"},
@@ -269,7 +272,7 @@ func TestDynamoLoader_Load_MarshalError(t *testing.T) {
 
 func TestDynamoLoader_Load_DynamoDBError(t *testing.T) {
 	mockClient := &MockDBClient{}
-	dynamoLoader := newDynamoLoader(mockClient, "test-table")
+	dynamoLoader := newDynamoLoader(mockClient, "test-table", defaultMaxRetries)
 
 	data := []map[string]interface{}{
 		{"id": "1", "name": "test1"},
@@ -291,7 +294,7 @@ func TestDynamoLoader_Load_DynamoDBError(t *testing.T) {
 
 func TestDynamoLoader_Load_UnprocessedItemsMaxRetriesExceeded(t *testing.T) {
 	mockClient := &MockDBClient{}
-	dynamoLoader := newDynamoLoader(mockClient, "test-table")
+	dynamoLoader := newDynamoLoader(mockClient, "test-table", defaultMaxRetries)
 
 	data := []map[string]interface{}{
 		{"id": "1", "name": "test1"},
@@ -302,7 +305,7 @@ func TestDynamoLoader_Load_UnprocessedItemsMaxRetriesExceeded(t *testing.T) {
 	}
 
 	// All retries return unprocessed items.
-	for i := 0; i < 5; i++ {
+	for i := 0; i < defaultMaxRetries; i++ {
 		mockClient.On("BatchWriteItem", mock.Anything, mock.Anything).Return(&dynamodb.BatchWriteItemOutput{
 			UnprocessedItems: map[string][]types.WriteRequest{
 				"test-table": unprocessedItems,
@@ -317,13 +320,13 @@ func TestDynamoLoader_Load_UnprocessedItemsMaxRetriesExceeded(t *testing.T) {
 	assert.ErrorAs(t, err, &dbError)
 	assert.Equal(t, "DynamoDB", dbError.Database)
 	assert.Equal(t, "batch write (unprocessed items)", dbError.Op)
-	assert.Contains(t, dbError.Reason, "failed to process all items after 5 retries")
-	mockClient.AssertNumberOfCalls(t, "BatchWriteItem", 5)
+	assert.Contains(t, dbError.Reason, fmt.Sprintf("failed to process all items after %d retries", defaultMaxRetries))
+	mockClient.AssertNumberOfCalls(t, "BatchWriteItem", defaultMaxRetries)
 }
 
 func TestDynamoLoader_Load_ContextCancellation(t *testing.T) {
 	mockClient := &MockDBClient{}
-	dynamoLoader := newDynamoLoader(mockClient, "test-table")
+	dynamoLoader := newDynamoLoader(mockClient, "test-table", defaultMaxRetries)
 
 	data := []map[string]interface{}{
 		{"id": "1", "name": "test1"},

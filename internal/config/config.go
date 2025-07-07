@@ -30,6 +30,7 @@ type Config struct {
 	// Application configuration.
 	AutoApprove bool
 	DryRun      bool
+	MaxRetries  int
 }
 
 // Load loads configuration from environment variables and config file.
@@ -41,6 +42,7 @@ func (c *Config) Load() error {
 	v.SetDefault("mongo_port", "27017")
 	v.SetDefault("dynamo_endpoint", "http://localhost:8000")
 	v.SetDefault("aws_region", "us-east-1")
+	v.SetDefault("max_retries", 5)
 
 	// Read from environment variables.
 	v.SetEnvPrefix("MONGO2DYNAMO")
@@ -97,6 +99,9 @@ func (c *Config) Load() error {
 	if !c.DryRun {
 		c.DryRun = v.GetBool("dry_run")
 	}
+	if c.MaxRetries == 0 {
+		c.MaxRetries = v.GetInt("max_retries")
+	}
 
 	return nil
 }
@@ -108,6 +113,9 @@ func (c *Config) Validate() error {
 	}
 	if c.MongoCollection == "" {
 		return &common.ConfigError{Op: "validate", Reason: "mongo_collection field is required"}
+	}
+	if c.MaxRetries <= 0 {
+		return &common.ConfigError{Op: "validate", Reason: "max_retries must be greater than 0"}
 	}
 
 	// If DynamoTable is not set and not in DryRun mode, use the collection name as the DynamoDB table name.
@@ -175,7 +183,10 @@ func (c *Config) GetDryRun() bool {
 	return c.DryRun
 }
 
-// SetDryRun sets whether this is a dry run.
+func (c *Config) GetMaxRetries() int {
+	return c.MaxRetries
+}
+
 func (c *Config) SetDryRun(dryRun bool) {
 	c.DryRun = dryRun
 }

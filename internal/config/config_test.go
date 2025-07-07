@@ -10,6 +10,8 @@ import (
 	"mongo2dynamo/internal/common"
 )
 
+const defaultMaxRetries = 5
+
 func TestConfig_Load(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -164,6 +166,7 @@ func TestConfig_Validate(t *testing.T) {
 				MongoDB:         "testdb",
 				MongoCollection: "testcollection",
 				DynamoTable:     "testtable",
+				MaxRetries:      defaultMaxRetries,
 			},
 			wantErr: false,
 		},
@@ -172,6 +175,7 @@ func TestConfig_Validate(t *testing.T) {
 			config: &Config{
 				MongoCollection: "testcollection",
 				DynamoTable:     "testtable",
+				MaxRetries:      defaultMaxRetries,
 			},
 			wantErr:     true,
 			expectedErr: "mongo_db",
@@ -181,6 +185,7 @@ func TestConfig_Validate(t *testing.T) {
 			config: &Config{
 				MongoDB:     "testdb",
 				DynamoTable: "testtable",
+				MaxRetries:  defaultMaxRetries,
 			},
 			wantErr:     true,
 			expectedErr: "mongo_collection",
@@ -191,6 +196,7 @@ func TestConfig_Validate(t *testing.T) {
 				MongoDB:         "testdb",
 				MongoCollection: "testcollection",
 				DryRun:          true,
+				MaxRetries:      defaultMaxRetries,
 			},
 			wantErr: false,
 		},
@@ -201,8 +207,31 @@ func TestConfig_Validate(t *testing.T) {
 				MongoCollection: "testcollection",
 				DryRun:          false,
 				AutoApprove:     true,
+				MaxRetries:      defaultMaxRetries,
 			},
 			wantErr: false,
+		},
+		{
+			name: "max_retries is zero",
+			config: &Config{
+				MongoDB:         "testdb",
+				MongoCollection: "testcollection",
+				DynamoTable:     "testtable",
+				MaxRetries:      0,
+			},
+			wantErr:     true,
+			expectedErr: "max_retries",
+		},
+		{
+			name: "max_retries is negative",
+			config: &Config{
+				MongoDB:         "testdb",
+				MongoCollection: "testcollection",
+				DynamoTable:     "testtable",
+				MaxRetries:      -3,
+			},
+			wantErr:     true,
+			expectedErr: "max_retries",
 		},
 	}
 

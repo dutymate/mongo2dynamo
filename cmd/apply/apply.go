@@ -64,6 +64,9 @@ func runApply(cmd *cobra.Command, _ []string) error {
 	if cmd.Flags().Changed("auto-approve") {
 		cfg.AutoApprove, _ = cmd.Flags().GetBool("auto-approve")
 	}
+	if cmd.Flags().Changed("max-retries") {
+		cfg.MaxRetries, _ = cmd.Flags().GetInt("max-retries")
+	}
 
 	// Validate configuration after all values are set.
 	if err := cfg.Validate(); err != nil {

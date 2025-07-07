@@ -38,4 +38,6 @@ type ConfigProvider interface {
 	GetDynamoTable() string
 	GetAWSRegion() string
 	GetAutoApprove() bool
+	GetDryRun() bool
+	GetMaxRetries() int
 }
