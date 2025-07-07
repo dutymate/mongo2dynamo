@@ -48,4 +48,8 @@ func TestAddDynamoFlags(t *testing.T) {
 	regionFlag := cmd.Flags().Lookup("aws-region")
 	assert.NotNil(t, regionFlag, "aws-region flag should be registered")
 	assert.Equal(t, "us-east-1", regionFlag.DefValue)
+
+	maxRetriesFlag := cmd.Flags().Lookup("max-retries")
+	assert.NotNil(t, maxRetriesFlag, "max-retries flag should be registered")
+	assert.Equal(t, "5", maxRetriesFlag.DefValue)
 }
