@@ -100,6 +100,7 @@ func runApply(cmd *cobra.Command, _ []string) error {
 	}
 
 	migrated := 0
+	fmt.Println("Starting data migration from MongoDB to DynamoDB...")
 	err = mongoExtractor.Extract(cmd.Context(), func(chunk []map[string]interface{}) error {
 		// Apply transformation to each chunk before loading to DynamoDB.
 		transformed, err := docTransformer.Transform(chunk)
