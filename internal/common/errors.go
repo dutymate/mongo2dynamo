@@ -10,9 +10,6 @@ type ConfigError struct {
 }
 
 func (e *ConfigError) Error() string {
-	if e.Err != nil {
-		return fmt.Sprintf("configuration error during '%s': %s: %v", e.Op, e.Reason, e.Err)
-	}
 	return fmt.Sprintf("configuration error during '%s': %s", e.Op, e.Reason)
 }
 
@@ -29,9 +26,6 @@ type DataValidationError struct {
 }
 
 func (e *DataValidationError) Error() string {
-	if e.Err != nil {
-		return fmt.Sprintf("data validation error on '%s' (%s): %s: %v", e.Database, e.Op, e.Reason, e.Err)
-	}
 	return fmt.Sprintf("data validation error on '%s' (%s): %s", e.Database, e.Op, e.Reason)
 }
 
@@ -47,9 +41,6 @@ type DatabaseConnectionError struct {
 }
 
 func (e *DatabaseConnectionError) Error() string {
-	if e.Err != nil {
-		return fmt.Sprintf("failed to connect to database '%s': %s: %v", e.Database, e.Reason, e.Err)
-	}
 	return fmt.Sprintf("failed to connect to database '%s': %s", e.Database, e.Reason)
 }
 
@@ -66,9 +57,6 @@ type DatabaseOperationError struct {
 }
 
 func (e *DatabaseOperationError) Error() string {
-	if e.Err != nil {
-		return fmt.Sprintf("database operation error on '%s' (%s): %s: %v", e.Database, e.Op, e.Reason, e.Err)
-	}
 	return fmt.Sprintf("database operation error on '%s' (%s): %s", e.Database, e.Op, e.Reason)
 }
 
@@ -84,9 +72,6 @@ type FileIOError struct {
 }
 
 func (e *FileIOError) Error() string {
-	if e.Err != nil {
-		return fmt.Sprintf("file I/O error during '%s': %s: %v", e.Op, e.Reason, e.Err)
-	}
 	return fmt.Sprintf("file I/O error during '%s': %s", e.Op, e.Reason)
 }
 
@@ -103,47 +88,10 @@ type AuthError struct {
 }
 
 func (e *AuthError) Error() string {
-	if e.Err != nil {
-		return fmt.Sprintf("authentication/authorization error on '%s' (%s): %s: %v", e.Database, e.Op, e.Reason, e.Err)
-	}
 	return fmt.Sprintf("authentication/authorization error on '%s' (%s): %s", e.Database, e.Op, e.Reason)
 }
 
 func (e *AuthError) Unwrap() error {
-	return e.Err
-}
-
-// PlanError is returned for unexpected errors during the plan command.
-type PlanError struct {
-	Reason string
-	Err    error
-}
-
-func (e *PlanError) Error() string {
-	if e.Err != nil {
-		return fmt.Sprintf("plan error: %s: %v", e.Reason, e.Err)
-	}
-	return fmt.Sprintf("plan error: %s", e.Reason)
-}
-
-func (e *PlanError) Unwrap() error {
-	return e.Err
-}
-
-// ApplyError is returned for unexpected errors during the apply command.
-type ApplyError struct {
-	Reason string
-	Err    error
-}
-
-func (e *ApplyError) Error() string {
-	if e.Err != nil {
-		return fmt.Sprintf("apply error: %s: %v", e.Reason, e.Err)
-	}
-	return fmt.Sprintf("apply error: %s", e.Reason)
-}
-
-func (e *ApplyError) Unwrap() error {
 	return e.Err
 }
 
@@ -154,30 +102,10 @@ type ExtractError struct {
 }
 
 func (e *ExtractError) Error() string {
-	if e.Err != nil {
-		return fmt.Sprintf("extract error: %s: %v", e.Reason, e.Err)
-	}
 	return fmt.Sprintf("extract error: %s", e.Reason)
 }
 
 func (e *ExtractError) Unwrap() error {
-	return e.Err
-}
-
-// LoadError is returned when creating, initializing, or loading to the destination fails.
-type LoadError struct {
-	Reason string
-	Err    error
-}
-
-func (e *LoadError) Error() string {
-	if e.Err != nil {
-		return fmt.Sprintf("load error: %s: %v", e.Reason, e.Err)
-	}
-	return fmt.Sprintf("load error: %s", e.Reason)
-}
-
-func (e *LoadError) Unwrap() error {
 	return e.Err
 }
 
@@ -188,13 +116,24 @@ type TransformError struct {
 }
 
 func (e *TransformError) Error() string {
-	if e.Err != nil {
-		return fmt.Sprintf("transform error: %s: %v", e.Reason, e.Err)
-	}
 	return fmt.Sprintf("transform error: %s", e.Reason)
 }
 
 func (e *TransformError) Unwrap() error {
+	return e.Err
+}
+
+// LoadError is returned when creating, initializing, or loading to the destination fails.
+type LoadError struct {
+	Reason string
+	Err    error
+}
+
+func (e *LoadError) Error() string {
+	return fmt.Sprintf("load error: %s", e.Reason)
+}
+
+func (e *LoadError) Unwrap() error {
 	return e.Err
 }
 
@@ -205,9 +144,6 @@ type ChunkCallbackError struct {
 }
 
 func (e *ChunkCallbackError) Error() string {
-	if e.Err != nil {
-		return fmt.Sprintf("chunk callback error: %s: %v", e.Reason, e.Err)
-	}
 	return fmt.Sprintf("chunk callback error: %s", e.Reason)
 }
 
