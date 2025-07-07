@@ -25,13 +25,13 @@
 - **Automatic DynamoDB table creation**: Automatically creates DynamoDB tables if they don't exist, with configurable behavior through the auto-approve flag.
 - **Smart table naming with confirmation**: If `--dynamo-table` is not specified, prompts for user confirmation before using the MongoDB collection name as the DynamoDB table name (only in `apply` command).
 - **Flexible configuration**: Easily configure all options via command-line flags, environment variables, or a YAML config file—whichever fits your workflow best.
-- **Error handling and retry logic**: Automatically retries failed extract/load operations with exponential backoff, and provides clear error messages to help you quickly resolve issues.
+- **Error handling and retry logic**: Automatically retries failed extract/load operations with exponential backoff and jitter to prevent thundering herd problems, and provides clear error messages to help you quickly resolve issues.
 - **Dry-run support**: Use the `plan` command to preview ETL operations before performing any actual data transfer.
 
 ## Why mongo2dynamo?
 
 - **Reliability**: Safely extracts, transforms, and loads data without loss or duplication.
-- **Scalability**: Handles millions of documents efficiently with ETL best practices.
+- **Scalability**: Handles millions of documents efficiently with ETL best practices and optimized retry strategies.
 - **Easy to Use**: Intuitive CLI and configuration options.
 
 ## Installation
@@ -140,7 +140,7 @@ The `apply` command executes the full ETL pipeline:
 - **Transformation**: Transforms MongoDB BSON documents to DynamoDB-compatible format.
 - **Table Management**: Automatically checks if the DynamoDB table exists and creates it if needed, with user confirmation based on the auto-approve setting.
 - **Loading**: Loads transformed data into DynamoDB using the BatchWriteItem API.
-- **Error Handling**: Implements retry logic with exponential backoff for failed operations.
+- **Error Handling**: Implements retry logic with exponential backoff and jitter for failed operations, preventing thundering herd problems during concurrent migrations.
 
 **Table Creation Behavior**: When the target DynamoDB table doesn't exist, mongo2dynamo can automatically create it:
 - **Table Naming**: If `--dynamo-table` is not specified, the tool prompts for user confirmation before using the MongoDB collection name as the DynamoDB table name.
