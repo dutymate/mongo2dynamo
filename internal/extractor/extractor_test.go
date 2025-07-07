@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"mongo2dynamo/internal/common"
@@ -91,7 +92,7 @@ func TestMongoExtractor_Extract_EmptyCollection(t *testing.T) {
 	mockCursor.On("Err").Return(nil)
 	mockCollection.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(mockCursor, nil)
 
-	mongoExtractor := newMongoExtractor(mockCollection)
+	mongoExtractor := newMongoExtractor(mockCollection, primitive.M{})
 	var processedDocs []map[string]interface{}
 
 	err := mongoExtractor.Extract(context.Background(), func(chunk []map[string]interface{}) error {
@@ -118,7 +119,7 @@ func TestExtractor_Extract_SingleChunk(t *testing.T) {
 	mockCursor.On("Err").Return(nil)
 	mockCollection.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(mockCursor, nil)
 
-	mongoExtractor := newMongoExtractor(mockCollection)
+	mongoExtractor := newMongoExtractor(mockCollection, primitive.M{})
 	var processedDocs []map[string]interface{}
 
 	err := mongoExtractor.Extract(context.Background(), func(chunk []map[string]interface{}) error {
@@ -148,7 +149,7 @@ func TestExtractor_Extract_MultipleChunks(t *testing.T) {
 	mockCursor.On("Err").Return(nil)
 	mockCollection.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(mockCursor, nil)
 
-	mongoExtractor := newMongoExtractor(mockCollection)
+	mongoExtractor := newMongoExtractor(mockCollection, primitive.M{})
 	var processedDocs []map[string]interface{}
 	chunkCount := 0
 
@@ -170,7 +171,7 @@ func TestExtractor_Extract_FindError(t *testing.T) {
 	expectedErr := errors.New("find error")
 	mockCollection.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(nil, expectedErr)
 
-	mongoExtractor := newMongoExtractor(mockCollection)
+	mongoExtractor := newMongoExtractor(mockCollection, primitive.M{})
 	err := mongoExtractor.Extract(context.Background(), func(_ []map[string]interface{}) error {
 		return nil
 	})
@@ -192,7 +193,7 @@ func TestExtractor_Extract_DecodeError(t *testing.T) {
 	mockCursor.On("Close", mock.Anything).Return(nil)
 	mockColl.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(mockCursor, nil)
 
-	mongoExtractor := newMongoExtractor(mockColl)
+	mongoExtractor := newMongoExtractor(mockColl, primitive.M{})
 
 	err := mongoExtractor.Extract(context.Background(), func(_ []map[string]interface{}) error {
 		return nil
@@ -219,7 +220,7 @@ func TestExtractor_Extract_CallbackError(t *testing.T) {
 	mockCursor.On("Close", mock.Anything).Return(nil)
 	mockCollection.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(mockCursor, nil)
 
-	mongoExtractor := newMongoExtractor(mockCollection)
+	mongoExtractor := newMongoExtractor(mockCollection, primitive.M{})
 	expectedErr := errors.New("callback error")
 
 	err := mongoExtractor.Extract(context.Background(), func(_ []map[string]interface{}) error {
@@ -245,7 +246,7 @@ func TestExtractor_Extract_CursorError(t *testing.T) {
 	mockCursor.On("Err").Return(expectedErr)
 	mockCollection.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(mockCursor, nil)
 
-	mongoExtractor := newMongoExtractor(mockCollection)
+	mongoExtractor := newMongoExtractor(mockCollection, primitive.M{})
 	err := mongoExtractor.Extract(context.Background(), func(_ []map[string]interface{}) error {
 		return nil
 	})
@@ -257,4 +258,94 @@ func TestExtractor_Extract_CursorError(t *testing.T) {
 	assert.Equal(t, "cursor", dbErr.Op)
 	mockCollection.AssertExpectations(t)
 	mockCursor.AssertExpectations(t)
+}
+
+func TestExtractor_Extract_WithFilter(t *testing.T) {
+	mockCollection := new(MockCollection)
+	testDocs := []map[string]interface{}{
+		{"_id": "1", "name": "doc1", "status": "active"},
+		{"_id": "2", "name": "doc2", "status": "active"},
+	}
+	mockCursor := &MockCursor{
+		docs: testDocs,
+	}
+	mockCursor.On("Close", mock.Anything).Return(nil)
+	mockCursor.On("Err").Return(nil)
+
+	// Expect Find to be called with the filter.
+	expectedFilter := primitive.M{"status": "active"}
+	mockCollection.On("Find", mock.Anything, expectedFilter, mock.Anything).Return(mockCursor, nil)
+
+	mongoExtractor := newMongoExtractor(mockCollection, expectedFilter)
+	var processedDocs []map[string]interface{}
+
+	err := mongoExtractor.Extract(context.Background(), func(chunk []map[string]interface{}) error {
+		processedDocs = append(processedDocs, chunk...)
+		return nil
+	})
+
+	assert.NoError(t, err)
+	assert.Equal(t, testDocs, processedDocs)
+	mockCollection.AssertExpectations(t)
+	mockCursor.AssertExpectations(t)
+}
+
+func TestParseMongoFilter_ValidJSON(t *testing.T) {
+	filterStr := `{"status": "active", "age": {"$gte": 18}}`
+	filter, err := parseMongoFilter(filterStr)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, filter)
+	assert.Equal(t, "active", filter["status"])
+
+	ageFilter, ok := filter["age"].(primitive.M)
+	assert.True(t, ok)
+	// JSON unmarshaling converts numbers to float64 by default.
+	assert.Equal(t, float64(18), ageFilter["$gte"])
+}
+
+func TestParseMongoFilter_InvalidJSON(t *testing.T) {
+	filterStr := `{"status": "active", "age": {"$gte": 18}` // Missing closing brace.
+	filter, err := parseMongoFilter(filterStr)
+
+	assert.Error(t, err)
+	assert.Nil(t, filter)
+
+	// Check that it's a FilterParseError.
+	var filterErr *common.FilterParseError
+	assert.ErrorAs(t, err, &filterErr)
+	assert.Equal(t, "json unmarshal", filterErr.Op)
+	assert.Equal(t, "invalid JSON syntax", filterErr.Reason)
+	assert.Equal(t, filterStr, filterErr.Filter)
+	assert.Contains(t, filterErr.Error(), "MongoDB filter parse error")
+}
+
+func TestParseMongoFilter_EmptyString(t *testing.T) {
+	// Empty string should be treated as empty filter.
+	filter, err := parseMongoFilter("")
+
+	assert.NoError(t, err)
+	assert.NotNil(t, filter)
+	assert.Empty(t, filter)
+}
+
+func TestParseMongoFilter_ComplexFilter(t *testing.T) {
+	filterStr := `{"$and": [{"status": "active"}, {"age": {"$gte": 18, "$lte": 65}}]}`
+	filter, err := parseMongoFilter(filterStr)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, filter)
+
+	andFilter, ok := filter["$and"].(primitive.A)
+	assert.True(t, ok)
+	assert.Len(t, andFilter, 2)
+}
+
+func TestParseMongoFilter_InvalidBSONConversion(t *testing.T) {
+	filterStr := `{"invalid_field": {"$invalid_operator": "value"}}`
+	filter, err := parseMongoFilter(filterStr)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, filter)
+	assert.Contains(t, filter, "invalid_field")
 }

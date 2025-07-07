@@ -34,6 +34,7 @@ type ConfigProvider interface {
 	GetMongoDB() string
 	GetMongoCollection() string
 	GetMongoURI() string
+	GetMongoFilter() string
 	GetDynamoEndpoint() string
 	GetDynamoTable() string
 	GetAWSRegion() string

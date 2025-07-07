@@ -51,6 +51,9 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 	if cmd.Flags().Changed("mongo-collection") {
 		cfg.MongoCollection, _ = cmd.Flags().GetString("mongo-collection")
 	}
+	if cmd.Flags().Changed("mongo-filter") {
+		cfg.MongoFilter, _ = cmd.Flags().GetString("mongo-filter")
+	}
 
 	// Set dry run mode.
 	cfg.SetDryRun(true)
