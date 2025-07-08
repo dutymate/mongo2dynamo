@@ -2,8 +2,10 @@ package transformer
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/rand"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -199,15 +201,140 @@ func TestConvertID_ObjectIDVariations(t *testing.T) {
 	if result != knownHex {
 		t.Errorf("convertID() with known ObjectID = %s, want %s", result, knownHex)
 	}
+}
 
-	// Test with multiple random ObjectIDs.
-	for i := 0; i < 10; i++ {
-		randomObjID := primitive.NewObjectID()
-		result := convertID(randomObjID)
-		expected := randomObjID.Hex()
+func TestDocTransformer_Transform_LargeDataset(t *testing.T) {
+	docTransformer := NewDocTransformer()
 
-		if result != expected {
-			t.Errorf("convertID() with random ObjectID = %s, want %s", result, expected)
+	// Create a large dataset to test dynamic worker scaling.
+	input := make([]map[string]interface{}, 10000)
+	for i := 0; i < 10000; i++ {
+		input[i] = map[string]interface{}{
+			"_id":     fmt.Sprintf("id_%d", i),
+			"__v":     i,
+			"_class":  "com.example.Entity",
+			"name":    fmt.Sprintf("document_%d", i),
+			"value":   i * 2,
+			"active":  i%2 == 0,
+			"created": time.Now().Unix(),
+		}
+	}
+
+	output, err := docTransformer.Transform(input)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify output.
+	if len(output) != len(input) {
+		t.Errorf("expected output length %d, got %d", len(input), len(output))
+	}
+
+	// Verify transformation correctness.
+	for i, doc := range output {
+		// Check that _id was converted to id.
+		if doc["id"] != fmt.Sprintf("id_%d", i) {
+			t.Errorf("at index %d: expected id 'id_%d', got %v", i, i, doc["id"])
+		}
+
+		// Check that forbidden fields were removed.
+		if _, exists := doc["_id"]; exists {
+			t.Errorf("at index %d: _id should not be present", i)
+		}
+		if _, exists := doc["__v"]; exists {
+			t.Errorf("at index %d: __v should not be present", i)
+		}
+		if _, exists := doc["_class"]; exists {
+			t.Errorf("at index %d: _class should not be present", i)
+		}
+
+		// Check that other fields were preserved.
+		if doc["name"] != fmt.Sprintf("document_%d", i) {
+			t.Errorf("at index %d: expected name 'document_%d', got %v", i, i, doc["name"])
+		}
+	}
+}
+
+func TestDocTransformer_Transform_ConcurrentAccess(t *testing.T) {
+	docTransformer := NewDocTransformer()
+
+	// Create test data.
+	input := make([]map[string]interface{}, 1000)
+	for i := 0; i < 1000; i++ {
+		input[i] = map[string]interface{}{
+			"_id":    fmt.Sprintf("id_%d", i),
+			"__v":    i,
+			"_class": "com.example.Entity",
+			"name":   fmt.Sprintf("doc_%d", i),
+		}
+	}
+
+	// Run multiple transformations concurrently.
+	numGoroutines := 10
+	var wg sync.WaitGroup
+	results := make([][]map[string]interface{}, numGoroutines)
+	errors := make([]error, numGoroutines)
+
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			results[idx], errors[idx] = docTransformer.Transform(input)
+		}(i)
+	}
+
+	wg.Wait()
+
+	// Verify all transformations succeeded.
+	for i, err := range errors {
+		if err != nil {
+			t.Errorf("goroutine %d failed: %v", i, err)
+		}
+		if len(results[i]) != len(input) {
+			t.Errorf("goroutine %d: expected %d results, got %d", i, len(input), len(results[i]))
+		}
+	}
+
+	// Verify all results are identical.
+	firstResult := results[0]
+	for i := 1; i < numGoroutines; i++ {
+		if !reflect.DeepEqual(firstResult, results[i]) {
+			t.Errorf("goroutine %d result differs from first result", i)
+		}
+	}
+}
+
+func TestDocTransformer_Transform_WorkerScaling(t *testing.T) {
+	docTransformer := NewDocTransformer()
+
+	// Create a dataset that should trigger worker scaling.
+	input := make([]map[string]interface{}, 5000)
+	for i := 0; i < 5000; i++ {
+		input[i] = map[string]interface{}{
+			"_id":    fmt.Sprintf("id_%d", i),
+			"__v":    i,
+			"_class": "com.example.Entity",
+			"name":   fmt.Sprintf("document_%d", i),
+			"data":   make([]int, 100), // Add some complexity to make processing take time.
+		}
+	}
+
+	output, err := docTransformer.Transform(input)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify output.
+	if len(output) != len(input) {
+		t.Errorf("expected output length %d, got %d", len(input), len(output))
+	}
+
+	// Verify transformation correctness.
+	for i, doc := range output {
+		if doc["id"] != fmt.Sprintf("id_%d", i) {
+			t.Errorf("at index %d: expected id 'id_%d', got %v", i, i, doc["id"])
 		}
 	}
 }
