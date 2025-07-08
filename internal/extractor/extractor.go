@@ -62,8 +62,8 @@ func (w *mongoCollectionWrapper) Find(ctx context.Context, filter interface{}, o
 func newMongoExtractor(collection Collection, filter primitive.M) *MongoExtractor {
 	return &MongoExtractor{
 		collection: collection,
-		batchSize:  500,
-		chunkSize:  1000,
+		batchSize:  1000,
+		chunkSize:  2000,
 		filter:     filter,
 	}
 }
