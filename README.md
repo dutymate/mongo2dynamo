@@ -20,6 +20,7 @@
 ## Features
 
 - **ETL-based Migration**: Complete Extract, Transform, Load pipeline for MongoDB to DynamoDB migration
+- **Dynamic Worker Pool**: Adaptive worker scaling based on workload for optimal performance
 - **Batch Processing**: Memory-efficient processing with MongoDB batch size (1000) and chunk size (2000) for processing
 - **MongoDB Filtering**: Selective data extraction using MongoDB query syntax via `--mongo-filter` flag
 - **Automatic Table Creation**: Creates DynamoDB tables automatically with configurable confirmation prompts
@@ -112,7 +113,7 @@ Performs a dry-run to preview the migration by executing the full ETL pipeline w
 **Features:**
 - Connects to MongoDB and validates configuration
 - Extracts documents from MongoDB (with filters if specified)
-- Transforms documents to DynamoDB format
+- Transforms documents to DynamoDB format using dynamic worker pools
 - Counts the total number of documents that would be migrated
 - No data is loaded to DynamoDB (dry-run mode)
 
@@ -131,6 +132,7 @@ Executes the complete ETL pipeline to migrate data from MongoDB to DynamoDB.
 - Configuration validation and user confirmation prompts
 - Automatic DynamoDB table creation (with confirmation)
 - Batch processing with fixed chunk sizes (2000 documents per chunk)
+- Dynamic worker pool scaling for optimal performance
 - Retry logic for failed operations (configurable via `--max-retries`)
 
 **Example Output:**
@@ -186,7 +188,7 @@ sequenceDiagram
     loop For each chunk (2000 docs)
         Extractor->>MongoDB: Extract documents
         MongoDB-->>Extractor: Return documents
-        Extractor->>Transformer: Transform documents
+        Extractor->>Transformer: Transform documents (dynamic workers)
         Transformer-->>Extractor: Return transformed docs
         Extractor->>Loader: Load to DynamoDB
         Loader->>DynamoDB: BatchWriteItem
@@ -209,7 +211,9 @@ sequenceDiagram
 - **ID Conversion**: Converts MongoDB `_id` field to DynamoDB `id` field
 - **Field Cleanup**: Removes MongoDB-specific fields (`__v`, `_class`)
 - **Type Handling**: Converts ObjectID to string format for DynamoDB compatibility
-- **Parallel Processing**: Uses worker pools for efficient transformation
+- **Dynamic Parallel Processing**: Uses adaptive worker pools that scale based on workload (2-2x CPU cores)
+- **Performance Optimization**: Monitors pending jobs every 0.5 seconds and scales workers automatically
+- **Resource Efficiency**: Scales from minimum 2 workers up to 2x CPU cores based on system load
 
 ### 3. Loading (DynamoDB)
 
