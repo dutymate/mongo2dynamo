@@ -10,30 +10,23 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 - [Features](#features)
-- [Why mongo2dynamo?](#why-mongo2dynamo)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Configuration](#configuration)
+- [Commands](#commands)
 - [How It Works](#how-it-works)
 - [License](#license)
 
 ## Features
 
-- **ETL-based MongoDB → DynamoDB migration**: Extracts data from MongoDB collections, transforms it, and loads it into DynamoDB tables, minimizing the risk of data loss or duplication.
-- **Batch-based, memory-efficient processing**: Extracts and loads data in configurable batches (default: 1000 documents per chunk), allowing efficient handling of large datasets without excessive memory usage.
-- **MongoDB query filtering**: Filter documents during extraction using MongoDB query syntax via the `--mongo-filter` flag, allowing selective migration of data based on specific criteria.
-- **Auto-approve and interactive confirmation**: Supports both automated ETL runs (for CI/CD or scripting) and interactive confirmation prompts to prevent accidental data transfers.
-- **Automatic DynamoDB table creation**: Automatically creates DynamoDB tables if they don't exist, with configurable behavior through the auto-approve flag.
-- **Smart table naming with confirmation**: If `--dynamo-table` is not specified, prompts for user confirmation before using the MongoDB collection name as the DynamoDB table name (only in `apply` command).
-- **Flexible configuration**: Easily configure all options via command-line flags, environment variables, or a YAML config file—whichever fits your workflow best.
-- **Error handling and retry logic**: Automatically retries failed extract/load operations with exponential backoff and jitter to prevent thundering herd problems, and provides clear error messages to help you quickly resolve issues. The maximum number of retries can be configured with the `--max-retries` flag (default: 5).
-- **Dry-run support**: Use the `plan` command to preview ETL operations before performing any actual data transfer.
-
-## Why mongo2dynamo?
-
-- **Reliability**: Safely extracts, transforms, and loads data without loss or duplication.
-- **Scalability**: Handles millions of documents efficiently with ETL best practices and optimized retry strategies.
-- **Easy to Use**: Intuitive CLI and configuration options.
+- **ETL-based Migration**: Complete Extract, Transform, Load pipeline for MongoDB to DynamoDB migration
+- **Batch Processing**: Memory-efficient processing with MongoDB batch size (500) and chunk size (1000) for processing
+- **MongoDB Filtering**: Selective data extraction using MongoDB query syntax via `--mongo-filter` flag
+- **Automatic Table Creation**: Creates DynamoDB tables automatically with configurable confirmation prompts
+- **Retry Logic**: Robust error handling with exponential backoff and jitter (configurable via `--max-retries`, default: 5)
+- **Dry-run Support**: Preview migration plans by executing full ETL pipeline without loading to DynamoDB
+- **Flexible Configuration**: Support for command-line flags, environment variables, and YAML config files
+- **Interactive Confirmation**: User-friendly prompts for critical operations (can be bypassed with `--auto-approve`)
 
 ## Installation
 
@@ -48,48 +41,28 @@ brew install mongo2dynamo
 
 Download the latest release from the [releases page](https://github.com/dutymate/mongo2dynamo/releases).
 
-## Quick Start
-
-### 1. Preview Migration Plan
+### Build from Source
 
 ```bash
-mongo2dynamo plan \
-  --mongo-host localhost \
-  --mongo-port 27017 \
-  --mongo-db your_database \
-  --mongo-collection your_collection
+git clone https://github.com/dutymate/mongo2dynamo.git
+cd mongo2dynamo
+make build
 ```
 
-### 2. Run Actual Migration
+## Quick Start
 
 ```bash
-# Using collection name as table name (will prompt for confirmation)
-mongo2dynamo apply \
-  --mongo-host localhost \
-  --mongo-port 27017 \
-  --mongo-db your_database \
-  --mongo-collection your_collection \
-  --dynamo-endpoint your_endpoint
+# Preview migration
+mongo2dynamo plan --mongo-db mydb --mongo-collection users
 
-# With custom table name and MongoDB filter
-mongo2dynamo apply \
-  --mongo-host localhost \
-  --mongo-port 27017 \
-  --mongo-db your_database \
-  --mongo-collection your_collection \
-  --dynamo-endpoint your_endpoint \
-  --dynamo-table your_custom_table \
-  --mongo-filter '{"status": "active", "age": {"$gte": 18}}'
+# Execute migration
+mongo2dynamo apply --mongo-db mydb --mongo-collection users --dynamo-endpoint http://localhost:8000
 
-# With auto-approve (skips all confirmation prompts)
-mongo2dynamo apply \
-  --mongo-host localhost \
-  --mongo-port 27017 \
-  --mongo-db your_database \
-  --mongo-collection your_collection \
-  --dynamo-endpoint your_endpoint \
+# With filter and auto-approve
+mongo2dynamo apply --mongo-db mydb --mongo-collection users \
+  --dynamo-endpoint http://localhost:8000 \
+  --mongo-filter '{"status": "active"}' \
   --auto-approve
-  --max-retries 10
 ```
 
 ## Configuration
@@ -107,12 +80,13 @@ export MONGO2DYNAMO_MONGO_FILTER='{"status": "active"}'
 export MONGO2DYNAMO_DYNAMO_TABLE=your_table
 export MONGO2DYNAMO_DYNAMO_ENDPOINT=http://localhost:8000
 export MONGO2DYNAMO_AWS_REGION=us-east-1
-export MONGO2DYNAMO_MAX_RETRIES=10
+export MONGO2DYNAMO_MAX_RETRIES=5
+export MONGO2DYNAMO_AUTO_APPROVE=false
 ```
 
 ### Config File
 
-Configuration file at `~/.mongo2dynamo/config.yaml`:
+Create `~/.mongo2dynamo/config.yaml`:
 
 ```yaml
 mongo_host: localhost
@@ -125,34 +99,131 @@ mongo_filter: '{"status": "active"}'
 dynamo_table: your_table
 dynamo_endpoint: http://localhost:8000
 aws_region: us-east-1
-max_retries: 10
+max_retries: 5
+auto_approve: false
 ```
+
+## Commands
+
+### `plan` - Preview Migration
+
+Performs a dry-run to preview the migration by executing the full ETL pipeline without loading to DynamoDB.
+
+**Features:**
+- Connects to MongoDB and validates configuration
+- Extracts documents from MongoDB (with filters if specified)
+- Transforms documents to DynamoDB format
+- Counts the total number of documents that would be migrated
+- No data is loaded to DynamoDB (dry-run mode)
+
+**Example Output:**
+```shell
+Starting migration plan analysis...
+Found 1,234 documents to migrate.
+```
+
+### `apply` - Execute Migration
+
+Executes the complete ETL pipeline to migrate data from MongoDB to DynamoDB.
+
+**Features:**
+- Full ETL pipeline execution (Extract → Transform → Load)
+- Configuration validation and user confirmation prompts
+- Automatic DynamoDB table creation (with confirmation)
+- Batch processing with fixed chunk sizes (1000 documents per chunk)
+- Retry logic for failed operations (configurable via `--max-retries`)
+
+**Example Output:**
+```shell
+Creating DynamoDB table 'users'...
+Waiting for table 'users' to become active...
+Table 'users' is now active and ready for use.
+Starting data migration from MongoDB to DynamoDB...
+Successfully migrated 1,234 documents.
+```
+
+### `version` - Show Version
+
+Displays version information including Git commit and build date.
 
 ## How It Works
 
-mongo2dynamo follows a robust ETL (Extract, Transform, Load) process:
+mongo2dynamo implements a robust ETL pipeline with the following components:
 
-### 1. Plan Phase
-The `plan` command performs a dry-run of the ETL process:
-- **Connection Setup**: Establishes connection to MongoDB using the Extractor.
-- **Document Counting**: Counts documents in the specified collection to estimate migration scope.
-- **Preview Display**: Shows the total number of documents that would be processed.
-- **No Data Transfer**: No actual extraction, transformation, or loading occurs during this phase.
+```mermaid
+sequenceDiagram
+    participant User
+    participant CLI
+    participant Config
+    participant Extractor
+    participant Transformer
+    participant Loader
+    participant MongoDB
+    participant DynamoDB
 
-### 2. Apply Phase
-The `apply` command executes the full ETL pipeline:
-- **Connection Setup**: Establishes connections to both MongoDB and DynamoDB.
-- **Extraction**: Extracts documents from MongoDB in configurable batches (default: 1000 documents per chunk). If a `--mongo-filter` is specified, only documents matching the filter criteria are extracted.
-- **Transformation**: Transforms MongoDB BSON documents to DynamoDB-compatible format.
-- **Table Management**: Automatically checks if the DynamoDB table exists and creates it if needed, with user confirmation based on the auto-approve setting.
-- **Loading**: Loads transformed data into DynamoDB using the BatchWriteItem API.
-- **Error Handling**: Implements retry logic with exponential backoff and jitter for failed operations, preventing thundering herd problems during concurrent migrations.
+    User->>CLI: mongo2dynamo apply
+    CLI->>Config: Load configuration
+    Config-->>CLI: Return config
+    
+    alt Table doesn't exist
+        CLI->>Loader: Create DynamoDB loader
+        Loader->>DynamoDB: Check table exists
+        DynamoDB-->>Loader: Table not found
+        Loader->>DynamoDB: Create table
+        DynamoDB-->>Loader: Table created
+        Loader-->>CLI: Loader ready
+    else Table exists
+        CLI->>Loader: Create DynamoDB loader
+        Loader->>DynamoDB: Check table exists
+        DynamoDB-->>Loader: Table exists
+        Loader-->>CLI: Loader ready
+    end
+    
+    CLI->>Extractor: Create MongoDB extractor
+    CLI->>Transformer: Create transformer
+    CLI->>CLI: Start migration
+    
+    loop For each chunk (1000 docs)
+        Extractor->>MongoDB: Extract documents
+        MongoDB-->>Extractor: Return documents
+        Extractor->>Transformer: Transform documents
+        Transformer-->>Extractor: Return transformed docs
+        Extractor->>Loader: Load to DynamoDB
+        Loader->>DynamoDB: BatchWriteItem
+        DynamoDB-->>Loader: Success
+        Loader-->>Extractor: Chunk loaded
+    end
+    
+    CLI-->>User: Migration complete
+```
 
-**Table Creation Behavior**: When the target DynamoDB table doesn't exist, mongo2dynamo can automatically create it:
-- **Table Naming**: If `--dynamo-table` is not specified, the tool prompts for user confirmation before using the MongoDB collection name as the DynamoDB table name.
-- **With `--auto-approve`**: Tables are created automatically with a simple schema (using `id` as the primary key), and table naming confirmation is skipped.
-- **Without `--auto-approve`**: The tool prompts for user confirmation before creating the table and before using collection name as table name.
-- **Existing tables**: If the table already exists, the tool uses it as-is without modification.
+### 1. Extraction (MongoDB)
+
+- **Connection**: Establishes connection to MongoDB using provided credentials
+- **Filtering**: Applies MongoDB query filters (JSON to BSON conversion)
+- **Batch Processing**: Extracts documents in configurable batches (500 documents per batch)
+- **Chunking**: Groups documents into chunks (1000 documents per chunk) for processing
+
+### 2. Transformation
+
+- **ID Conversion**: Converts MongoDB `_id` field to DynamoDB `id` field
+- **Field Cleanup**: Removes MongoDB-specific fields (`__v`, `_class`)
+- **Type Handling**: Converts ObjectID to string format for DynamoDB compatibility
+- **Parallel Processing**: Uses worker pools for efficient transformation
+
+### 3. Loading (DynamoDB)
+
+- **Table Management**: Checks table existence and creates if needed
+- **Batch Writing**: Uses DynamoDB BatchWriteItem API (25 items per batch)
+- **Retry Logic**: Implements exponential backoff with jitter for failed operations
+- **Error Handling**: Provides detailed error messages and recovery options
+
+### Table Creation
+
+- **Auto-creation**: DynamoDB tables are created automatically if they don't exist
+- **Table naming**: Uses collection name as table name (with confirmation if not specified)
+- **Schema**: Simple table with `id` as primary key
+- **Confirmation**: Prompts for user confirmation unless `--auto-approve` is used
 
 ## License
 
