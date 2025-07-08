@@ -20,7 +20,7 @@
 ## Features
 
 - **ETL-based Migration**: Complete Extract, Transform, Load pipeline for MongoDB to DynamoDB migration
-- **Batch Processing**: Memory-efficient processing with MongoDB batch size (500) and chunk size (1000) for processing
+- **Batch Processing**: Memory-efficient processing with MongoDB batch size (1000) and chunk size (2000) for processing
 - **MongoDB Filtering**: Selective data extraction using MongoDB query syntax via `--mongo-filter` flag
 - **Automatic Table Creation**: Creates DynamoDB tables automatically with configurable confirmation prompts
 - **Retry Logic**: Robust error handling with exponential backoff and jitter (configurable via `--max-retries`, default: 5)
@@ -130,7 +130,7 @@ Executes the complete ETL pipeline to migrate data from MongoDB to DynamoDB.
 - Full ETL pipeline execution (Extract → Transform → Load)
 - Configuration validation and user confirmation prompts
 - Automatic DynamoDB table creation (with confirmation)
-- Batch processing with fixed chunk sizes (1000 documents per chunk)
+- Batch processing with fixed chunk sizes (2000 documents per chunk)
 - Retry logic for failed operations (configurable via `--max-retries`)
 
 **Example Output:**
@@ -183,7 +183,7 @@ sequenceDiagram
     CLI->>Transformer: Create transformer
     CLI->>CLI: Start migration
     
-    loop For each chunk (1000 docs)
+    loop For each chunk (2000 docs)
         Extractor->>MongoDB: Extract documents
         MongoDB-->>Extractor: Return documents
         Extractor->>Transformer: Transform documents
@@ -201,8 +201,8 @@ sequenceDiagram
 
 - **Connection**: Establishes connection to MongoDB using provided credentials
 - **Filtering**: Applies MongoDB query filters (JSON to BSON conversion)
-- **Batch Processing**: Extracts documents in configurable batches (500 documents per batch)
-- **Chunking**: Groups documents into chunks (1000 documents per chunk) for processing
+- **Batch Processing**: Extracts documents in configurable batches (1000 documents per batch)
+- **Chunking**: Groups documents into chunks (2000 documents per chunk) for processing
 
 ### 2. Transformation
 
