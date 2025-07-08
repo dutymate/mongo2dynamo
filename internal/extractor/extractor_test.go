@@ -135,7 +135,7 @@ func TestExtractor_Extract_SingleChunk(t *testing.T) {
 
 func TestExtractor_Extract_MultipleChunks(t *testing.T) {
 	mockCollection := new(MockCollection)
-	testDocs := make([]map[string]interface{}, 1500) // More than chunkSize (1000).
+	testDocs := make([]map[string]interface{}, 2500) // More than chunkSize (2000).
 	for i := range testDocs {
 		testDocs[i] = map[string]interface{}{
 			"_id":  i,
@@ -161,7 +161,7 @@ func TestExtractor_Extract_MultipleChunks(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, testDocs, processedDocs)
-	assert.Equal(t, 2, chunkCount) // Should be processed in 2 chunks.
+	assert.Equal(t, 2, chunkCount) // Should be processed in 2 chunks (2000 + 500).
 	mockCollection.AssertExpectations(t)
 	mockCursor.AssertExpectations(t)
 }
