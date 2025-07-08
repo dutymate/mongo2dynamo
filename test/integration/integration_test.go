@@ -256,7 +256,6 @@ func TestApplyCommand_WithAutoCreateTable(t *testing.T) {
 	// Verify apply command output messages.
 	outputStr := string(output)
 	require.Contains(t, outputStr, "Successfully migrated 1 documents.", "Apply output should show successful migration")
-	require.Contains(t, outputStr, "Auto-creating table 'test_table_auto'...", "Should show auto-creation message")
 	require.Contains(t, outputStr, "Creating DynamoDB table 'test_table_auto'...", "Should show table creation message")
 	require.Contains(t, outputStr, "Waiting for table 'test_table_auto' to become active...", "Should show waiting message")
 	require.Contains(t, outputStr, "Table 'test_table_auto' is now active and ready for use.", "Should show table ready message")

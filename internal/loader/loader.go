@@ -103,7 +103,6 @@ func (l *DynamoLoader) ensureTableExists(ctx context.Context, cfg common.ConfigP
 
 	// Check if auto-approve is enabled.
 	if cfg.GetAutoApprove() {
-		fmt.Printf("Auto-creating table '%s'...\n", l.table)
 		return l.createTable(ctx)
 	}
 
