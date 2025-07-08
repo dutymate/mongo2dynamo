@@ -1,10 +1,12 @@
 package transformer
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"runtime"
 	"sync"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
@@ -63,21 +65,29 @@ func convertID(id interface{}) string {
 // The '_class' field, which is used by Spring Data for type information, is also omitted from the output.
 // The resulting slice contains documents ready to be written to DynamoDB, with no '_id', '__v', or '_class' fields present.
 // Returns an error only if an unexpected issue occurs during transformation (none in current implementation).
-// This function uses a worker pool to parallelize transformation for better performance on large batches.
 func (t *DocTransformer) Transform(input []map[string]interface{}) ([]map[string]interface{}, error) {
 	output := make([]map[string]interface{}, len(input))
 	if len(input) == 0 {
 		return output, nil
 	}
 
-	numWorkers := min(runtime.NumCPU(), len(input)) // Number of workers is capped to the number of jobs.
+	// Dynamic worker pool configuration.
+	minWorkers := 2
+	maxWorkers := runtime.NumCPU() * 2 // Allow up to twice the number of CPU cores as workers.
+	initialWorkers := max(min(runtime.NumCPU(), len(input)), minWorkers)
+
 	type job struct {
 		idx int
 		doc map[string]interface{}
 	}
+
 	jobs := make(chan job, len(input))
-	errChan := make(chan error, numWorkers) // Channel to collect errors from workers.
+	errChan := make(chan error, maxWorkers)
 	var wg sync.WaitGroup
+	var mu sync.Mutex
+	activeWorkers := initialWorkers
+
+	// Worker function.
 	worker := func() {
 		defer wg.Done()
 		defer func() {
@@ -88,6 +98,7 @@ func (t *DocTransformer) Transform(input []map[string]interface{}) ([]map[string
 				}
 			}
 		}()
+
 		for j := range jobs {
 			doc := j.doc
 			// Count the number of fields to keep (including id).
@@ -118,25 +129,61 @@ func (t *DocTransformer) Transform(input []map[string]interface{}) ([]map[string
 		}
 	}
 
-	// Start the worker pool.
-	for i := 0; i < numWorkers; i++ {
+	// Goroutine for dynamic worker adjustment.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		ticker := time.NewTicker(500 * time.Millisecond) // Check every 0.5 seconds.
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				pendingJobs := len(jobs)
+				mu.Lock()
+				currentWorkers := activeWorkers
+				mu.Unlock()
+
+				// If there are many pending jobs and more workers can be added, scale up.
+				if pendingJobs > currentWorkers*2 && currentWorkers < maxWorkers {
+					mu.Lock()
+					if activeWorkers < maxWorkers {
+						activeWorkers++
+						wg.Add(1)
+						go worker()
+					}
+					mu.Unlock()
+				}
+				// No action needed for scaling down, as workers exit naturally.
+			}
+		}
+	}()
+
+	// Start initial workers.
+	for i := 0; i < initialWorkers; i++ {
 		wg.Add(1)
 		go worker()
 	}
 
-	// Distribute jobs to workers.
+	// Distribute jobs.
 	for i, doc := range input {
 		jobs <- job{idx: i, doc: doc}
 	}
 	close(jobs)
 
+	// Wait for all workers to finish.
 	wg.Wait()
 	close(errChan)
-	// Return the first error encountered by any worker, if present.
+
+	// Check for errors.
 	for err := range errChan {
 		if err != nil {
 			return nil, err
 		}
 	}
+
 	return output, nil
 }
