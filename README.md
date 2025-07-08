@@ -117,7 +117,7 @@ Performs a dry-run to preview the migration by executing the full ETL pipeline w
 - No data is loaded to DynamoDB (dry-run mode)
 
 **Example Output:**
-```shell
+```text
 Starting migration plan analysis...
 Found 1,234 documents to migrate.
 ```
@@ -134,7 +134,7 @@ Executes the complete ETL pipeline to migrate data from MongoDB to DynamoDB.
 - Retry logic for failed operations (configurable via `--max-retries`)
 
 **Example Output:**
-```shell
+```text
 Creating DynamoDB table 'users'...
 Waiting for table 'users' to become active...
 Table 'users' is now active and ready for use.
