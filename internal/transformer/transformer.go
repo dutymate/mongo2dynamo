@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -87,6 +88,9 @@ func (t *DocTransformer) Transform(input []map[string]interface{}) ([]map[string
 	var mu sync.Mutex
 	activeWorkers := initialWorkers
 
+	// Atomic counter for tracking pending jobs to avoid race conditions.
+	var pendingJobs int64
+
 	// Worker function.
 	worker := func() {
 		defer wg.Done()
@@ -100,6 +104,9 @@ func (t *DocTransformer) Transform(input []map[string]interface{}) ([]map[string
 		}()
 
 		for j := range jobs {
+			// Decrement pending jobs counter when starting to process a job.
+			atomic.AddInt64(&pendingJobs, -1)
+
 			doc := j.doc
 			// Count the number of fields to keep (including id).
 			kept := 0
@@ -142,22 +149,21 @@ func (t *DocTransformer) Transform(input []map[string]interface{}) ([]map[string
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				pendingJobs := len(jobs)
+				currentPendingJobs := atomic.LoadInt64(&pendingJobs)
+
+				// Perform all scaling checks within a single lock to prevent overscaling.
 				mu.Lock()
 				currentWorkers := activeWorkers
-				mu.Unlock()
 
 				// If there are many pending jobs and more workers can be added, scale up.
-				if pendingJobs > currentWorkers*2 && currentWorkers < maxWorkers {
-					mu.Lock()
-					if activeWorkers < maxWorkers {
-						activeWorkers++
-						wg.Add(1)
-						go worker()
-					}
-					mu.Unlock()
+				if currentPendingJobs > int64(currentWorkers*2) && currentWorkers < maxWorkers {
+					activeWorkers++
+					wg.Add(1)
+					go worker() // Spawn a new worker goroutine to handle additional load.
 				}
-				// No action needed for scaling down, as workers exit naturally.
+				mu.Unlock()
+
+				// No action needed for scaling down, as workers exit naturally when jobs channel closes.
 			}
 		}
 	}()
@@ -168,9 +174,10 @@ func (t *DocTransformer) Transform(input []map[string]interface{}) ([]map[string
 		go worker()
 	}
 
-	// Distribute jobs.
+	// Distribute jobs and increment pending jobs counter.
 	for i, doc := range input {
 		jobs <- job{idx: i, doc: doc}
+		atomic.AddInt64(&pendingJobs, 1)
 	}
 	close(jobs)
 
