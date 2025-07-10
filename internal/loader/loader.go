@@ -42,6 +42,7 @@ type DynamoLoader struct {
 	table      string
 	marshal    MarshalFunc
 	maxRetries int
+	reqPool    *common.WriteRequestPool
 }
 
 // newDynamoLoader creates a new DynamoDB loader.
@@ -51,6 +52,7 @@ func newDynamoLoader(client DBClient, table string, maxRetries int) *DynamoLoade
 		table:      table,
 		marshal:    attributevalue.MarshalMap,
 		maxRetries: maxRetries,
+		reqPool:    common.NewWriteRequestPool(),
 	}
 }
 
@@ -194,7 +196,8 @@ func (l *DynamoLoader) waitForTableActive(ctx context.Context) error {
 
 // Load saves all documents to DynamoDB.
 func (l *DynamoLoader) Load(ctx context.Context, data []map[string]interface{}) error {
-	var writeRequests []types.WriteRequest
+	reqsPtr := l.reqPool.Get()
+	defer l.reqPool.Put(reqsPtr)
 
 	for _, item := range data {
 		av, err := l.marshalItem(item)
@@ -206,23 +209,24 @@ func (l *DynamoLoader) Load(ctx context.Context, data []map[string]interface{}) 
 				Err:      err,
 			}
 		}
-		writeRequests = append(writeRequests, types.WriteRequest{
+		*reqsPtr = append(*reqsPtr, types.WriteRequest{
 			PutRequest: &types.PutRequest{
 				Item: av,
 			},
 		})
 
-		if len(writeRequests) == batchSize {
-			err = l.batchWrite(ctx, writeRequests)
+		if len(*reqsPtr) == batchSize {
+			err = l.batchWrite(ctx, *reqsPtr)
 			if err != nil {
 				return fmt.Errorf("failed to write batch to DynamoDB: %w", err)
 			}
-			writeRequests = nil
+			// Clear the slice and reuse the pointer.
+			*reqsPtr = (*reqsPtr)[:0]
 		}
 	}
 
-	if len(writeRequests) > 0 {
-		err := l.batchWrite(ctx, writeRequests)
+	if len(*reqsPtr) > 0 {
+		err := l.batchWrite(ctx, *reqsPtr)
 		if err != nil {
 			return fmt.Errorf("failed to write final batch to DynamoDB: %w", err)
 		}

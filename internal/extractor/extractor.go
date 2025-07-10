@@ -32,6 +32,7 @@ type MongoExtractor struct {
 	batchSize  int // Number of documents to fetch from MongoDB per batch.
 	chunkSize  int // Number of documents to pass to handleChunk per chunk.
 	filter     primitive.M
+	chunkPool  *common.ChunkPool
 }
 
 // mongoCollectionWrapper wraps *mongo.Collection to implement Collection interface.
@@ -65,6 +66,7 @@ func newMongoExtractor(collection Collection, filter primitive.M) *MongoExtracto
 		batchSize:  1000,
 		chunkSize:  2000,
 		filter:     filter,
+		chunkPool:  common.NewChunkPool(2000), // Initialize chunk pool with a default size.
 	}
 }
 
@@ -145,7 +147,9 @@ func (e *MongoExtractor) Extract(ctx context.Context, handleChunk common.ChunkHa
 	}
 	defer cursor.Close(ctx)
 
-	chunk := make([]map[string]interface{}, 0, e.chunkSize)
+	chunkPtr := e.chunkPool.Get()
+	defer e.chunkPool.Put(chunkPtr)
+
 	for cursor.Next(ctx) {
 		var doc map[string]interface{}
 		if err := cursor.Decode(&doc); err != nil {
@@ -156,17 +160,18 @@ func (e *MongoExtractor) Extract(ctx context.Context, handleChunk common.ChunkHa
 				Err:      err,
 			}
 		}
-		chunk = append(chunk, doc)
-		if len(chunk) >= e.chunkSize {
-			if err := handleChunk(chunk); err != nil {
+		*chunkPtr = append(*chunkPtr, doc)
+		if len(*chunkPtr) >= e.chunkSize {
+			if err := handleChunk(*chunkPtr); err != nil {
 				return &common.ChunkCallbackError{Reason: "handleChunk failed", Err: err}
 			}
-			chunk = make([]map[string]interface{}, 0, e.chunkSize)
+			// Clear the slice and reuse the pointer.
+			*chunkPtr = (*chunkPtr)[:0]
 		}
 	}
 
-	if len(chunk) > 0 {
-		if err := handleChunk(chunk); err != nil {
+	if len(*chunkPtr) > 0 {
+		if err := handleChunk(*chunkPtr); err != nil {
 			return &common.ChunkCallbackError{Reason: "handleChunk failed", Err: err}
 		}
 	}
