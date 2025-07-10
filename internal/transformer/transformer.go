@@ -16,7 +16,9 @@ import (
 
 // DocTransformer transforms MongoDB documents for DynamoDB.
 // It renames the '_id' field to 'id' and removes the '__v' and '_class' fields.
-type DocTransformer struct{}
+type DocTransformer struct {
+	docPool *common.DocumentPool
+}
 
 // skipFields lists field names to be excluded from the output.
 var skipFields = map[string]struct{}{
@@ -26,7 +28,9 @@ var skipFields = map[string]struct{}{
 
 // newDocTransformer creates a new DocTransformer.
 func newDocTransformer() *DocTransformer {
-	return &DocTransformer{}
+	return &DocTransformer{
+		docPool: common.NewDocumentPool(),
+	}
 }
 
 // NewDocTransformer creates a new DocTransformer.
@@ -119,20 +123,26 @@ func (t *DocTransformer) Transform(input []map[string]interface{}) ([]map[string
 				}
 				kept++
 			}
-			// Create a new document with the kept fields and id.
-			newDoc := make(map[string]interface{}, kept+1)
+			// Get a document pointer from the pool and reuse it.
+			docPtr := t.docPool.Get()
+
 			for k, v := range doc {
 				if k == "_id" {
-					// Convert ObjectId to string for DynamoDB compatibility.
-					newDoc["id"] = convertID(v)
+					(*docPtr)["id"] = convertID(v)
 					continue
 				}
 				if _, skip := skipFields[k]; skip {
 					continue
 				}
-				newDoc[k] = v
+				(*docPtr)[k] = v
 			}
-			output[j.idx] = newDoc
+			// Copy the map to the output and return the pool pointer.
+			copyMap := make(map[string]interface{}, len(*docPtr))
+			for k, v := range *docPtr {
+				copyMap[k] = v
+			}
+			output[j.idx] = copyMap
+			t.docPool.Put(docPtr)
 		}
 	}
 
