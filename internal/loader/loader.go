@@ -240,7 +240,7 @@ func calculateBackoffWithJitter(attempt int) time.Duration {
 	exponentialDelay := time.Duration(1<<attempt) * baseDelay
 
 	// Cap at maximum delay before applying jitter.
-	if exponentialDelay > maxDelay {
+	if maxDelay < exponentialDelay {
 		exponentialDelay = maxDelay
 	}
 
