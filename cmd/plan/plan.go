@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
+	"sync/atomic"
 
 	"github.com/spf13/cobra"
 
@@ -76,21 +78,75 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 	// Create docTransformer for MongoDB to DynamoDB document conversion.
 	docTransformer := transformer.NewDocTransformer()
 
-	total := 0
-	fmt.Println("Starting migration plan analysis...")
-	err = mongoExtractor.Extract(cmd.Context(), func(chunk []map[string]interface{}) error {
-		// Apply transformation.
-		transformed, err := docTransformer.Transform(chunk)
-		if err != nil {
-			return fmt.Errorf("failed to transform document chunk: %w", err)
+	// Use a cancellable context to shut down the pipeline on error.
+	ctx, cancel := context.WithCancel(cmd.Context())
+	defer cancel()
+
+	// Pipeline channels.
+	const pipelineChannelBufferSize = 10
+	extractChan := make(chan []map[string]interface{}, pipelineChannelBufferSize)
+	errorChan := make(chan error, 2)
+
+	// Use a WaitGroup to wait for all pipeline stages to finish.
+	var wg sync.WaitGroup
+	var totalCount int64
+
+	// Stage 2: Transformer and counter.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for chunk := range extractChan {
+			// Check for cancellation before processing.
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			transformed, err := docTransformer.Transform(chunk)
+			if err != nil {
+				errorChan <- fmt.Errorf("failed to transform document chunk: %w", err)
+				cancel()
+				return
+			}
+			atomic.AddInt64(&totalCount, int64(len(transformed)))
 		}
-		total += len(transformed)
-		return nil
+	}()
+
+	// Stage 1: Extractor.
+	fmt.Println("Starting migration plan analysis...")
+	extractErr := mongoExtractor.Extract(ctx, func(chunk []map[string]interface{}) error {
+		select {
+		case extractChan <- chunk:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	})
-	if err != nil {
-		return fmt.Errorf("unexpected error during plan callback: %w", err)
+	close(extractChan) // Done extracting, close channel.
+
+	// Wait for the pipeline to finish processing all extracted data.
+	wg.Wait()
+
+	// Check for errors.
+	close(errorChan)
+	var finalErr error
+	for err := range errorChan {
+		if finalErr == nil {
+			finalErr = err
+		}
 	}
-	fmt.Printf("Found %s documents to migrate.\n", common.FormatNumber(total))
+
+	if finalErr != nil {
+		return finalErr
+	}
+
+	// If extraction failed with something other than cancellation, report it.
+	if extractErr != nil && !errors.Is(extractErr, context.Canceled) {
+		return fmt.Errorf("error during extraction: %w", extractErr)
+	}
+
+	fmt.Printf("Found %s documents to migrate.\n", common.FormatNumber(int(totalCount)))
 	return nil
 }
 

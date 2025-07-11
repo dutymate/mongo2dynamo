@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
+	"sync/atomic"
 
 	"github.com/spf13/cobra"
 
@@ -105,24 +107,96 @@ func runApply(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to create DynamoDB loader: %w", err)
 	}
 
-	migrated := 0
+	// Use a cancellable context to shut down the pipeline on error.
+	ctx, cancel := context.WithCancel(cmd.Context())
+	defer cancel()
+
+	// Pipeline channels.
+	const pipelineChannelBufferSize = 10
+	extractChan := make(chan []map[string]interface{}, pipelineChannelBufferSize)
+	transformChan := make(chan []map[string]interface{}, pipelineChannelBufferSize)
+	errorChan := make(chan error, 3)
+
+	// Use a WaitGroup to wait for all pipeline stages to finish.
+	var wg sync.WaitGroup
+	var migratedCount int64
+
+	// Stage 3: Loader.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for transformed := range transformChan {
+			if err := dynamoLoader.Load(ctx, transformed); err != nil {
+				errorChan <- fmt.Errorf("failed to load document chunk to DynamoDB: %w", err)
+				cancel()
+				return
+			}
+			atomic.AddInt64(&migratedCount, int64(len(transformed)))
+		}
+	}()
+
+	// Stage 2: Transformer.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer close(transformChan) // Close downstream channel.
+		for chunk := range extractChan {
+			// Check for cancellation before processing.
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			transformed, err := docTransformer.Transform(chunk)
+			if err != nil {
+				errorChan <- fmt.Errorf("failed to transform document chunk: %w", err)
+				cancel()
+				return
+			}
+
+			select {
+			case transformChan <- transformed:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	// Stage 1: Extractor.
 	fmt.Println("Starting data migration from MongoDB to DynamoDB...")
-	err = mongoExtractor.Extract(cmd.Context(), func(chunk []map[string]interface{}) error {
-		// Apply transformation to each chunk before loading to DynamoDB.
-		transformed, err := docTransformer.Transform(chunk)
-		if err != nil {
-			return fmt.Errorf("failed to transform document chunk: %w", err)
+	extractErr := mongoExtractor.Extract(ctx, func(chunk []map[string]interface{}) error {
+		select {
+		case extractChan <- chunk:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
 		}
-		if err := dynamoLoader.Load(cmd.Context(), transformed); err != nil {
-			return fmt.Errorf("failed to load document chunk to DynamoDB: %w", err)
-		}
-		migrated += len(transformed)
-		return nil
 	})
-	if err != nil {
-		return fmt.Errorf("unexpected error during apply callback: %w", err)
+	close(extractChan) // Done extracting, close channel.
+
+	// Wait for the pipeline to finish processing all extracted data.
+	wg.Wait()
+
+	// Check for errors.
+	close(errorChan)
+	var finalErr error
+	for err := range errorChan {
+		if finalErr == nil {
+			finalErr = err
+		}
 	}
-	fmt.Printf("Successfully migrated %s documents.\n", common.FormatNumber(migrated))
+
+	if finalErr != nil {
+		return finalErr
+	}
+
+	// If extraction failed with something other than cancellation, report it.
+	if extractErr != nil && !errors.Is(extractErr, context.Canceled) {
+		return fmt.Errorf("error during extraction: %w", extractErr)
+	}
+
+	fmt.Printf("Successfully migrated %s documents.\n", common.FormatNumber(int(migratedCount)))
 	return nil
 }
 
