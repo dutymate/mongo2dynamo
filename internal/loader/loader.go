@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -17,9 +18,10 @@ import (
 )
 
 const (
-	batchSize = 25
-	baseDelay = 100 * time.Millisecond
-	maxDelay  = 30 * time.Second
+	batchSize            = 25
+	baseDelay            = 100 * time.Millisecond
+	maxDelay             = 30 * time.Second
+	defaultLoaderWorkers = 10
 )
 
 // Global random source for jitter calculation.
@@ -41,7 +43,6 @@ type DynamoLoader struct {
 	table      string
 	marshal    MarshalFunc
 	maxRetries int
-	reqPool    *common.WriteRequestPool
 }
 
 // newDynamoLoader creates a new DynamoDB loader.
@@ -51,7 +52,6 @@ func newDynamoLoader(client DBClient, table string, maxRetries int) *DynamoLoade
 		table:      table,
 		marshal:    attributevalue.MarshalMap,
 		maxRetries: maxRetries,
-		reqPool:    common.NewWriteRequestPool(),
 	}
 }
 
@@ -193,45 +193,84 @@ func (l *DynamoLoader) waitForTableActive(ctx context.Context) error {
 	}
 }
 
-// Load saves all documents to DynamoDB.
+// Load saves all documents to DynamoDB using a pool of workers.
 func (l *DynamoLoader) Load(ctx context.Context, data []map[string]interface{}) error {
-	reqsPtr := l.reqPool.Get()
-	defer l.reqPool.Put(reqsPtr)
+	if len(data) == 0 {
+		return nil
+	}
 
-	for _, item := range data {
-		av, err := l.marshalItem(item)
-		if err != nil {
-			return &common.DataValidationError{
-				Database: "DynamoDB",
-				Op:       "marshal",
-				Reason:   err.Error(),
-				Err:      err,
+	jobChan := make(chan []types.WriteRequest)
+	errorChan := make(chan error, defaultLoaderWorkers)
+	var wg sync.WaitGroup
+
+	// Start a pool of workers.
+	for i := 0; i < defaultLoaderWorkers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-ctx.Done(): // Context cancelled from the outside.
+					return
+				case writeRequests, ok := <-jobChan:
+					if !ok { // Channel closed.
+						return
+					}
+					if err := l.batchWrite(ctx, writeRequests); err != nil {
+						// Non-blocking send.
+						select {
+						case errorChan <- err:
+						default:
+						}
+						return // Stop this worker on first error.
+					}
+				}
 			}
-		}
-		*reqsPtr = append(*reqsPtr, types.WriteRequest{
-			PutRequest: &types.PutRequest{
-				Item: av,
-			},
-		})
+		}()
+	}
 
-		if len(*reqsPtr) == batchSize {
-			err = l.batchWrite(ctx, *reqsPtr)
+	// Dispatch jobs.
+	go func() {
+		defer close(jobChan)
+		writeRequests := make([]types.WriteRequest, 0, batchSize)
+		for _, item := range data {
+			// Check for cancellation before dispatching new jobs.
+			if ctx.Err() != nil {
+				return
+			}
+
+			av, err := l.marshalItem(item)
 			if err != nil {
-				return fmt.Errorf("failed to write batch to DynamoDB: %w", err)
+				select {
+				case errorChan <- &common.DataValidationError{Database: "DynamoDB", Op: "marshal", Reason: err.Error(), Err: err}:
+				default:
+				}
+				return // Stop dispatching.
 			}
-			// Clear the slice and reuse the pointer.
-			*reqsPtr = (*reqsPtr)[:0]
+			writeRequests = append(writeRequests, types.WriteRequest{PutRequest: &types.PutRequest{Item: av}})
+			if len(writeRequests) == batchSize {
+				select {
+				case jobChan <- writeRequests:
+				case <-ctx.Done():
+					return
+				}
+				writeRequests = make([]types.WriteRequest, 0, batchSize)
+			}
 		}
-	}
-
-	if len(*reqsPtr) > 0 {
-		err := l.batchWrite(ctx, *reqsPtr)
-		if err != nil {
-			return fmt.Errorf("failed to write final batch to DynamoDB: %w", err)
+		if len(writeRequests) > 0 {
+			select {
+			case jobChan <- writeRequests:
+			case <-ctx.Done():
+				return
+			}
 		}
-	}
+	}()
 
-	return nil
+	wg.Wait()
+	close(errorChan)
+
+	// Return the first error encountered.
+	return <-errorChan
 }
 
 // calculateBackoffWithJitter calculates exponential backoff with jitter to prevent thundering herd.
