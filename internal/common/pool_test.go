@@ -5,7 +5,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -166,107 +165,6 @@ func TestChunkPool(t *testing.T) {
 	})
 }
 
-func TestWriteRequestPool(t *testing.T) {
-	t.Run("NewWriteRequestPool", func(t *testing.T) {
-		pool := NewWriteRequestPool()
-		assert.NotNil(t, pool)
-	})
-
-	t.Run("Get_ReturnsNewSlice", func(t *testing.T) {
-		pool := NewWriteRequestPool()
-		requests := pool.Get()
-
-		assert.NotNil(t, requests)
-		assert.Equal(t, 0, len(*requests))
-		assert.Equal(t, 25, cap(*requests)) // DynamoDB batch size.
-	})
-
-	t.Run("Put_ClearsSlice", func(t *testing.T) {
-		pool := NewWriteRequestPool()
-		requests := pool.Get()
-
-		// Add data to slice.
-		*requests = []types.WriteRequest{
-			{
-				PutRequest: &types.PutRequest{
-					Item: map[string]types.AttributeValue{
-						"id": &types.AttributeValueMemberS{Value: "test"},
-					},
-				},
-			},
-		}
-		assert.Equal(t, 1, len(*requests))
-
-		// Return to pool.
-		pool.Put(requests)
-
-		// Get again and check if it's empty.
-		newRequests := pool.Get()
-		assert.Equal(t, 0, len(*newRequests))
-		// Capacity may differ from original due to pool reuse.
-	})
-
-	t.Run("ConcurrentAccess", func(_ *testing.T) {
-		pool := NewWriteRequestPool()
-		const numGoroutines = 30
-		const operationsPerGoroutine = 3
-
-		var wg sync.WaitGroup
-		wg.Add(numGoroutines)
-
-		for i := 0; i < numGoroutines; i++ {
-			go func() {
-				defer wg.Done()
-				for j := 0; j < operationsPerGoroutine; j++ {
-					requests := pool.Get()
-					*requests = []types.WriteRequest{
-						{
-							PutRequest: &types.PutRequest{
-								Item: map[string]types.AttributeValue{
-									"id": &types.AttributeValueMemberS{Value: "test"},
-								},
-							},
-						},
-					}
-					pool.Put(requests)
-				}
-			}()
-		}
-
-		wg.Wait()
-	})
-
-	t.Run("WriteRequestOperations", func(t *testing.T) {
-		pool := NewWriteRequestPool()
-		requests := pool.Get()
-
-		// Add multiple WriteRequests.
-		*requests = append(*requests, types.WriteRequest{
-			PutRequest: &types.PutRequest{
-				Item: map[string]types.AttributeValue{
-					"id": &types.AttributeValueMemberS{Value: "doc1"},
-				},
-			},
-		})
-
-		*requests = append(*requests, types.WriteRequest{
-			PutRequest: &types.PutRequest{
-				Item: map[string]types.AttributeValue{
-					"id": &types.AttributeValueMemberS{Value: "doc2"},
-				},
-			},
-		})
-
-		assert.Equal(t, 2, len(*requests))
-
-		pool.Put(requests)
-
-		// Verify reuse.
-		newRequests := pool.Get()
-		assert.Equal(t, 0, len(*newRequests))
-	})
-}
-
 func TestPoolMemoryEfficiency(t *testing.T) {
 	t.Run("DocumentPool_MemoryReuse", func(t *testing.T) {
 		pool := NewDocumentPool()
@@ -300,21 +198,6 @@ func TestPoolMemoryEfficiency(t *testing.T) {
 		// Capacity may differ from original due to pool reuse.
 		pool.Put(finalChunk)
 	})
-
-	t.Run("WriteRequestPool_MemoryReuse", func(t *testing.T) {
-		pool := NewWriteRequestPool()
-
-		for i := 0; i < 200; i++ {
-			requests := pool.Get()
-			*requests = make([]types.WriteRequest, i%5)
-			pool.Put(requests)
-		}
-
-		finalRequests := pool.Get()
-		assert.Equal(t, 0, len(*finalRequests))
-		// Capacity may differ from original due to pool reuse.
-		pool.Put(finalRequests)
-	})
 }
 
 func TestPoolEdgeCases(t *testing.T) {
@@ -346,21 +229,6 @@ func TestPoolEdgeCases(t *testing.T) {
 			pool.Put(chunk)
 		})
 	})
-
-	t.Run("WriteRequestPool_EmptySlice", func(t *testing.T) {
-		pool := NewWriteRequestPool()
-		requests := pool.Get()
-
-		// Call Put with empty slice.
-		assert.NotPanics(t, func() {
-			pool.Put(requests)
-		})
-
-		// Get again and verify.
-		newRequests := pool.Get()
-		assert.Equal(t, 0, len(*newRequests))
-		pool.Put(newRequests)
-	})
 }
 
 func BenchmarkDocumentPool(b *testing.B) {
@@ -389,19 +257,6 @@ func BenchmarkChunkPool(b *testing.B) {
 			chunk := pool.Get()
 			*chunk = make([]map[string]interface{}, 10)
 			pool.Put(chunk)
-		}
-	})
-}
-
-func BenchmarkWriteRequestPool(b *testing.B) {
-	pool := NewWriteRequestPool()
-
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			requests := pool.Get()
-			*requests = make([]types.WriteRequest, 5)
-			pool.Put(requests)
 		}
 	})
 }

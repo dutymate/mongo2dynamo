@@ -2,8 +2,6 @@ package common
 
 import (
 	"sync"
-
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
 // DocumentPool provides a pool of reusable document maps to reduce memory allocations.
@@ -64,32 +62,4 @@ func (p *ChunkPool) Get() *[]map[string]interface{} {
 func (p *ChunkPool) Put(chunk *[]map[string]interface{}) {
 	*chunk = (*chunk)[:0]
 	p.pool.Put(chunk)
-}
-
-// WriteRequestPool provides a pool of reusable DynamoDB write requests.
-type WriteRequestPool struct {
-	pool sync.Pool
-}
-
-// NewWriteRequestPool creates a new write request pool.
-func NewWriteRequestPool() *WriteRequestPool {
-	return &WriteRequestPool{
-		pool: sync.Pool{
-			New: func() interface{} {
-				w := make([]types.WriteRequest, 0, 25) // DynamoDB batch size.
-				return &w
-			},
-		},
-	}
-}
-
-// Get retrieves a write request slice pointer from the pool or creates a new one.
-func (p *WriteRequestPool) Get() *[]types.WriteRequest {
-	return p.pool.Get().(*[]types.WriteRequest)
-}
-
-// Put returns a write request slice pointer to the pool after clearing its contents.
-func (p *WriteRequestPool) Put(requests *[]types.WriteRequest) {
-	*requests = (*requests)[:0]
-	p.pool.Put(requests)
 }
