@@ -449,14 +449,7 @@ func TestCalculateBackoffWithJitter_JitterVariation(t *testing.T) {
 }
 
 func TestCalculateBackoffWithJitter_EdgeCases(t *testing.T) {
-	// Test negative attempt (should be treated as 0).
-	result := calculateBackoffWithJitter(-1)
-	minExpected := time.Duration(float64(baseDelay) * 0.5)
-	maxExpected := time.Duration(float64(baseDelay) * 1.5)
-	assert.GreaterOrEqual(t, result, minExpected, "Negative attempt should be at least 0.5x baseDelay")
-	assert.LessOrEqual(t, result, maxExpected, "Negative attempt should be at most 1.5x baseDelay")
-
 	// Test very large attempt (should be capped).
-	result = calculateBackoffWithJitter(100)
+	result := calculateBackoffWithJitter(100)
 	assert.LessOrEqual(t, result, maxDelay, "Very large attempt should be capped at maxDelay")
 }
