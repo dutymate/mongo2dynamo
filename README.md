@@ -4,7 +4,7 @@
   <img src="images/logo.png" alt="mongo2dynamo Logo" width="200"/>
 </p>
 
-**mongo2dynamo** is a command-line tool for migrating data from MongoDB to DynamoDB.
+**mongo2dynamo** is a high-performance, command-line tool for migrating data from MongoDB to DynamoDB, built with Go.
 
 [![Build](https://github.com/dutymate/mongo2dynamo/actions/workflows/build.yaml/badge.svg)](https://github.com/dutymate/mongo2dynamo/actions/workflows/build.yaml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -19,15 +19,13 @@
 
 ## Features
 
-- **ETL-based Migration**: Complete Extract, Transform, Load pipeline for MongoDB to DynamoDB migration
-- **Dynamic Worker Pool**: Adaptive worker scaling based on workload for optimal performance
-- **Batch Processing**: Memory-efficient processing with MongoDB batch size (1000) and chunk size (2000) for processing
-- **MongoDB Filtering**: Selective data extraction using MongoDB query syntax via `--mongo-filter` flag
-- **Automatic Table Creation**: Creates DynamoDB tables automatically with configurable confirmation prompts
-- **Retry Logic**: Robust error handling with exponential backoff and jitter (configurable via `--max-retries`, default: 5)
-- **Dry-run Support**: Preview migration plans by executing full ETL pipeline without loading to DynamoDB
-- **Flexible Configuration**: Support for command-line flags, environment variables, and YAML config files
-- **Interactive Confirmation**: User-friendly prompts for critical operations (can be bypassed with `--auto-approve`)
+mongo2dynamo is designed for efficient and reliable data migration, incorporating several key features for performance and stability.
+
+-   **High-Performance Transformation**: Utilizes a **dynamic worker pool** that dynamically scales based on CPU cores (from 2 to 2x `runtime.NumCPU()`). This allows for parallel processing of data transformation, maximizing throughput.
+-   **Robust Loading Mechanism**: Implements a reliable data loading strategy for DynamoDB using the `BatchWriteItem` API. It incorporates an **Exponential Backoff with Jitter** algorithm to automatically handle and recover from DynamoDB's throttling exceptions, ensuring a smooth migration process.
+-   **Memory-Efficient Extraction**: Employs a streaming approach to extract data from MongoDB in manageable chunks, minimizing the application's memory footprint, even with large datasets.
+-   **Fine-Grained Error Handling**: Defines domain-specific custom error types for each stage of the ETL process (Extract, Transform, Load). This enables precise error identification and facilitates targeted recovery logic.
+-   **Comprehensive CLI**: Built with `Cobra`, it provides a user-friendly command-line interface with `plan` (dry-run) and `apply` commands, flexible configuration options (flags, env vars, config file), and an `--auto-approve` flag for non-interactive execution.
 
 ## Installation
 
@@ -111,11 +109,11 @@ auto_approve: false
 Performs a dry-run to preview the migration by executing the full ETL pipeline without loading to DynamoDB.
 
 **Features:**
-- Connects to MongoDB and validates configuration
-- Extracts documents from MongoDB (with filters if specified)
-- Transforms documents to DynamoDB format using dynamic worker pools
-- Counts the total number of documents that would be migrated
-- No data is loaded to DynamoDB (dry-run mode)
+- Connects to MongoDB and validates configuration.
+- Extracts documents from MongoDB (with filters if specified).
+- Transforms documents to DynamoDB format using dynamic worker pools.
+- Counts the total number of documents that would be migrated.
+- No data is loaded to DynamoDB (dry-run mode).
 
 **Example Output:**
 ```text
@@ -128,12 +126,12 @@ Found 1,234 documents to migrate.
 Executes the complete ETL pipeline to migrate data from MongoDB to DynamoDB.
 
 **Features:**
-- Full ETL pipeline execution (Extract → Transform → Load)
-- Configuration validation and user confirmation prompts
-- Automatic DynamoDB table creation (with confirmation)
-- Batch processing with fixed chunk sizes (2000 documents per chunk)
-- Dynamic worker pool scaling for optimal performance
-- Retry logic for failed operations (configurable via `--max-retries`)
+- Full ETL pipeline execution (Extract → Transform → Load).
+- Configuration validation and user confirmation prompts.
+- Automatic DynamoDB table creation (with confirmation).
+- Batch processing with fixed chunk sizes (2000 documents per chunk).
+- Dynamic worker pool scaling for optimal performance.
+- Retry logic for failed operations (configurable via `--max-retries`).
 
 **Example Output:**
 ```text
@@ -150,84 +148,58 @@ Displays version information including Git commit and build date.
 
 ## How It Works
 
-mongo2dynamo implements a robust ETL pipeline with the following components:
+mongo2dynamo follows a standard Extract, Transform, Load (ETL) architecture. Each stage is designed to perform its task efficiently and reliably.
 
 ```mermaid
-sequenceDiagram
-    participant User
-    participant CLI
-    participant Config
-    participant Extractor
-    participant Transformer
-    participant Loader
-    participant MongoDB
-    participant DynamoDB
+%%{init: { 'theme': 'neutral' } }%%
+flowchart LR
+    subgraph Input Source
+        MongoDB[(fa:fa-database MongoDB)]
+    end
 
-    User->>CLI: mongo2dynamo apply
-    CLI->>Config: Load configuration
-    Config-->>CLI: Return config
-    
-    alt Table doesn't exist
-        CLI->>Loader: Create DynamoDB loader
-        Loader->>DynamoDB: Check table exists
-        DynamoDB-->>Loader: Table not found
-        Loader->>DynamoDB: Create table
-        DynamoDB-->>Loader: Table created
-        Loader-->>CLI: Loader ready
-    else Table exists
-        CLI->>Loader: Create DynamoDB loader
-        Loader->>DynamoDB: Check table exists
-        DynamoDB-->>Loader: Table exists
-        Loader-->>CLI: Loader ready
+    subgraph mongo2dynamo
+        direction LR
+        subgraph "Extract"
+            Extractor("fa:fa-cloud-download Extractor<br/><br/>Streams documents<br/>from the source collection.")
+        end
+        
+        subgraph "Transform"
+            Transformer("fa:fa-cogs Transformer<br/><br/>Uses a dynamic worker pool to process documents in parallel.")
+        end
+
+        subgraph "Load"
+            Loader("fa:fa-upload Loader<br/><br/>Writes data using BatchWriteItem API.<br/>Handles throttling with<br/>Exponential Backoff + Jitter.")
+        end
     end
-    
-    CLI->>Extractor: Create MongoDB extractor
-    CLI->>Transformer: Create transformer
-    CLI->>CLI: Start migration
-    
-    loop For each chunk (2000 docs)
-        Extractor->>MongoDB: Extract documents
-        MongoDB-->>Extractor: Return documents
-        Extractor->>Transformer: Transform documents (dynamic workers)
-        Transformer-->>Extractor: Return transformed docs
-        Extractor->>Loader: Load to DynamoDB
-        Loader->>DynamoDB: BatchWriteItem
-        DynamoDB-->>Loader: Success
-        Loader-->>Extractor: Chunk loaded
+
+    subgraph Output Target
+        DynamoDB[(fa:fa-database DynamoDB)]
     end
-    
-    CLI-->>User: Migration complete
+
+    MongoDB -- Documents --> Extractor
+    Extractor -- Raw Documents --> Transformer
+    Transformer -- Transformed Items --> Loader
+    Loader -- Batched Items --> DynamoDB
+
+    style Extractor fill:#e6f3ff,stroke:#333
+    style Transformer fill:#fff2e6,stroke:#333
+    style Loader fill:#e6ffed,stroke:#333
 ```
 
-### 1. Extraction (MongoDB)
-
-- **Connection**: Establishes connection to MongoDB using provided credentials
-- **Filtering**: Applies MongoDB query filters (JSON to BSON conversion)
-- **Batch Processing**: Extracts documents in configurable batches (1000 documents per batch)
-- **Chunking**: Groups documents into chunks (2000 documents per chunk) for processing
+### 1. Extraction
+- Connects to MongoDB and fetches documents from the specified collection.
+- Uses a streaming approach to handle large datasets with low memory usage.
+- Applies user-defined filters (`--mongo-filter`) to select specific data for migration.
 
 ### 2. Transformation
+- Receives raw documents from the Extractor.
+- **Converts MongoDB-specific fields** (e.g., `_id` -> `id`) and cleans up unnecessary data (e.g., `__v`, `_class`).
+- Distributes the transformation tasks to a **dynamic pool of worker goroutines**. The pool size adjusts dynamically based on the workload and available CPU cores to maximize parallel processing efficiency.
 
-- **ID Conversion**: Converts MongoDB `_id` field to DynamoDB `id` field
-- **Field Cleanup**: Removes MongoDB-specific fields (`__v`, `_class`)
-- **Type Handling**: Converts ObjectID to string format for DynamoDB compatibility
-- **Dynamic Parallel Processing**: Uses adaptive worker pools that scale based on workload (2-2x CPU cores)
-- **Performance Optimization**: Monitors pending jobs every 0.5 seconds and scales workers automatically
-- **Resource Efficiency**: Scales from minimum 2 workers up to 2x CPU cores based on system load
-
-### 3. Loading (DynamoDB)
-
-- **Table Management**: Checks table existence and creates if needed
-- **Batch Writing**: Uses DynamoDB BatchWriteItem API (25 items per batch)
-- **Retry Logic**: Implements exponential backoff with jitter for failed operations
-- **Error Handling**: Provides detailed error messages and recovery options
-
-### Table Creation
-
-- **Auto-creation**: DynamoDB tables are created automatically if they don't exist
-- **Table naming**: Uses collection name as table name (with confirmation if not specified)
-- **Schema**: Simple table with `id` as primary key
-- **Confirmation**: Prompts for user confirmation unless `--auto-approve` is used
+### 3. Loading
+- Receives transformed items and groups them into batches suitable for DynamoDB's `BatchWriteItem` API (max 25 items per request).
+- If DynamoDB throttles the requests (returns a `ProvisionedThroughputExceededException`), the Loader automatically retries the batch using an **exponential backoff with jitter** strategy. This prevents overwhelming the table and ensures all data is eventually written.
+- Manages automatic creation of the destination DynamoDB table if it doesn't exist.
 
 ## License
 
