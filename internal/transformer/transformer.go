@@ -12,15 +12,11 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"mongo2dynamo/internal/common"
-	"mongo2dynamo/internal/pool"
 )
 
 // DocTransformer transforms MongoDB documents for DynamoDB.
 // It renames the '_id' field to 'id' and removes the '__v' and '_class' fields.
-type DocTransformer struct {
-	docPool   *pool.DocumentPool
-	chunkPool *pool.ChunkPool
-}
+type DocTransformer struct{}
 
 // skipFields lists field names to be excluded from the output.
 var skipFields = map[string]struct{}{
@@ -28,25 +24,14 @@ var skipFields = map[string]struct{}{
 	"_class": {},
 }
 
-// newDocTransformer creates a new DocTransformer with default pools.
+// newDocTransformer creates a new DocTransformer.
 func newDocTransformer() *DocTransformer {
-	return &DocTransformer{
-		docPool:   pool.NewDocumentPool(),
-		chunkPool: pool.NewChunkPool(1000),
-	}
+	return &DocTransformer{}
 }
 
-// NewDocTransformer creates a new DocTransformer with default pools.
+// NewDocTransformer creates a new DocTransformer.
 func NewDocTransformer() common.Transformer {
 	return newDocTransformer()
-}
-
-// NewDocTransformerWithPools creates a new DocTransformer with external pools.
-func NewDocTransformerWithPools(docPool *pool.DocumentPool, chunkPool *pool.ChunkPool) *DocTransformer {
-	return &DocTransformer{
-		docPool:   docPool,
-		chunkPool: chunkPool,
-	}
 }
 
 // convertID converts MongoDB _id to DynamoDB compatible format while preserving types.
@@ -117,28 +102,33 @@ func (t *DocTransformer) Transform(ctx context.Context, input []map[string]inter
 			atomic.AddInt64(&pendingJobs, -1)
 
 			doc := j.doc
-			// Get map from pool for temporary use.
-			tempMapPtr := t.docPool.Get()
-			tempMap := *tempMapPtr
+			// Count the number of fields to keep.
+			kept := 0
+			for k := range doc {
+				if _, skip := skipFields[k]; skip {
+					continue
+				}
+				kept++
+			}
+
+			if kept == 0 {
+				continue
+			}
+
+			// Create a new document with the kept fields and id.
+			newDoc := make(map[string]interface{}, kept+1)
 
 			for k, v := range doc {
 				if k == "_id" {
-					tempMap["id"] = convertID(v)
+					newDoc["id"] = convertID(v)
 					continue
 				}
 				if _, skip := skipFields[k]; skip {
 					continue
 				}
-				tempMap[k] = v
+				newDoc[k] = v
 			}
-
-			// Copy to new map for output and return temp map to pool.
-			outputMap := make(map[string]interface{}, len(tempMap))
-			for k, v := range tempMap {
-				outputMap[k] = v
-			}
-			output[j.idx] = outputMap
-			t.docPool.Put(tempMapPtr)
+			output[j.idx] = newDoc
 		}
 	}
 
