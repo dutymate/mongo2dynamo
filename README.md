@@ -21,12 +21,14 @@
 
 mongo2dynamo is designed for efficient and reliable data migration, incorporating several key features for performance and stability.
 
--   **High-Performance Transformation**: Utilizes a **dynamic worker pool** that dynamically scales based on CPU cores (from 2 to 2x `runtime.NumCPU()`). This allows for parallel processing of data transformation, maximizing throughput.
--   **Robust Loading Mechanism**: Implements a reliable data loading strategy for DynamoDB using the `BatchWriteItem` API. It incorporates an **Exponential Backoff with Jitter** algorithm to automatically handle and recover from DynamoDB's throttling exceptions, ensuring a smooth migration process.
--   **Memory-Efficient Extraction**: Employs a streaming approach to extract data from MongoDB in manageable chunks, minimizing the application's memory footprint, even with large datasets.
--   **Memory Pool Optimization**: Implements shared memory pools (`DocumentPool` and `ChunkPool`) across the entire ETL pipeline to reduce garbage collection overhead and improve memory efficiency during large-scale migrations.
+-   **High-Performance Transformation**: Utilizes a **dynamic worker pool** that scales based on CPU cores (from 2 to 2x `runtime.NumCPU()`) with real-time workload monitoring. Workers auto-scale every 500ms based on pending jobs, maximizing parallel processing efficiency.
+-   **Optimized Memory Management**: Implements strategic memory allocation - extractor uses `ChunkPool` for efficient slice reuse during document streaming, while transformer uses direct allocation with pre-calculated capacity for optimal performance based on benchmarking.
+-   **Robust Loading Mechanism**: Implements a reliable data loading strategy for DynamoDB using the `BatchWriteItem` API with a **concurrent worker pool**. Features **Exponential Backoff with Jitter** algorithm to automatically handle DynamoDB throttling exceptions, ensuring smooth migration process.
+-   **Memory-Efficient Extraction**: Employs a streaming approach to extract data from MongoDB in configurable chunks (default: 2000 documents), minimizing memory footprint even with large datasets. Supports MongoDB query filters for selective migration.
+-   **Intelligent Field Processing**: Automatically converts MongoDB-specific fields (`_id` → `id`) and removes framework metadata (`__v`, `_class`). Pre-calculates output document capacity to minimize memory allocations during transformation.
 -   **Fine-Grained Error Handling**: Defines domain-specific custom error types for each stage of the ETL process (Extract, Transform, Load). This enables precise error identification and facilitates targeted recovery logic.
--   **Comprehensive CLI**: Built with `Cobra`, it provides a user-friendly command-line interface with `plan` (dry-run) and `apply` commands, flexible configuration options (flags, env vars, config file), and an `--auto-approve` flag for non-interactive execution.
+-   **Comprehensive CLI**: Built with `Cobra`, providing a user-friendly command-line interface with `plan` (dry-run) and `apply` commands, flexible configuration options (flags, env vars, config file), and an `--auto-approve` flag for non-interactive execution.
+-   **Automatic Table Management**: Automatically creates DynamoDB tables if they don't exist, with user confirmation prompts (unless auto-approved). Waits for table activation before proceeding with migration.
 
 ## Installation
 
@@ -130,7 +132,7 @@ Executes the complete ETL pipeline to migrate data from MongoDB to DynamoDB.
 - Full ETL pipeline execution (Extract → Transform → Load).
 - Configuration validation and user confirmation prompts.
 - Automatic DynamoDB table creation (with confirmation).
-- Batch processing with configurable chunk sizes (2000 documents per extraction chunk, 1000 documents per pipeline chunk, 25 documents per DynamoDB batch).
+- Batch processing with optimized chunk sizes (1000 documents per MongoDB batch, 2000 documents per extraction chunk, 25 documents per DynamoDB batch, concurrent loader workers).
 - Dynamic worker pool scaling for optimal performance.
 - Retry logic for failed operations (configurable via `--max-retries`).
 
@@ -152,8 +154,8 @@ Displays version information including Git commit and build date.
 mongo2dynamo follows a standard Extract, Transform, Load (ETL) architecture with parallel processing capabilities. Each stage is designed to perform its task efficiently and reliably.
 
 ### Pipeline Architecture
-- **Parallel Processing**: The ETL stages run concurrently using Go channels, allowing extraction, transformation, and loading to happen simultaneously for maximum throughput.
-- **Shared Memory Pools**: All pipeline components share `DocumentPool` and `ChunkPool` instances to minimize memory allocations and improve performance.
+- **Parallel Processing**: The ETL stages run concurrently using Go channels with a buffer size of 10, allowing extraction, transformation, and loading to happen simultaneously for maximum throughput.
+- **Strategic Memory Optimization**: Components use independent memory strategies optimized for their specific workloads - extractor leverages `ChunkPool` for slice reuse, while transformer uses direct allocation for maximum speed.
 
 ```mermaid
 %%{init: { 'theme': 'neutral' } }%%
@@ -192,19 +194,25 @@ flowchart LR
 ```
 
 ### 1. Extraction
-- Connects to MongoDB and fetches documents from the specified collection.
-- Uses a streaming approach to handle large datasets with low memory usage.
-- Applies user-defined filters (`--mongo-filter`) to select specific data for migration.
+- Connects to MongoDB using optimized connection settings with configurable batch sizes (default: 1000 documents per batch).
+- Uses a streaming approach with `ChunkPool` memory reuse to handle large datasets efficiently.
+- Processes documents in configurable chunks (default: 2000 documents) to maintain low memory footprint.
+- Applies user-defined filters (`--mongo-filter`) with JSON-to-BSON conversion for selective data migration.
+- Implements robust error handling for connection, decode, and cursor operations.
 
 ### 2. Transformation
-- Receives raw documents from the Extractor.
-- **Converts MongoDB-specific fields** (e.g., `_id` -> `id`) and cleans up unnecessary data (e.g., `__v`, `_class`).
-- Distributes the transformation tasks to a **dynamic pool of worker goroutines**. The pool size adjusts dynamically based on the workload and available CPU cores to maximize parallel processing efficiency.
+- Utilizes a **dynamic worker pool** starting with CPU core count, scaling up to 2x CPU cores based on workload.
+- **Real-time scaling**: Workers auto-adjust every 500ms when pending jobs exceed 2x current worker count.
+- **Memory optimization**: Pre-calculates field counts to allocate maps with optimal capacity, reducing garbage collection overhead.
+- **Field processing**: Converts `_id` to `id` with intelligent type handling (ObjectID → hex, primitive.M → JSON), removes `__v` and `_class` fields.
+- Implements panic recovery and comprehensive error reporting for worker failures.
 
 ### 3. Loading
-- Receives transformed items and groups them into batches suitable for DynamoDB's `BatchWriteItem` API (max 25 items per request).
-- If DynamoDB throttles the requests (returns a `ProvisionedThroughputExceededException`), the Loader automatically retries the batch using an **exponential backoff with jitter** strategy. This prevents overwhelming the table and ensures all data is eventually written.
-- Manages automatic creation of the destination DynamoDB table if it doesn't exist.
+- Uses a **concurrent worker pool** to maximize DynamoDB throughput with parallel batch processing.
+- Groups documents into optimal batches of 25 items per `BatchWriteItem` request (DynamoDB limit).
+- **Advanced retry logic**: Implements exponential backoff with jitter (100ms to 30s) for unprocessed items, with configurable max retries (default: 5).
+- **Automatic table management**: Creates tables with hash key schema if they don't exist, waits for table activation.
+- Handles context cancellation gracefully across all worker goroutines.
 
 ## License
 
