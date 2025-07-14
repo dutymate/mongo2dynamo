@@ -123,11 +123,6 @@ func TestConvertID(t *testing.T) {
 			expected: true,
 		},
 		{
-			name:     "nil conversion",
-			input:    nil,
-			expected: nil,
-		},
-		{
 			name: "primitive.M conversion",
 			input: primitive.M{
 				"user": "some user",

@@ -54,16 +54,6 @@ func convertID(id interface{}) interface{} {
 	switch v := id.(type) {
 	case primitive.ObjectID:
 		return v.Hex()
-	case string:
-		return v
-	case int, int32, int64, uint, uint32, uint64:
-		return v
-	case float32, float64:
-		return v
-	case bool:
-		return v
-	case nil:
-		return nil
 	case primitive.M:
 		// Convert MongoDB primitive.M objects to JSON string.
 		jsonBytes, err := json.Marshal(v)
@@ -73,12 +63,9 @@ func convertID(id interface{}) interface{} {
 		}
 		return string(jsonBytes)
 	default:
-		// For other types, try JSON marshaling first, then fallback to string.
-		jsonBytes, err := json.Marshal(v)
-		if err != nil {
-			return fmt.Sprintf("%v", v)
-		}
-		return string(jsonBytes)
+		// All other types (string, numbers, bool, etc.) pass through unchanged.
+		// DynamoDB will handle type conversion automatically.
+		return v
 	}
 }
 
