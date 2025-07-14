@@ -16,7 +16,7 @@ type Extractor interface {
 // Transformer defines the interface for transforming data between formats.
 type Transformer interface {
 	// Transform transforms the provided documents into a new format.
-	Transform([]map[string]interface{}) ([]map[string]interface{}, error)
+	Transform(ctx context.Context, data []map[string]interface{}) ([]map[string]interface{}, error)
 }
 
 // Loader defines the interface for loading data to a destination.

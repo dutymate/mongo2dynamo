@@ -56,6 +56,8 @@ func newTestLoader(client DBClient, table string, marshal MarshalFunc) *DynamoLo
 		table:      table,
 		marshal:    marshal,
 		maxRetries: defaultMaxRetries,
+		docPool:    common.NewDocumentPool(),
+		chunkPool:  common.NewChunkPool(1000),
 	}
 }
 

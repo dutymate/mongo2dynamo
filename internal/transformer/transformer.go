@@ -17,7 +17,8 @@ import (
 // DocTransformer transforms MongoDB documents for DynamoDB.
 // It renames the '_id' field to 'id' and removes the '__v' and '_class' fields.
 type DocTransformer struct {
-	docPool *common.DocumentPool
+	docPool   *common.DocumentPool
+	chunkPool *common.ChunkPool
 }
 
 // skipFields lists field names to be excluded from the output.
@@ -26,16 +27,25 @@ var skipFields = map[string]struct{}{
 	"_class": {},
 }
 
-// newDocTransformer creates a new DocTransformer.
+// newDocTransformer creates a new DocTransformer with default pools.
 func newDocTransformer() *DocTransformer {
 	return &DocTransformer{
-		docPool: common.NewDocumentPool(),
+		docPool:   common.NewDocumentPool(),
+		chunkPool: common.NewChunkPool(1000),
 	}
 }
 
-// NewDocTransformer creates a new DocTransformer.
+// NewDocTransformer creates a new DocTransformer with default pools.
 func NewDocTransformer() common.Transformer {
 	return newDocTransformer()
+}
+
+// NewDocTransformerWithPools creates a new DocTransformer with external pools.
+func NewDocTransformerWithPools(docPool *common.DocumentPool, chunkPool *common.ChunkPool) *DocTransformer {
+	return &DocTransformer{
+		docPool:   docPool,
+		chunkPool: chunkPool,
+	}
 }
 
 // convertID converts MongoDB _id to DynamoDB compatible string.
@@ -70,7 +80,7 @@ func convertID(id interface{}) string {
 // The '_class' field, which is used by Spring Data for type information, is also omitted from the output.
 // The resulting slice contains documents ready to be written to DynamoDB, with no '_id', '__v', or '_class' fields present.
 // Returns an error only if an unexpected issue occurs during transformation (none in current implementation).
-func (t *DocTransformer) Transform(input []map[string]interface{}) ([]map[string]interface{}, error) {
+func (t *DocTransformer) Transform(ctx context.Context, input []map[string]interface{}) ([]map[string]interface{}, error) {
 	output := make([]map[string]interface{}, len(input))
 	if len(input) == 0 {
 		return output, nil
@@ -147,7 +157,7 @@ func (t *DocTransformer) Transform(input []map[string]interface{}) ([]map[string
 	}
 
 	// Goroutine for dynamic worker adjustment.
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	go func() {
