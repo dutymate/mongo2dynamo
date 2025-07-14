@@ -14,6 +14,7 @@ import (
 	"mongo2dynamo/internal/extractor"
 	"mongo2dynamo/internal/flags"
 	"mongo2dynamo/internal/loader"
+	"mongo2dynamo/internal/pool"
 	"mongo2dynamo/internal/transformer"
 )
 
@@ -89,8 +90,8 @@ func runApply(cmd *cobra.Command, _ []string) error {
 	}
 
 	// Create shared memory pools for the entire pipeline.
-	docPool := common.NewDocumentPool()
-	chunkPool := common.NewChunkPool(1000) // Default chunk size.
+	docPool := pool.NewDocumentPool()
+	chunkPool := pool.NewChunkPool(1000) // Default chunk size.
 
 	// Create mongoExtractor using configuration and shared pools.
 	mongoExtractor, err := extractor.NewMongoExtractorWithPools(cmd.Context(), cfg, docPool, chunkPool)
