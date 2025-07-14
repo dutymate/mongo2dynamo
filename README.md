@@ -24,6 +24,7 @@ mongo2dynamo is designed for efficient and reliable data migration, incorporatin
 -   **High-Performance Transformation**: Utilizes a **dynamic worker pool** that dynamically scales based on CPU cores (from 2 to 2x `runtime.NumCPU()`). This allows for parallel processing of data transformation, maximizing throughput.
 -   **Robust Loading Mechanism**: Implements a reliable data loading strategy for DynamoDB using the `BatchWriteItem` API. It incorporates an **Exponential Backoff with Jitter** algorithm to automatically handle and recover from DynamoDB's throttling exceptions, ensuring a smooth migration process.
 -   **Memory-Efficient Extraction**: Employs a streaming approach to extract data from MongoDB in manageable chunks, minimizing the application's memory footprint, even with large datasets.
+-   **Memory Pool Optimization**: Implements shared memory pools (`DocumentPool` and `ChunkPool`) across the entire ETL pipeline to reduce garbage collection overhead and improve memory efficiency during large-scale migrations.
 -   **Fine-Grained Error Handling**: Defines domain-specific custom error types for each stage of the ETL process (Extract, Transform, Load). This enables precise error identification and facilitates targeted recovery logic.
 -   **Comprehensive CLI**: Built with `Cobra`, it provides a user-friendly command-line interface with `plan` (dry-run) and `apply` commands, flexible configuration options (flags, env vars, config file), and an `--auto-approve` flag for non-interactive execution.
 
@@ -129,7 +130,7 @@ Executes the complete ETL pipeline to migrate data from MongoDB to DynamoDB.
 - Full ETL pipeline execution (Extract → Transform → Load).
 - Configuration validation and user confirmation prompts.
 - Automatic DynamoDB table creation (with confirmation).
-- Batch processing with fixed chunk sizes (2000 documents per chunk).
+- Batch processing with configurable chunk sizes (2000 documents per extraction chunk, 1000 documents per pipeline chunk, 25 documents per DynamoDB batch).
 - Dynamic worker pool scaling for optimal performance.
 - Retry logic for failed operations (configurable via `--max-retries`).
 
@@ -148,7 +149,11 @@ Displays version information including Git commit and build date.
 
 ## How It Works
 
-mongo2dynamo follows a standard Extract, Transform, Load (ETL) architecture. Each stage is designed to perform its task efficiently and reliably.
+mongo2dynamo follows a standard Extract, Transform, Load (ETL) architecture with parallel processing capabilities. Each stage is designed to perform its task efficiently and reliably.
+
+### Pipeline Architecture
+- **Parallel Processing**: The ETL stages run concurrently using Go channels, allowing extraction, transformation, and loading to happen simultaneously for maximum throughput.
+- **Shared Memory Pools**: All pipeline components share `DocumentPool` and `ChunkPool` instances to minimize memory allocations and improve performance.
 
 ```mermaid
 %%{init: { 'theme': 'neutral' } }%%
