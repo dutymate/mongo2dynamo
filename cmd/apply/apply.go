@@ -88,17 +88,31 @@ func runApply(cmd *cobra.Command, _ []string) error {
 		return nil
 	}
 
-	// Create mongoExtractor using configuration.
-	mongoExtractor, err := extractor.NewMongoExtractor(cmd.Context(), cfg)
+	// Create shared memory pools for the entire pipeline.
+	docPool := common.NewDocumentPool()
+	chunkPool := common.NewChunkPool(1000) // Default chunk size.
+
+	// Create mongoExtractor using configuration and shared pools.
+	mongoExtractor, err := extractor.NewMongoExtractorWithPools(cmd.Context(), cfg, docPool, chunkPool)
 	if err != nil {
 		return fmt.Errorf("failed to create MongoDB extractor: %w", err)
 	}
 
-	// Create docTransformer for MongoDB to DynamoDB document conversion.
-	docTransformer := transformer.NewDocTransformer()
+	total, err := mongoExtractor.Count(cmd.Context())
+	if err != nil {
+		return fmt.Errorf("failed to count documents for migration: %w", err)
+	}
 
-	// Create dynamoLoader using configuration.
-	dynamoLoader, err := loader.NewDynamoLoader(cmd.Context(), cfg)
+	if total == 0 {
+		fmt.Println("No documents to migrate.")
+		return nil
+	}
+
+	// Create docTransformer for MongoDB to DynamoDB document conversion with shared pools.
+	docTransformer := transformer.NewDocTransformerWithPools(docPool, chunkPool)
+
+	// Create dynamoLoader using configuration and shared pools.
+	dynamoLoader, err := loader.NewDynamoLoaderWithPools(cmd.Context(), cfg, docPool, chunkPool)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			fmt.Println("Migration canceled by user (table creation declined).")
@@ -148,7 +162,7 @@ func runApply(cmd *cobra.Command, _ []string) error {
 			default:
 			}
 
-			transformed, err := docTransformer.Transform(chunk)
+			transformed, err := docTransformer.Transform(ctx, chunk)
 			if err != nil {
 				errorChan <- fmt.Errorf("failed to transform document chunk: %w", err)
 				cancel()

@@ -32,6 +32,7 @@ type MongoExtractor struct {
 	batchSize  int // Number of documents to fetch from MongoDB per batch.
 	chunkSize  int // Number of documents to pass to handleChunk per chunk.
 	filter     primitive.M
+	docPool    *common.DocumentPool
 	chunkPool  *common.ChunkPool
 }
 
@@ -60,13 +61,14 @@ func (w *mongoCollectionWrapper) Find(ctx context.Context, filter interface{}, o
 }
 
 // newMongoExtractor creates a new MongoDB extractor with the specified collection, batchSize, and chunkSize.
-func newMongoExtractor(collection Collection, filter primitive.M) *MongoExtractor {
+func newMongoExtractor(collection Collection, filter primitive.M, docPool *common.DocumentPool, chunkPool *common.ChunkPool) *MongoExtractor {
 	return &MongoExtractor{
 		collection: collection,
 		batchSize:  1000,
 		chunkSize:  2000,
 		filter:     filter,
-		chunkPool:  common.NewChunkPool(2000), // Initialize chunk pool with a default size.
+		docPool:    docPool,
+		chunkPool:  chunkPool,
 	}
 }
 
@@ -87,7 +89,44 @@ func NewMongoExtractor(ctx context.Context, cfg common.ConfigProvider) (common.E
 		}
 	}
 
-	return newMongoExtractor(&mongoCollectionWrapper{collection}, filter), nil
+	// Create default pools if not provided.
+	docPool := common.NewDocumentPool()
+	chunkPool := common.NewChunkPool(2000)
+
+	return newMongoExtractor(&mongoCollectionWrapper{collection}, filter, docPool, chunkPool), nil
+}
+
+// NewMongoExtractorWithPools creates a MongoExtractor with external pools.
+func NewMongoExtractorWithPools(ctx context.Context, cfg common.ConfigProvider, docPool *common.DocumentPool, chunkPool *common.ChunkPool) (*MongoExtractor, error) {
+	client, err := mongo.Connect(ctx, cfg)
+	if err != nil {
+		return nil, &common.DatabaseConnectionError{Database: "MongoDB", Reason: err.Error(), Err: err}
+	}
+	collection := client.Database(cfg.GetMongoDB()).Collection(cfg.GetMongoCollection())
+
+	// Parse MongoDB filter if provided.
+	var filter primitive.M
+	if cfg.GetMongoFilter() != "" {
+		filter, err = parseMongoFilter(cfg.GetMongoFilter())
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return newMongoExtractor(&mongoCollectionWrapper{collection}, filter, docPool, chunkPool), nil
+}
+
+// Count returns the total number of documents that match the filter.
+func (e *MongoExtractor) Count(ctx context.Context) (int64, error) {
+	// Use the underlying mongo.Collection to count documents.
+	if wrapper, ok := e.collection.(*mongoCollectionWrapper); ok {
+		count, err := wrapper.Collection.CountDocuments(ctx, e.filter)
+		if err != nil {
+			return 0, &common.DatabaseOperationError{Database: "MongoDB", Op: "count", Reason: err.Error(), Err: err}
+		}
+		return count, nil
+	}
+	return 0, &common.DatabaseOperationError{Database: "MongoDB", Op: "count", Reason: "unable to access underlying collection", Err: nil}
 }
 
 // parseMongoFilter parses a JSON string into a MongoDB BSON filter.

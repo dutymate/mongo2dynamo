@@ -1,6 +1,7 @@
 package transformer
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -34,7 +35,7 @@ func TestDocTransformer_Transform(t *testing.T) {
 			k := r.Intn(j + 1)
 			shuffled[j], shuffled[k] = shuffled[k], shuffled[j]
 		}
-		output, err := docTransformer.Transform(shuffled)
+		output, err := docTransformer.Transform(context.Background(), shuffled)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -81,7 +82,7 @@ func TestDocTransformer_Transform(t *testing.T) {
 func TestDocTransformer_Transform_EmptyInput(t *testing.T) {
 	docTransformer := NewDocTransformer()
 	input := []map[string]interface{}{}
-	output, err := docTransformer.Transform(input)
+	output, err := docTransformer.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -220,7 +221,7 @@ func TestDocTransformer_Transform_LargeDataset(t *testing.T) {
 		}
 	}
 
-	output, err := docTransformer.Transform(input)
+	output, err := docTransformer.Transform(context.Background(), input)
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -280,7 +281,7 @@ func TestDocTransformer_Transform_ConcurrentAccess(t *testing.T) {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			results[idx], errors[idx] = docTransformer.Transform(input)
+			results[idx], errors[idx] = docTransformer.Transform(context.Background(), input)
 		}(i)
 	}
 
@@ -320,7 +321,7 @@ func TestDocTransformer_Transform_WorkerScaling(t *testing.T) {
 		}
 	}
 
-	output, err := docTransformer.Transform(input)
+	output, err := docTransformer.Transform(context.Background(), input)
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

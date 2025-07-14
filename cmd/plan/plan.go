@@ -69,14 +69,28 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("configuration validation failed: %w", err)
 	}
 
-	// Create mongoExtractor using configuration.
-	mongoExtractor, err := extractor.NewMongoExtractor(cmd.Context(), cfg)
+	// Create shared memory pools for the entire pipeline.
+	docPool := common.NewDocumentPool()
+	chunkPool := common.NewChunkPool(1000) // Default chunk size.
+
+	// Create mongoExtractor using configuration and shared pools.
+	mongoExtractor, err := extractor.NewMongoExtractorWithPools(cmd.Context(), cfg, docPool, chunkPool)
 	if err != nil {
 		return fmt.Errorf("failed to create MongoDB extractor: %w", err)
 	}
 
-	// Create docTransformer for MongoDB to DynamoDB document conversion.
-	docTransformer := transformer.NewDocTransformer()
+	total, err := mongoExtractor.Count(cmd.Context())
+	if err != nil {
+		return fmt.Errorf("failed to count documents for plan: %w", err)
+	}
+
+	if total == 0 {
+		fmt.Println("No documents to migrate.")
+		return nil
+	}
+
+	// Create docTransformer for MongoDB to DynamoDB document conversion with shared pools.
+	docTransformer := transformer.NewDocTransformerWithPools(docPool, chunkPool)
 
 	// Use a cancellable context to shut down the pipeline on error.
 	ctx, cancel := context.WithCancel(cmd.Context())
@@ -103,7 +117,7 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 			default:
 			}
 
-			transformed, err := docTransformer.Transform(chunk)
+			transformed, err := docTransformer.Transform(ctx, chunk)
 			if err != nil {
 				errorChan <- fmt.Errorf("failed to transform document chunk: %w", err)
 				cancel()
