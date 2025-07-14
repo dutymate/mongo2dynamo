@@ -123,37 +123,28 @@ func (t *DocTransformer) Transform(ctx context.Context, input []map[string]inter
 			atomic.AddInt64(&pendingJobs, -1)
 
 			doc := j.doc
-			// Count the number of fields to keep (including id).
-			kept := 0
-			for k := range doc {
-				if k == "_id" {
-					continue
-				}
-				if _, skip := skipFields[k]; skip {
-					continue
-				}
-				kept++
-			}
-			// Get a document pointer from the pool and reuse it.
-			docPtr := t.docPool.Get()
+			// Get map from pool for temporary use.
+			tempMapPtr := t.docPool.Get()
+			tempMap := *tempMapPtr
 
 			for k, v := range doc {
 				if k == "_id" {
-					(*docPtr)["id"] = convertID(v)
+					tempMap["id"] = convertID(v)
 					continue
 				}
 				if _, skip := skipFields[k]; skip {
 					continue
 				}
-				(*docPtr)[k] = v
+				tempMap[k] = v
 			}
-			// Copy the map to the output and return the pool pointer.
-			copyMap := make(map[string]interface{}, len(*docPtr))
-			for k, v := range *docPtr {
-				copyMap[k] = v
+
+			// Copy to new map for output and return temp map to pool.
+			outputMap := make(map[string]interface{}, len(tempMap))
+			for k, v := range tempMap {
+				outputMap[k] = v
 			}
-			output[j.idx] = copyMap
-			t.docPool.Put(docPtr)
+			output[j.idx] = outputMap
+			t.docPool.Put(tempMapPtr)
 		}
 	}
 
