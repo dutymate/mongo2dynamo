@@ -13,7 +13,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"mongo2dynamo/internal/common"
-	"mongo2dynamo/internal/pool"
 )
 
 // MockCollection is a mock implementation of Collection interface.
@@ -93,9 +92,7 @@ func TestMongoExtractor_Extract_EmptyCollection(t *testing.T) {
 	mockCursor.On("Err").Return(nil)
 	mockCollection.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(mockCursor, nil)
 
-	docPool := pool.NewDocumentPool()
-	chunkPool := pool.NewChunkPool(2000)
-	mongoExtractor := newMongoExtractor(mockCollection, primitive.M{}, docPool, chunkPool)
+	mongoExtractor := newMongoExtractor(mockCollection, primitive.M{})
 	var processedDocs []map[string]interface{}
 
 	err := mongoExtractor.Extract(context.Background(), func(chunk []map[string]interface{}) error {
@@ -122,9 +119,7 @@ func TestExtractor_Extract_SingleChunk(t *testing.T) {
 	mockCursor.On("Err").Return(nil)
 	mockCollection.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(mockCursor, nil)
 
-	docPool := pool.NewDocumentPool()
-	chunkPool := pool.NewChunkPool(2000)
-	mongoExtractor := newMongoExtractor(mockCollection, primitive.M{}, docPool, chunkPool)
+	mongoExtractor := newMongoExtractor(mockCollection, primitive.M{})
 	var processedDocs []map[string]interface{}
 
 	err := mongoExtractor.Extract(context.Background(), func(chunk []map[string]interface{}) error {
@@ -154,9 +149,7 @@ func TestExtractor_Extract_MultipleChunks(t *testing.T) {
 	mockCursor.On("Err").Return(nil)
 	mockCollection.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(mockCursor, nil)
 
-	docPool := pool.NewDocumentPool()
-	chunkPool := pool.NewChunkPool(2000)
-	mongoExtractor := newMongoExtractor(mockCollection, primitive.M{}, docPool, chunkPool)
+	mongoExtractor := newMongoExtractor(mockCollection, primitive.M{})
 	var processedDocs []map[string]interface{}
 	chunkCount := 0
 
@@ -178,9 +171,7 @@ func TestExtractor_Extract_FindError(t *testing.T) {
 	expectedErr := errors.New("find error")
 	mockCollection.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(nil, expectedErr)
 
-	docPool := pool.NewDocumentPool()
-	chunkPool := pool.NewChunkPool(2000)
-	mongoExtractor := newMongoExtractor(mockCollection, primitive.M{}, docPool, chunkPool)
+	mongoExtractor := newMongoExtractor(mockCollection, primitive.M{})
 	err := mongoExtractor.Extract(context.Background(), func(_ []map[string]interface{}) error {
 		return nil
 	})
@@ -202,9 +193,7 @@ func TestExtractor_Extract_DecodeError(t *testing.T) {
 	mockCursor.On("Close", mock.Anything).Return(nil)
 	mockColl.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(mockCursor, nil)
 
-	docPool := pool.NewDocumentPool()
-	chunkPool := pool.NewChunkPool(2000)
-	mongoExtractor := newMongoExtractor(mockColl, primitive.M{}, docPool, chunkPool)
+	mongoExtractor := newMongoExtractor(mockColl, primitive.M{})
 
 	err := mongoExtractor.Extract(context.Background(), func(_ []map[string]interface{}) error {
 		return nil
@@ -231,9 +220,7 @@ func TestExtractor_Extract_CallbackError(t *testing.T) {
 	mockCursor.On("Close", mock.Anything).Return(nil)
 	mockCollection.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(mockCursor, nil)
 
-	docPool := pool.NewDocumentPool()
-	chunkPool := pool.NewChunkPool(2000)
-	mongoExtractor := newMongoExtractor(mockCollection, primitive.M{}, docPool, chunkPool)
+	mongoExtractor := newMongoExtractor(mockCollection, primitive.M{})
 	expectedErr := errors.New("callback error")
 
 	err := mongoExtractor.Extract(context.Background(), func(_ []map[string]interface{}) error {
@@ -259,9 +246,7 @@ func TestExtractor_Extract_CursorError(t *testing.T) {
 	mockCursor.On("Err").Return(expectedErr)
 	mockCollection.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(mockCursor, nil)
 
-	docPool := pool.NewDocumentPool()
-	chunkPool := pool.NewChunkPool(2000)
-	mongoExtractor := newMongoExtractor(mockCollection, primitive.M{}, docPool, chunkPool)
+	mongoExtractor := newMongoExtractor(mockCollection, primitive.M{})
 	err := mongoExtractor.Extract(context.Background(), func(_ []map[string]interface{}) error {
 		return nil
 	})
@@ -291,9 +276,7 @@ func TestExtractor_Extract_WithFilter(t *testing.T) {
 	expectedFilter := primitive.M{"status": "active"}
 	mockCollection.On("Find", mock.Anything, expectedFilter, mock.Anything).Return(mockCursor, nil)
 
-	docPool := pool.NewDocumentPool()
-	chunkPool := pool.NewChunkPool(2000)
-	mongoExtractor := newMongoExtractor(mockCollection, expectedFilter, docPool, chunkPool)
+	mongoExtractor := newMongoExtractor(mockCollection, expectedFilter)
 	var processedDocs []map[string]interface{}
 
 	err := mongoExtractor.Extract(context.Background(), func(chunk []map[string]interface{}) error {

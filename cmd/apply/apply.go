@@ -14,7 +14,6 @@ import (
 	"mongo2dynamo/internal/extractor"
 	"mongo2dynamo/internal/flags"
 	"mongo2dynamo/internal/loader"
-	"mongo2dynamo/internal/pool"
 	"mongo2dynamo/internal/transformer"
 )
 
@@ -89,12 +88,8 @@ func runApply(cmd *cobra.Command, _ []string) error {
 		return nil
 	}
 
-	// Create shared memory pools for the entire pipeline.
-	docPool := pool.NewDocumentPool()
-	chunkPool := pool.NewChunkPool(1000) // Default chunk size.
-
-	// Create mongoExtractor using configuration and shared pools.
-	mongoExtractor, err := extractor.NewMongoExtractorWithPools(cmd.Context(), cfg, docPool, chunkPool)
+	// Create mongoExtractor using configuration.
+	mongoExtractor, err := extractor.NewMongoExtractor(cmd.Context(), cfg)
 	if err != nil {
 		return fmt.Errorf("failed to create MongoDB extractor: %w", err)
 	}
@@ -109,11 +104,11 @@ func runApply(cmd *cobra.Command, _ []string) error {
 		return nil
 	}
 
-	// Create docTransformer for MongoDB to DynamoDB document conversion with shared pools.
-	docTransformer := transformer.NewDocTransformerWithPools(docPool, chunkPool)
+	// Create docTransformer for MongoDB to DynamoDB document conversion.
+	docTransformer := transformer.NewDocTransformer()
 
-	// Create dynamoLoader using configuration and shared pools.
-	dynamoLoader, err := loader.NewDynamoLoaderWithPools(cmd.Context(), cfg, docPool, chunkPool)
+	// Create dynamoLoader using configuration.
+	dynamoLoader, err := loader.NewDynamoLoader(cmd.Context(), cfg)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			fmt.Println("Migration canceled by user (table creation declined).")

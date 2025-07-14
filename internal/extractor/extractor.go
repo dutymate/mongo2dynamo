@@ -33,7 +33,6 @@ type MongoExtractor struct {
 	batchSize  int // Number of documents to fetch from MongoDB per batch.
 	chunkSize  int // Number of documents to pass to handleChunk per chunk.
 	filter     primitive.M
-	docPool    *pool.DocumentPool
 	chunkPool  *pool.ChunkPool
 }
 
@@ -61,15 +60,14 @@ func (w *mongoCollectionWrapper) Find(ctx context.Context, filter interface{}, o
 	return &mongoCursorWrapper{cursor}, nil
 }
 
-// newMongoExtractor creates a new MongoDB extractor with the specified collection, batchSize, and chunkSize.
-func newMongoExtractor(collection Collection, filter primitive.M, docPool *pool.DocumentPool, chunkPool *pool.ChunkPool) *MongoExtractor {
+// newMongoExtractor creates a new MongoDB extractor with default values.
+func newMongoExtractor(collection Collection, filter primitive.M) *MongoExtractor {
 	return &MongoExtractor{
 		collection: collection,
 		batchSize:  1000,
 		chunkSize:  2000,
 		filter:     filter,
-		docPool:    docPool,
-		chunkPool:  chunkPool,
+		chunkPool:  pool.NewChunkPool(2000),
 	}
 }
 
@@ -90,31 +88,7 @@ func NewMongoExtractor(ctx context.Context, cfg common.ConfigProvider) (common.E
 		}
 	}
 
-	// Create default pools if not provided.
-	docPool := pool.NewDocumentPool()
-	chunkPool := pool.NewChunkPool(2000)
-
-	return newMongoExtractor(&mongoCollectionWrapper{collection}, filter, docPool, chunkPool), nil
-}
-
-// NewMongoExtractorWithPools creates a MongoExtractor with external pools.
-func NewMongoExtractorWithPools(ctx context.Context, cfg common.ConfigProvider, docPool *pool.DocumentPool, chunkPool *pool.ChunkPool) (*MongoExtractor, error) {
-	client, err := mongo.Connect(ctx, cfg)
-	if err != nil {
-		return nil, &common.DatabaseConnectionError{Database: "MongoDB", Reason: err.Error(), Err: err}
-	}
-	collection := client.Database(cfg.GetMongoDB()).Collection(cfg.GetMongoCollection())
-
-	// Parse MongoDB filter if provided.
-	var filter primitive.M
-	if cfg.GetMongoFilter() != "" {
-		filter, err = parseMongoFilter(cfg.GetMongoFilter())
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return newMongoExtractor(&mongoCollectionWrapper{collection}, filter, docPool, chunkPool), nil
+	return newMongoExtractor(&mongoCollectionWrapper{collection}, filter), nil
 }
 
 // Count returns the total number of documents that match the filter.
