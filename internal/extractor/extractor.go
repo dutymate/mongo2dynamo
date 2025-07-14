@@ -11,6 +11,7 @@ import (
 
 	"mongo2dynamo/internal/common"
 	"mongo2dynamo/internal/mongo"
+	"mongo2dynamo/internal/pool"
 )
 
 // Collection defines the interface for MongoDB collection operations needed by Extractor.
@@ -32,8 +33,8 @@ type MongoExtractor struct {
 	batchSize  int // Number of documents to fetch from MongoDB per batch.
 	chunkSize  int // Number of documents to pass to handleChunk per chunk.
 	filter     primitive.M
-	docPool    *common.DocumentPool
-	chunkPool  *common.ChunkPool
+	docPool    *pool.DocumentPool
+	chunkPool  *pool.ChunkPool
 }
 
 // mongoCollectionWrapper wraps *mongo.Collection to implement Collection interface.
@@ -61,7 +62,7 @@ func (w *mongoCollectionWrapper) Find(ctx context.Context, filter interface{}, o
 }
 
 // newMongoExtractor creates a new MongoDB extractor with the specified collection, batchSize, and chunkSize.
-func newMongoExtractor(collection Collection, filter primitive.M, docPool *common.DocumentPool, chunkPool *common.ChunkPool) *MongoExtractor {
+func newMongoExtractor(collection Collection, filter primitive.M, docPool *pool.DocumentPool, chunkPool *pool.ChunkPool) *MongoExtractor {
 	return &MongoExtractor{
 		collection: collection,
 		batchSize:  1000,
@@ -90,14 +91,14 @@ func NewMongoExtractor(ctx context.Context, cfg common.ConfigProvider) (common.E
 	}
 
 	// Create default pools if not provided.
-	docPool := common.NewDocumentPool()
-	chunkPool := common.NewChunkPool(2000)
+	docPool := pool.NewDocumentPool()
+	chunkPool := pool.NewChunkPool(2000)
 
 	return newMongoExtractor(&mongoCollectionWrapper{collection}, filter, docPool, chunkPool), nil
 }
 
 // NewMongoExtractorWithPools creates a MongoExtractor with external pools.
-func NewMongoExtractorWithPools(ctx context.Context, cfg common.ConfigProvider, docPool *common.DocumentPool, chunkPool *common.ChunkPool) (*MongoExtractor, error) {
+func NewMongoExtractorWithPools(ctx context.Context, cfg common.ConfigProvider, docPool *pool.DocumentPool, chunkPool *pool.ChunkPool) (*MongoExtractor, error) {
 	client, err := mongo.Connect(ctx, cfg)
 	if err != nil {
 		return nil, &common.DatabaseConnectionError{Database: "MongoDB", Reason: err.Error(), Err: err}

@@ -12,13 +12,14 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"mongo2dynamo/internal/common"
+	"mongo2dynamo/internal/pool"
 )
 
 // DocTransformer transforms MongoDB documents for DynamoDB.
 // It renames the '_id' field to 'id' and removes the '__v' and '_class' fields.
 type DocTransformer struct {
-	docPool   *common.DocumentPool
-	chunkPool *common.ChunkPool
+	docPool   *pool.DocumentPool
+	chunkPool *pool.ChunkPool
 }
 
 // skipFields lists field names to be excluded from the output.
@@ -30,8 +31,8 @@ var skipFields = map[string]struct{}{
 // newDocTransformer creates a new DocTransformer with default pools.
 func newDocTransformer() *DocTransformer {
 	return &DocTransformer{
-		docPool:   common.NewDocumentPool(),
-		chunkPool: common.NewChunkPool(1000),
+		docPool:   pool.NewDocumentPool(),
+		chunkPool: pool.NewChunkPool(1000),
 	}
 }
 
@@ -41,7 +42,7 @@ func NewDocTransformer() common.Transformer {
 }
 
 // NewDocTransformerWithPools creates a new DocTransformer with external pools.
-func NewDocTransformerWithPools(docPool *common.DocumentPool, chunkPool *common.ChunkPool) *DocTransformer {
+func NewDocTransformerWithPools(docPool *pool.DocumentPool, chunkPool *pool.ChunkPool) *DocTransformer {
 	return &DocTransformer{
 		docPool:   docPool,
 		chunkPool: chunkPool,

@@ -15,6 +15,7 @@ import (
 
 	"mongo2dynamo/internal/common"
 	"mongo2dynamo/internal/dynamo"
+	"mongo2dynamo/internal/pool"
 )
 
 const (
@@ -43,8 +44,8 @@ type DynamoLoader struct {
 	table      string
 	marshal    MarshalFunc
 	maxRetries int
-	docPool    *common.DocumentPool
-	chunkPool  *common.ChunkPool
+	docPool    *pool.DocumentPool
+	chunkPool  *pool.ChunkPool
 }
 
 // newDynamoLoader creates a new DynamoDB loader.
@@ -54,13 +55,13 @@ func newDynamoLoader(client DBClient, table string, maxRetries int) *DynamoLoade
 		table:      table,
 		marshal:    attributevalue.MarshalMap,
 		maxRetries: maxRetries,
-		docPool:    common.NewDocumentPool(),
-		chunkPool:  common.NewChunkPool(1000),
+		docPool:    pool.NewDocumentPool(),
+		chunkPool:  pool.NewChunkPool(1000),
 	}
 }
 
 // newDynamoLoaderWithPools creates a new DynamoDB loader with external pools.
-func newDynamoLoaderWithPools(client DBClient, table string, maxRetries int, docPool *common.DocumentPool, chunkPool *common.ChunkPool) *DynamoLoader {
+func newDynamoLoaderWithPools(client DBClient, table string, maxRetries int, docPool *pool.DocumentPool, chunkPool *pool.ChunkPool) *DynamoLoader {
 	return &DynamoLoader{
 		client:     client,
 		table:      table,
@@ -89,7 +90,7 @@ func NewDynamoLoader(ctx context.Context, cfg common.ConfigProvider) (*DynamoLoa
 }
 
 // NewDynamoLoaderWithPools creates a DynamoLoader with external pools.
-func NewDynamoLoaderWithPools(ctx context.Context, cfg common.ConfigProvider, docPool *common.DocumentPool, chunkPool *common.ChunkPool) (*DynamoLoader, error) {
+func NewDynamoLoaderWithPools(ctx context.Context, cfg common.ConfigProvider, docPool *pool.DocumentPool, chunkPool *pool.ChunkPool) (*DynamoLoader, error) {
 	client, err := dynamo.Connect(ctx, cfg)
 	if err != nil {
 		return nil, &common.DatabaseConnectionError{Database: "DynamoDB", Reason: err.Error(), Err: err}
