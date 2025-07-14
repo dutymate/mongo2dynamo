@@ -15,7 +15,6 @@ import (
 
 	"mongo2dynamo/internal/common"
 	"mongo2dynamo/internal/dynamo"
-	"mongo2dynamo/internal/pool"
 )
 
 const (
@@ -44,8 +43,6 @@ type DynamoLoader struct {
 	table      string
 	marshal    MarshalFunc
 	maxRetries int
-	docPool    *pool.DocumentPool
-	chunkPool  *pool.ChunkPool
 }
 
 // newDynamoLoader creates a new DynamoDB loader.
@@ -55,20 +52,6 @@ func newDynamoLoader(client DBClient, table string, maxRetries int) *DynamoLoade
 		table:      table,
 		marshal:    attributevalue.MarshalMap,
 		maxRetries: maxRetries,
-		docPool:    pool.NewDocumentPool(),
-		chunkPool:  pool.NewChunkPool(1000),
-	}
-}
-
-// newDynamoLoaderWithPools creates a new DynamoDB loader with external pools.
-func newDynamoLoaderWithPools(client DBClient, table string, maxRetries int, docPool *pool.DocumentPool, chunkPool *pool.ChunkPool) *DynamoLoader {
-	return &DynamoLoader{
-		client:     client,
-		table:      table,
-		marshal:    attributevalue.MarshalMap,
-		maxRetries: maxRetries,
-		docPool:    docPool,
-		chunkPool:  chunkPool,
 	}
 }
 
@@ -80,23 +63,6 @@ func NewDynamoLoader(ctx context.Context, cfg common.ConfigProvider) (*DynamoLoa
 	}
 
 	loader := newDynamoLoader(client, cfg.GetDynamoTable(), cfg.GetMaxRetries())
-
-	// Ensure table exists, create if it doesn't.
-	if err := loader.ensureTableExists(ctx, cfg); err != nil {
-		return nil, err
-	}
-
-	return loader, nil
-}
-
-// NewDynamoLoaderWithPools creates a DynamoLoader with external pools.
-func NewDynamoLoaderWithPools(ctx context.Context, cfg common.ConfigProvider, docPool *pool.DocumentPool, chunkPool *pool.ChunkPool) (*DynamoLoader, error) {
-	client, err := dynamo.Connect(ctx, cfg)
-	if err != nil {
-		return nil, &common.DatabaseConnectionError{Database: "DynamoDB", Reason: err.Error(), Err: err}
-	}
-
-	loader := newDynamoLoaderWithPools(client, cfg.GetDynamoTable(), cfg.GetMaxRetries(), docPool, chunkPool)
 
 	// Ensure table exists, create if it doesn't.
 	if err := loader.ensureTableExists(ctx, cfg); err != nil {
@@ -229,16 +195,6 @@ func (l *DynamoLoader) waitForTableActive(ctx context.Context) error {
 
 // Load saves all documents to DynamoDB using a pool of workers.
 func (l *DynamoLoader) Load(ctx context.Context, data []map[string]interface{}) error {
-	// Return resources to pools after processing completes.
-	defer func() {
-		// Return individual documents to the document pool.
-		for i := range data {
-			l.docPool.Put(&data[i])
-		}
-		// Return the slice to the chunk pool.
-		l.chunkPool.Put(&data)
-	}()
-
 	if len(data) == 0 {
 		return nil
 	}

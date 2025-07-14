@@ -13,7 +13,6 @@ import (
 	"mongo2dynamo/internal/config"
 	"mongo2dynamo/internal/extractor"
 	"mongo2dynamo/internal/flags"
-	"mongo2dynamo/internal/pool"
 	"mongo2dynamo/internal/transformer"
 )
 
@@ -70,12 +69,8 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("configuration validation failed: %w", err)
 	}
 
-	// Create shared memory pools for the entire pipeline.
-	docPool := pool.NewDocumentPool()
-	chunkPool := pool.NewChunkPool(1000) // Default chunk size.
-
-	// Create mongoExtractor using configuration and shared pools.
-	mongoExtractor, err := extractor.NewMongoExtractorWithPools(cmd.Context(), cfg, docPool, chunkPool)
+	// Create mongoExtractor using configuration.
+	mongoExtractor, err := extractor.NewMongoExtractor(cmd.Context(), cfg)
 	if err != nil {
 		return fmt.Errorf("failed to create MongoDB extractor: %w", err)
 	}
@@ -90,8 +85,8 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 		return nil
 	}
 
-	// Create docTransformer for MongoDB to DynamoDB document conversion with shared pools.
-	docTransformer := transformer.NewDocTransformerWithPools(docPool, chunkPool)
+	// Create docTransformer for MongoDB to DynamoDB document conversion.
+	docTransformer := transformer.NewDocTransformer()
 
 	// Use a cancellable context to shut down the pipeline on error.
 	ctx, cancel := context.WithCancel(cmd.Context())

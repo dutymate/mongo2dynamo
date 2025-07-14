@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"mongo2dynamo/internal/common"
-	"mongo2dynamo/internal/pool"
 )
 
 const defaultMaxRetries = 5
@@ -57,8 +56,6 @@ func newTestLoader(client DBClient, table string, marshal MarshalFunc) *DynamoLo
 		table:      table,
 		marshal:    marshal,
 		maxRetries: defaultMaxRetries,
-		docPool:    pool.NewDocumentPool(),
-		chunkPool:  pool.NewChunkPool(1000),
 	}
 }
 
