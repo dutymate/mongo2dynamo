@@ -95,7 +95,7 @@ func TestConvertID(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    interface{}
-		expected string
+		expected interface{}
 	}{
 		{
 			name:     "ObjectID conversion",
@@ -110,22 +110,22 @@ func TestConvertID(t *testing.T) {
 		{
 			name:     "integer conversion",
 			input:    42,
-			expected: "42",
+			expected: 42,
 		},
 		{
 			name:     "float conversion",
 			input:    3.14,
-			expected: "3.14",
+			expected: 3.14,
 		},
 		{
 			name:     "boolean conversion",
 			input:    true,
-			expected: "true",
+			expected: true,
 		},
 		{
 			name:     "nil conversion",
 			input:    nil,
-			expected: "null",
+			expected: nil,
 		},
 		{
 			name: "primitive.M conversion",
@@ -156,24 +156,39 @@ func TestConvertID(t *testing.T) {
 			switch tt.name {
 			case "ObjectID conversion":
 				// Verify it's a valid hex string.
-				if len(result) != 24 {
-					t.Errorf("ObjectID conversion: expected 24-character hex string, got %s (length: %d)", result, len(result))
+				resultStr, ok := result.(string)
+				if !ok {
+					t.Errorf("ObjectID conversion: expected string result, got %T", result)
+					return
+				}
+				if len(resultStr) != 24 {
+					t.Errorf("ObjectID conversion: expected 24-character hex string, got %s (length: %d)", resultStr, len(resultStr))
 				}
 				// Verify it's the same as the original ObjectID's hex representation.
 				objID := tt.input.(primitive.ObjectID)
 				expectedHex := objID.Hex()
-				if result != expectedHex {
-					t.Errorf("ObjectID conversion: expected %s, got %s", expectedHex, result)
+				if resultStr != expectedHex {
+					t.Errorf("ObjectID conversion: expected %s, got %s", expectedHex, resultStr)
 				}
 			case "primitive.M conversion", "nested primitive.M conversion":
 				// For JSON objects, we need to parse and compare the structure.
+				resultStr, ok := result.(string)
+				if !ok {
+					t.Errorf("primitive.M conversion: expected string result, got %T", result)
+					return
+				}
+				expectedStr, ok := tt.expected.(string)
+				if !ok {
+					t.Errorf("primitive.M conversion: expected string in test data, got %T", tt.expected)
+					return
+				}
 				var resultMap, expectedMap map[string]interface{}
 
-				if err := json.Unmarshal([]byte(result), &resultMap); err != nil {
+				if err := json.Unmarshal([]byte(resultStr), &resultMap); err != nil {
 					t.Errorf("Failed to unmarshal result JSON: %v", err)
 					return
 				}
-				if err := json.Unmarshal([]byte(tt.expected), &expectedMap); err != nil {
+				if err := json.Unmarshal([]byte(expectedStr), &expectedMap); err != nil {
 					t.Errorf("Failed to unmarshal expected JSON: %v", err)
 					return
 				}
@@ -182,7 +197,7 @@ func TestConvertID(t *testing.T) {
 					t.Errorf("convertID() = %v, want %v", result, tt.expected)
 				}
 			default:
-				if result != tt.expected {
+				if !reflect.DeepEqual(result, tt.expected) {
 					t.Errorf("convertID() = %v, want %v", result, tt.expected)
 				}
 			}
