@@ -49,14 +49,21 @@ func NewDocTransformerWithPools(docPool *pool.DocumentPool, chunkPool *pool.Chun
 	}
 }
 
-// convertID converts MongoDB _id to DynamoDB compatible string.
-// It handles primitive.ObjectID, strings, and complex objects by converting them to JSON strings.
-func convertID(id interface{}) string {
+// convertID converts MongoDB _id to DynamoDB compatible format while preserving types.
+func convertID(id interface{}) interface{} {
 	switch v := id.(type) {
 	case primitive.ObjectID:
 		return v.Hex()
 	case string:
 		return v
+	case int, int32, int64, uint, uint32, uint64:
+		return v
+	case float32, float64:
+		return v
+	case bool:
+		return v
+	case nil:
+		return nil
 	case primitive.M:
 		// Convert MongoDB primitive.M objects to JSON string.
 		jsonBytes, err := json.Marshal(v)
