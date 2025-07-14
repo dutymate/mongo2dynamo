@@ -11,6 +11,8 @@ type ChunkHandler func([]map[string]interface{}) error
 type Extractor interface {
 	// Extract retrieves data from the source and processes it chunk by chunk using the provided callback.
 	Extract(ctx context.Context, handleChunk ChunkHandler) error
+	// Count returns the total number of documents that match the filter.
+	Count(ctx context.Context) (int64, error)
 }
 
 // Transformer defines the interface for transforming data between formats.
