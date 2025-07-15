@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -300,8 +301,8 @@ func TestParseMongoFilter_ValidJSON(t *testing.T) {
 
 	ageFilter, ok := filter["age"].(primitive.M)
 	assert.True(t, ok)
-	// JSON unmarshaling converts numbers to float64 by default.
-	assert.Equal(t, float64(18), ageFilter["$gte"])
+	// bson.UnmarshalExtJSON correctly infers integer types as int32.
+	assert.Equal(t, int32(18), ageFilter["$gte"])
 }
 
 func TestParseMongoFilter_InvalidJSON(t *testing.T) {
@@ -314,8 +315,8 @@ func TestParseMongoFilter_InvalidJSON(t *testing.T) {
 	// Check that it's a FilterParseError.
 	var filterErr *common.FilterParseError
 	assert.ErrorAs(t, err, &filterErr)
-	assert.Equal(t, "json unmarshal", filterErr.Op)
-	assert.Equal(t, "invalid JSON syntax", filterErr.Reason)
+	assert.Equal(t, "bson unmarshalextjson", filterErr.Op)
+	assert.Equal(t, "invalid extended JSON syntax or failed to convert to BSON", filterErr.Reason)
 	assert.Equal(t, filterStr, filterErr.Filter)
 	assert.Contains(t, filterErr.Error(), "MongoDB filter parse error")
 }
@@ -341,11 +342,24 @@ func TestParseMongoFilter_ComplexFilter(t *testing.T) {
 	assert.Len(t, andFilter, 2)
 }
 
-func TestParseMongoFilter_InvalidBSONConversion(t *testing.T) {
-	filterStr := `{"invalid_field": {"$invalid_operator": "value"}}`
+func TestParseMongoFilter_ExtendedJSON(t *testing.T) {
+	// Test parsing of MongoDB extended JSON format (e.g., for ObjectID and dates).
+	filterStr := `{"_id": {"$oid": "60c72b2f9b1e8b3b4e8b4567"}, "createdAt": {"$date": "2021-06-14T12:00:00Z"}}`
 	filter, err := parseMongoFilter(filterStr)
-
 	assert.NoError(t, err)
 	assert.NotNil(t, filter)
-	assert.Contains(t, filter, "invalid_field")
+
+	// Check ObjectID.
+	oid, ok := filter["_id"].(primitive.ObjectID)
+	assert.True(t, ok)
+	expectedOid, err := primitive.ObjectIDFromHex("60c72b2f9b1e8b3b4e8b4567")
+	assert.NoError(t, err)
+	assert.Equal(t, expectedOid, oid)
+
+	// Check DateTime.
+	dt, ok := filter["createdAt"].(primitive.DateTime)
+	assert.True(t, ok)
+	expectedDt, err := time.Parse(time.RFC3339, "2021-06-14T12:00:00Z")
+	assert.NoError(t, err)
+	assert.Equal(t, primitive.NewDateTimeFromTime(expectedDt), dt)
 }
