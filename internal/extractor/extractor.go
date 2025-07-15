@@ -2,7 +2,6 @@ package extractor
 
 import (
 	"context"
-	"encoding/json"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -104,40 +103,20 @@ func (e *MongoExtractor) Count(ctx context.Context) (int64, error) {
 	return 0, &common.DatabaseOperationError{Database: "MongoDB", Op: "count", Reason: "unable to access underlying collection", Err: nil}
 }
 
-// parseMongoFilter parses a JSON string into a MongoDB BSON filter.
+// parseMongoFilter parses a JSON string into a MongoDB BSON filter using UnmarshalExtJSON for efficiency.
 func parseMongoFilter(filterStr string) (primitive.M, error) {
 	// Handle empty string case.
 	if filterStr == "" {
 		return primitive.M{}, nil
 	}
 
-	var filter map[string]interface{}
-	if err := json.Unmarshal([]byte(filterStr), &filter); err != nil {
-		return nil, &common.FilterParseError{
-			Filter: filterStr,
-			Op:     "json unmarshal",
-			Reason: "invalid JSON syntax",
-			Err:    err,
-		}
-	}
-
-	// Convert to BSON document.
-	bsonBytes, err := bson.Marshal(filter)
-	if err != nil {
-		return nil, &common.FilterParseError{
-			Filter: filterStr,
-			Op:     "bson marshal",
-			Reason: "failed to convert JSON to BSON format",
-			Err:    err,
-		}
-	}
-
 	var bsonFilter primitive.M
-	if err := bson.Unmarshal(bsonBytes, &bsonFilter); err != nil {
+	// Use UnmarshalExtJSON to directly parse the extended JSON into a BSON document.
+	if err := bson.UnmarshalExtJSON([]byte(filterStr), false, &bsonFilter); err != nil {
 		return nil, &common.FilterParseError{
 			Filter: filterStr,
-			Op:     "bson unmarshal",
-			Reason: "failed to convert BSON to MongoDB filter format",
+			Op:     "bson unmarshalextjson",
+			Reason: "invalid extended JSON syntax or failed to convert to BSON",
 			Err:    err,
 		}
 	}
