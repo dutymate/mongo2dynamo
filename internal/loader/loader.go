@@ -29,9 +29,9 @@ var randomSource = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 // DBClient defines the interface for DynamoDB operations used by Loader.
 type DBClient interface {
-	BatchWriteItem(ctx context.Context, params *dynamodb.BatchWriteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.BatchWriteItemOutput, error)
-	DescribeTable(ctx context.Context, params *dynamodb.DescribeTableInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DescribeTableOutput, error)
 	CreateTable(ctx context.Context, params *dynamodb.CreateTableInput, optFns ...func(*dynamodb.Options)) (*dynamodb.CreateTableOutput, error)
+	DescribeTable(ctx context.Context, params *dynamodb.DescribeTableInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DescribeTableOutput, error)
+	BatchWriteItem(ctx context.Context, params *dynamodb.BatchWriteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.BatchWriteItemOutput, error)
 }
 
 // MarshalFunc defines the interface for marshaling items to DynamoDB format.
@@ -56,7 +56,7 @@ func newDynamoLoader(client DBClient, table string, maxRetries int) *DynamoLoade
 }
 
 // NewDynamoLoader creates a DynamoLoader for DynamoDB based on the configuration.
-func NewDynamoLoader(ctx context.Context, cfg common.ConfigProvider) (*DynamoLoader, error) {
+func NewDynamoLoader(ctx context.Context, cfg common.ConfigProvider) (common.Loader, error) {
 	client, err := dynamo.Connect(ctx, cfg)
 	if err != nil {
 		return nil, &common.DatabaseConnectionError{Database: "DynamoDB", Reason: err.Error(), Err: err}
