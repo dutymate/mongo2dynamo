@@ -275,13 +275,8 @@ func (l *DynamoLoader) Load(ctx context.Context, data []map[string]interface{}) 
 
 // calculateBackoffWithJitter calculates exponential backoff with jitter to prevent thundering herd.
 func calculateBackoffWithJitter(attempt int) time.Duration {
-	// Exponential backoff calculation.
-	exponentialDelay := time.Duration(1<<attempt) * baseDelay
-
-	// Cap at maximum delay before applying jitter.
-	if maxDelay < exponentialDelay {
-		exponentialDelay = maxDelay
-	}
+	// Exponential backoff calculation, capped at maxDelay.
+	exponentialDelay := min(time.Duration(1<<attempt)*baseDelay, maxDelay)
 
 	// Add jitter (0.5 ~ 1.5 range) to prevent synchronized retries.
 	jitter := 0.5 + randomSource.Float64()*1.0
