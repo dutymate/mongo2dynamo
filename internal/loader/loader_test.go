@@ -24,52 +24,43 @@ type MockDBClient struct {
 	mock.Mock
 }
 
+// getMockOutput is a helper function to get the output from a mock call.
+func getMockOutput[T any](args mock.Arguments, index int) (*T, error) {
+	if args.Get(index) == nil {
+		if err := args.Error(1); err != nil {
+			return nil, fmt.Errorf("mock error: %w", err)
+		}
+		return nil, nil
+	}
+
+	output, ok := args.Get(index).(*T)
+	if !ok {
+		return nil, fmt.Errorf("misconfigured mock: unexpected return type: got %T", args.Get(index))
+	}
+
+	if err := args.Error(1); err != nil {
+		return output, fmt.Errorf("mock error: %w", err)
+	}
+
+	return output, nil
+}
+
+// CreateTable is a mock implementation of the CreateTable method.
 func (m *MockDBClient) CreateTable(ctx context.Context, params *dynamodb.CreateTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.CreateTableOutput, error) {
 	args := m.Called(ctx, params)
-	if output, ok := args.Get(0).(*dynamodb.CreateTableOutput); ok {
-		err := args.Error(1)
-		if err != nil {
-			return output, fmt.Errorf("mock error: %w", err)
-		}
-		return output, nil
-	}
-	err := args.Error(1)
-	if err != nil {
-		return nil, fmt.Errorf("mock error: %w", err)
-	}
-	return nil, nil
+	return getMockOutput[dynamodb.CreateTableOutput](args, 0)
 }
 
+// DescribeTable is a mock implementation of the DescribeTable method.
 func (m *MockDBClient) DescribeTable(ctx context.Context, params *dynamodb.DescribeTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.DescribeTableOutput, error) {
 	args := m.Called(ctx, params)
-	if output, ok := args.Get(0).(*dynamodb.DescribeTableOutput); ok {
-		err := args.Error(1)
-		if err != nil {
-			return output, fmt.Errorf("mock error: %w", err)
-		}
-		return output, nil
-	}
-	err := args.Error(1)
-	if err != nil {
-		return nil, fmt.Errorf("mock error: %w", err)
-	}
-	return nil, nil
+	return getMockOutput[dynamodb.DescribeTableOutput](args, 0)
 }
 
+// BatchWriteItem is a mock implementation of the BatchWriteItem method.
 func (m *MockDBClient) BatchWriteItem(ctx context.Context, params *dynamodb.BatchWriteItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.BatchWriteItemOutput, error) {
 	args := m.Called(ctx, params)
-	if output, ok := args.Get(0).(*dynamodb.BatchWriteItemOutput); ok {
-		err := args.Error(1)
-		if err != nil {
-			return output, fmt.Errorf("mock error: %w", err)
-		}
-		return output, nil
-	}
-	err := args.Error(1)
-	if err != nil {
-		return nil, fmt.Errorf("mock error: %w", err)
-	}
-	return nil, nil
+	return getMockOutput[dynamodb.BatchWriteItemOutput](args, 0)
 }
 
 // newTestLoader creates a new DynamoDB loader with a custom marshal function for testing.
