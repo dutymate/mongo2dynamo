@@ -4,7 +4,7 @@
   <img src="images/logo.png" alt="mongo2dynamo Logo" width="200"/>
 </p>
 
-**mongo2dynamo** is a high-performance, command-line tool for migrating data from MongoDB to DynamoDB, built with Go.
+**mongo2dynamo** is a high-performance, command-line tool for migrating data from MongoDB to DynamoDB.
 
 [![Build](https://github.com/dutymate/mongo2dynamo/actions/workflows/build.yaml/badge.svg)](https://github.com/dutymate/mongo2dynamo/actions/workflows/build.yaml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
