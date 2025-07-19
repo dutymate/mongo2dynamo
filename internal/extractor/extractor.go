@@ -2,6 +2,7 @@ package extractor
 
 import (
 	"context"
+	"encoding/json"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -104,6 +105,8 @@ func (e *MongoExtractor) Count(ctx context.Context) (int64, error) {
 }
 
 // parseMongoFilter parses a JSON string into a MongoDB BSON filter using UnmarshalExtJSON for efficiency.
+// If the filter is not a valid BSON document, it will try to parse it as a standard JSON document.
+// If both fail, it will return an error.
 func parseMongoFilter(filterStr string) (primitive.M, error) {
 	// Handle empty string case.
 	if filterStr == "" {
@@ -111,17 +114,25 @@ func parseMongoFilter(filterStr string) (primitive.M, error) {
 	}
 
 	var bsonFilter primitive.M
-	// Use UnmarshalExtJSON to directly parse the extended JSON into a BSON document.
-	if err := bson.UnmarshalExtJSON([]byte(filterStr), false, &bsonFilter); err != nil {
-		return nil, &common.FilterParseError{
-			Filter: filterStr,
-			Op:     "bson unmarshalextjson",
-			Reason: "invalid extended JSON syntax or failed to convert to BSON",
-			Err:    err,
-		}
+	// First, try to parse as extended JSON.
+	err := bson.UnmarshalExtJSON([]byte(filterStr), false, &bsonFilter)
+	if err == nil {
+		return bsonFilter, nil
 	}
 
-	return bsonFilter, nil
+	// If ExtJSON fails, fall back to standard JSON.
+	err = json.Unmarshal([]byte(filterStr), &bsonFilter)
+	if err == nil {
+		return bsonFilter, nil
+	}
+
+	// If both fail, return a comprehensive error.
+	return nil, &common.FilterParseError{
+		Filter: filterStr,
+		Op:     "bson unmarshalextjson / json unmarshal",
+		Reason: "failed to parse as both extended and standard JSON",
+		Err:    err,
+	}
 }
 
 // Extract retrieves documents from the MongoDB collection in fixed-size chunks and processes them using the provided callback.
