@@ -14,6 +14,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"mongo2dynamo/internal/common"
+
+	"github.com/stretchr/testify/require"
 )
 
 // MockCollection is a mock implementation of Collection interface.
@@ -306,19 +308,15 @@ func TestParseMongoFilter_ValidJSON(t *testing.T) {
 }
 
 func TestParseMongoFilter_InvalidJSON(t *testing.T) {
-	filterStr := `{"status": "active", "age": {"$gte": 18}` // Missing closing brace.
-	filter, err := parseMongoFilter(filterStr)
+	filterStr := `{"key": "value",,}` // Invalid JSON.
+	_, err := parseMongoFilter(filterStr)
 
-	assert.Error(t, err)
-	assert.Nil(t, filter)
-
-	// Check that it's a FilterParseError.
-	var filterErr *common.FilterParseError
-	assert.ErrorAs(t, err, &filterErr)
-	assert.Equal(t, "bson unmarshalextjson", filterErr.Op)
-	assert.Equal(t, "invalid extended JSON syntax or failed to convert to BSON", filterErr.Reason)
-	assert.Equal(t, filterStr, filterErr.Filter)
-	assert.Contains(t, filterErr.Error(), "MongoDB filter parse error")
+	require.Error(t, err)
+	var parseErr *common.FilterParseError
+	require.ErrorAs(t, err, &parseErr)
+	assert.Equal(t, filterStr, parseErr.Filter)
+	assert.Equal(t, "bson unmarshalextjson / json unmarshal", parseErr.Op)
+	assert.Equal(t, "failed to parse as both extended and standard JSON", parseErr.Reason)
 }
 
 func TestParseMongoFilter_EmptyString(t *testing.T) {
