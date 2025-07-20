@@ -104,7 +104,7 @@ func (l *DynamoLoader) ensureTableExists(ctx context.Context, cfg common.ConfigP
 
 	// Check if auto-approve is enabled.
 	if cfg.GetAutoApprove() {
-		return l.createTable(ctx)
+		return l.createTable(ctx, cfg)
 	}
 
 	// Ask for confirmation.
@@ -112,29 +112,44 @@ func (l *DynamoLoader) ensureTableExists(ctx context.Context, cfg common.ConfigP
 		return fmt.Errorf("required DynamoDB table '%s' not created: user declined table creation: %w", l.table, context.Canceled)
 	}
 
-	return l.createTable(ctx)
+	return l.createTable(ctx, cfg)
 }
 
-// createTable creates a new DynamoDB table with a simple schema.
-func (l *DynamoLoader) createTable(ctx context.Context) error {
+// createTable creates a new DynamoDB table with a user-defined schema.
+func (l *DynamoLoader) createTable(ctx context.Context, cfg common.ConfigProvider) error {
 	fmt.Printf("Creating DynamoDB table '%s'...\n", l.table)
 
-	// Create a simple table with 'id' as the primary key.
+	// Define attribute definitions and key schema based on config.
+	attributeDefinitions := []types.AttributeDefinition{
+		{
+			AttributeName: aws.String(cfg.GetDynamoPartitionKey()),
+			AttributeType: types.ScalarAttributeType(cfg.GetDynamoPartitionKeyType()),
+		},
+	}
+	keySchema := []types.KeySchemaElement{
+		{
+			AttributeName: aws.String(cfg.GetDynamoPartitionKey()),
+			KeyType:       types.KeyTypeHash,
+		},
+	}
+
+	// Add sort key if defined.
+	if sortKey := cfg.GetDynamoSortKey(); sortKey != "" {
+		attributeDefinitions = append(attributeDefinitions, types.AttributeDefinition{
+			AttributeName: aws.String(sortKey),
+			AttributeType: types.ScalarAttributeType(cfg.GetDynamoSortKeyType()),
+		})
+		keySchema = append(keySchema, types.KeySchemaElement{
+			AttributeName: aws.String(sortKey),
+			KeyType:       types.KeyTypeRange,
+		})
+	}
+
 	input := &dynamodb.CreateTableInput{
-		TableName: &l.table,
-		AttributeDefinitions: []types.AttributeDefinition{
-			{
-				AttributeName: aws.String("id"),
-				AttributeType: types.ScalarAttributeTypeS,
-			},
-		},
-		KeySchema: []types.KeySchemaElement{
-			{
-				AttributeName: aws.String("id"),
-				KeyType:       types.KeyTypeHash,
-			},
-		},
-		BillingMode: types.BillingModePayPerRequest,
+		TableName:            &l.table,
+		AttributeDefinitions: attributeDefinitions,
+		KeySchema:            keySchema,
+		BillingMode:          types.BillingModePayPerRequest,
 	}
 
 	_, err := l.client.CreateTable(ctx, input)

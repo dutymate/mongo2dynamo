@@ -19,6 +19,10 @@ func AddMongoFlags(cmd *cobra.Command) {
 func AddDynamoFlags(cmd *cobra.Command) {
 	cmd.Flags().String("dynamo-endpoint", "http://localhost:8000", "DynamoDB endpoint.")
 	cmd.Flags().String("dynamo-table", "", "DynamoDB table name.")
+	cmd.Flags().String("dynamo-partition-key", "id", "DynamoDB table partition key.")
+	cmd.Flags().String("dynamo-partition-key-type", "S", "DynamoDB table partition key type (S, N, B).")
+	cmd.Flags().String("dynamo-sort-key", "", "DynamoDB table sort key.")
+	cmd.Flags().String("dynamo-sort-key-type", "S", "DynamoDB table sort key type (S, N, B).")
 	cmd.Flags().String("aws-region", "us-east-1", "AWS region.")
 	cmd.Flags().Int("max-retries", 5, "Maximum number of retries for DynamoDB batch write.")
 }
