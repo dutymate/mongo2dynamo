@@ -24,15 +24,22 @@ type Config struct {
 	MongoFilter     string
 
 	// DynamoDB configuration.
-	DynamoTable    string
-	DynamoEndpoint string
-	AWSRegion      string
+	DynamoTable            string
+	DynamoEndpoint         string
+	DynamoPartitionKey     string
+	DynamoPartitionKeyType string
+	DynamoSortKey          string
+	DynamoSortKeyType      string
+	AWSRegion              string
 
 	// Application configuration.
 	AutoApprove bool
 	DryRun      bool
 	MaxRetries  int
 }
+
+// Ensure Config implements the interface.
+var _ common.ConfigProvider = (*Config)(nil)
 
 // Load loads configuration from environment variables and config file.
 func (c *Config) Load() error {
@@ -41,10 +48,14 @@ func (c *Config) Load() error {
 	// Set default values.
 	v.SetDefault("mongo_host", "localhost")
 	v.SetDefault("mongo_port", "27017")
+	v.SetDefault("mongo_filter", "")
 	v.SetDefault("dynamo_endpoint", "http://localhost:8000")
+	v.SetDefault("dynamo_partition_key", "id")
+	v.SetDefault("dynamo_partition_key_type", "S")
+	v.SetDefault("dynamo_sort_key", "")
+	v.SetDefault("dynamo_sort_key_type", "S")
 	v.SetDefault("aws_region", "us-east-1")
 	v.SetDefault("max_retries", 5)
-	v.SetDefault("mongo_filter", "")
 
 	// Read from environment variables.
 	v.SetEnvPrefix("MONGO2DYNAMO")
@@ -95,6 +106,18 @@ func (c *Config) Load() error {
 	if c.DynamoEndpoint == "" {
 		c.DynamoEndpoint = v.GetString("dynamo_endpoint")
 	}
+	if c.DynamoPartitionKey == "" {
+		c.DynamoPartitionKey = v.GetString("dynamo_partition_key")
+	}
+	if c.DynamoPartitionKeyType == "" {
+		c.DynamoPartitionKeyType = v.GetString("dynamo_partition_key_type")
+	}
+	if c.DynamoSortKey == "" {
+		c.DynamoSortKey = v.GetString("dynamo_sort_key")
+	}
+	if c.DynamoSortKeyType == "" {
+		c.DynamoSortKeyType = v.GetString("dynamo_sort_key_type")
+	}
 	if c.AWSRegion == "" {
 		c.AWSRegion = v.GetString("aws_region")
 	}
@@ -119,6 +142,15 @@ func (c *Config) Validate() error {
 	if c.MongoCollection == "" {
 		return &common.ConfigError{Op: "validate", Reason: "mongo_collection field is required"}
 	}
+	if c.DynamoPartitionKey == "" {
+		return &common.ConfigError{Op: "validate", Reason: "dynamo_partition_key field is required"}
+	}
+	if !isValidKeyType(c.DynamoPartitionKeyType) {
+		return &common.ConfigError{Op: "validate", Reason: "dynamo_partition_key_type must be one of 'S', 'N', or 'B'"}
+	}
+	if c.DynamoSortKey != "" && !isValidKeyType(c.DynamoSortKeyType) {
+		return &common.ConfigError{Op: "validate", Reason: "dynamo_sort_key_type must be one of 'S', 'N', or 'B'"}
+	}
 	if c.MaxRetries <= 0 {
 		return &common.ConfigError{Op: "validate", Reason: "max_retries must be greater than 0"}
 	}
@@ -134,6 +166,15 @@ func (c *Config) Validate() error {
 	}
 
 	return nil
+}
+
+func isValidKeyType(keyType string) bool {
+	switch keyType {
+	case "S", "N", "B":
+		return true
+	default:
+		return false
+	}
 }
 
 func (c *Config) GetMongoHost() string {
@@ -180,10 +221,6 @@ func (c *Config) GetDynamoTable() string {
 	return c.DynamoTable
 }
 
-func (c *Config) GetAWSRegion() string {
-	return c.AWSRegion
-}
-
 func (c *Config) GetAutoApprove() bool {
 	return c.AutoApprove
 }
@@ -194,6 +231,26 @@ func (c *Config) GetDryRun() bool {
 
 func (c *Config) GetMaxRetries() int {
 	return c.MaxRetries
+}
+
+func (c *Config) GetDynamoPartitionKey() string {
+	return c.DynamoPartitionKey
+}
+
+func (c *Config) GetDynamoPartitionKeyType() string {
+	return c.DynamoPartitionKeyType
+}
+
+func (c *Config) GetDynamoSortKey() string {
+	return c.DynamoSortKey
+}
+
+func (c *Config) GetDynamoSortKeyType() string {
+	return c.DynamoSortKeyType
+}
+
+func (c *Config) GetAWSRegion() string {
+	return c.AWSRegion
 }
 
 func (c *Config) SetDryRun(dryRun bool) {

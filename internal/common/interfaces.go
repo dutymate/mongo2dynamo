@@ -39,6 +39,10 @@ type ConfigProvider interface {
 	GetMongoFilter() string
 	GetDynamoEndpoint() string
 	GetDynamoTable() string
+	GetDynamoPartitionKey() string
+	GetDynamoPartitionKeyType() string
+	GetDynamoSortKey() string
+	GetDynamoSortKeyType() string
 	GetAWSRegion() string
 	GetAutoApprove() bool
 	GetDryRun() bool
