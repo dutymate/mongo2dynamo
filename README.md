@@ -28,7 +28,7 @@ mongo2dynamo is designed for efficient and reliable data migration, incorporatin
 -   **Intelligent Field Processing**: Automatically converts MongoDB-specific fields (`_id` → `id`) and removes framework metadata (`__v`, `_class`). Pre-calculates output document capacity to minimize memory allocations during transformation.
 -   **Fine-Grained Error Handling**: Defines domain-specific custom error types for each stage of the ETL process (Extract, Transform, Load). This enables precise error identification and facilitates targeted recovery logic.
 -   **Comprehensive CLI**: Built with `Cobra`, providing a user-friendly command-line interface with `plan` (dry-run) and `apply` commands, flexible configuration options (flags, env vars, config file), and an `--auto-approve` flag for non-interactive execution.
--   **Automatic Table Management**: Automatically creates DynamoDB tables if they don't exist, with user confirmation prompts (unless auto-approved). Waits for table activation before proceeding with migration.
+-   **Automatic Table Management**: Automatically creates DynamoDB tables if they don't exist, with user confirmation prompts (unless auto-approved). **Supports custom primary keys (Partition and Sort Keys).** Waits for table activation before proceeding with migration.
 
 ## Installation
 
@@ -57,17 +57,61 @@ make build
 # Preview migration
 mongo2dynamo plan --mongo-db mydb --mongo-collection users
 
-# Execute migration
-mongo2dynamo apply --mongo-db mydb --mongo-collection users --dynamo-endpoint http://localhost:8000
+# Execute migration with a custom primary key (Partition + Sort Key)
+mongo2dynamo apply --mongo-db mydb --mongo-collection events \
+  --dynamo-table user-events \
+  --dynamo-partition-key event_id \
+  --dynamo-partition-key-type S \
+  --dynamo-sort-key timestamp \
+  --dynamo-sort-key-type N
 
 # With filter and auto-approve
 mongo2dynamo apply --mongo-db mydb --mongo-collection users \
-  --dynamo-endpoint http://localhost:8000 \
   --mongo-filter '{"status": "active"}' \
   --auto-approve
 ```
 
 ## Configuration
+
+Configuration can be provided via command-line flags, environment variables, or a YAML configuration file. The order of precedence is:
+1. Command-Line Flags
+2. Environment Variables
+3. Configuration File
+4. Default Values
+
+### Command-Line Flags
+
+**MongoDB Flags**
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--mongo-host` | MongoDB host. | `localhost` |
+| `--mongo-port` | MongoDB port. | `27017` |
+| `--mongo-user` | MongoDB username. | ` ` |
+| `--mongo-password` | MongoDB password. | ` ` |
+| `--mongo-db` | **(Required)** MongoDB database name. | ` ` |
+| `--mongo-collection` | **(Required)** MongoDB collection name. | ` ` |
+| `--mongo-filter` | MongoDB query filter as a JSON string. | ` ` |
+
+**DynamoDB Flags**
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--dynamo-table` | DynamoDB table name. | MongoDB collection name |
+| `--dynamo-endpoint` | DynamoDB endpoint. | `http://localhost:8000` |
+| `--aws-region` | AWS region. | `us-east-1` |
+| `--dynamo-partition-key` | The attribute name for the partition key. | `id` |
+| `--dynamo-partition-key-type` | The attribute type for the partition key (S, N, B). | `S` |
+| `--dynamo-sort-key` | The attribute name for the sort key. (Optional) | ` ` |
+| `--dynamo-sort-key-type` | The attribute type for the sort key (S, N, B). | `S` |
+
+**General Flags**
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--max-retries` | Maximum retries for failed DynamoDB batch writes. | `5` |
+| `--auto-approve` | Skip all confirmation prompts. | `false` |
+| `-h`, `--help` | Show help for a command. | ` ` |
 
 ### Environment Variables
 
