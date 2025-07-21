@@ -31,11 +31,11 @@ type Config struct {
 	DynamoSortKey          string
 	DynamoSortKeyType      string
 	AWSRegion              string
+	MaxRetries             int
 
 	// Application configuration.
 	AutoApprove bool
 	DryRun      bool
-	MaxRetries  int
 }
 
 // Ensure Config implements the interface.
@@ -221,18 +221,6 @@ func (c *Config) GetDynamoTable() string {
 	return c.DynamoTable
 }
 
-func (c *Config) GetAutoApprove() bool {
-	return c.AutoApprove
-}
-
-func (c *Config) GetDryRun() bool {
-	return c.DryRun
-}
-
-func (c *Config) GetMaxRetries() int {
-	return c.MaxRetries
-}
-
 func (c *Config) GetDynamoPartitionKey() string {
 	return c.DynamoPartitionKey
 }
@@ -251,6 +239,18 @@ func (c *Config) GetDynamoSortKeyType() string {
 
 func (c *Config) GetAWSRegion() string {
 	return c.AWSRegion
+}
+
+func (c *Config) GetMaxRetries() int {
+	return c.MaxRetries
+}
+
+func (c *Config) GetAutoApprove() bool {
+	return c.AutoApprove
+}
+
+func (c *Config) GetDryRun() bool {
+	return c.DryRun
 }
 
 func (c *Config) SetDryRun(dryRun bool) {
