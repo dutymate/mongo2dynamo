@@ -49,6 +49,22 @@ func TestAddDynamoFlags(t *testing.T) {
 	tableFlag := cmd.Flags().Lookup("dynamo-table")
 	assert.NotNil(t, tableFlag, "dynamo-table flag should be registered")
 
+	partitionKeyFlag := cmd.Flags().Lookup("dynamo-partition-key")
+	assert.NotNil(t, partitionKeyFlag, "dynamo-partition-key flag should be registered")
+	assert.Equal(t, "id", partitionKeyFlag.DefValue)
+
+	partitionKeyTypeFlag := cmd.Flags().Lookup("dynamo-partition-key-type")
+	assert.NotNil(t, partitionKeyTypeFlag, "dynamo-partition-key-type flag should be registered")
+	assert.Equal(t, "S", partitionKeyTypeFlag.DefValue)
+
+	sortKeyFlag := cmd.Flags().Lookup("dynamo-sort-key")
+	assert.NotNil(t, sortKeyFlag, "dynamo-sort-key flag should be registered")
+	assert.Equal(t, "", sortKeyFlag.DefValue)
+
+	sortKeyTypeFlag := cmd.Flags().Lookup("dynamo-sort-key-type")
+	assert.NotNil(t, sortKeyTypeFlag, "dynamo-sort-key-type flag should be registered")
+	assert.Equal(t, "S", sortKeyTypeFlag.DefValue)
+
 	regionFlag := cmd.Flags().Lookup("aws-region")
 	assert.NotNil(t, regionFlag, "aws-region flag should be registered")
 	assert.Equal(t, "us-east-1", regionFlag.DefValue)
