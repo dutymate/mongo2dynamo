@@ -31,11 +31,11 @@ type Config struct {
 	DynamoSortKey          string
 	DynamoSortKeyType      string
 	AWSRegion              string
+	MaxRetries             int
 
 	// Application configuration.
 	AutoApprove bool
 	DryRun      bool
-	MaxRetries  int
 }
 
 // Ensure Config implements the interface.
@@ -43,23 +43,21 @@ var _ common.ConfigProvider = (*Config)(nil)
 
 // Load loads configuration from environment variables and config file.
 func (c *Config) Load() error {
-	v := viper.New()
-
 	// Set default values.
-	v.SetDefault("mongo_host", "localhost")
-	v.SetDefault("mongo_port", "27017")
-	v.SetDefault("mongo_filter", "")
-	v.SetDefault("dynamo_endpoint", "http://localhost:8000")
-	v.SetDefault("dynamo_partition_key", "id")
-	v.SetDefault("dynamo_partition_key_type", "S")
-	v.SetDefault("dynamo_sort_key", "")
-	v.SetDefault("dynamo_sort_key_type", "S")
-	v.SetDefault("aws_region", "us-east-1")
-	v.SetDefault("max_retries", 5)
+	viper.SetDefault("mongo_host", "localhost")
+	viper.SetDefault("mongo_port", "27017")
+	viper.SetDefault("mongo_filter", "")
+	viper.SetDefault("dynamo_endpoint", "http://localhost:8000")
+	viper.SetDefault("dynamo_partition_key", "id")
+	viper.SetDefault("dynamo_partition_key_type", "S")
+	viper.SetDefault("dynamo_sort_key", "")
+	viper.SetDefault("dynamo_sort_key_type", "S")
+	viper.SetDefault("aws_region", "us-east-1")
+	viper.SetDefault("max_retries", 5)
 
 	// Read from environment variables.
-	v.SetEnvPrefix("MONGO2DYNAMO")
-	v.AutomaticEnv()
+	viper.SetEnvPrefix("MONGO2DYNAMO")
+	viper.AutomaticEnv()
 
 	// Read from config file if it exists.
 	home, err := os.UserHomeDir()
@@ -67,10 +65,10 @@ func (c *Config) Load() error {
 		return &common.FileIOError{Op: "get user home dir", Reason: err.Error(), Err: err}
 	}
 	configPath := filepath.Join(home, ".mongo2dynamo")
-	v.AddConfigPath(configPath)
-	v.SetConfigName("config")
-	v.SetConfigType("yaml")
-	if err := v.ReadInConfig(); err != nil {
+	viper.AddConfigPath(configPath)
+	viper.SetConfigName("config")
+	viper.SetConfigType("yaml")
+	if err := viper.ReadInConfig(); err != nil {
 		// Ignore error if config file doesn't exist, but wrap other errors.
 		var notFoundErr viper.ConfigFileNotFoundError
 		if !errors.As(err, &notFoundErr) {
@@ -80,55 +78,55 @@ func (c *Config) Load() error {
 
 	// Only set values if they are not already set by flags.
 	if c.MongoHost == "" {
-		c.MongoHost = v.GetString("mongo_host")
+		c.MongoHost = viper.GetString("mongo_host")
 	}
 	if c.MongoPort == "" {
-		c.MongoPort = v.GetString("mongo_port")
+		c.MongoPort = viper.GetString("mongo_port")
 	}
 	if c.MongoUser == "" {
-		c.MongoUser = v.GetString("mongo_user")
+		c.MongoUser = viper.GetString("mongo_user")
 	}
 	if c.MongoPassword == "" {
-		c.MongoPassword = v.GetString("mongo_password")
+		c.MongoPassword = viper.GetString("mongo_password")
 	}
 	if c.MongoDB == "" {
-		c.MongoDB = v.GetString("mongo_db")
+		c.MongoDB = viper.GetString("mongo_db")
 	}
 	if c.MongoCollection == "" {
-		c.MongoCollection = v.GetString("mongo_collection")
+		c.MongoCollection = viper.GetString("mongo_collection")
 	}
 	if c.MongoFilter == "" {
-		c.MongoFilter = v.GetString("mongo_filter")
-	}
-	if c.DynamoTable == "" {
-		c.DynamoTable = v.GetString("dynamo_table")
+		c.MongoFilter = viper.GetString("mongo_filter")
 	}
 	if c.DynamoEndpoint == "" {
-		c.DynamoEndpoint = v.GetString("dynamo_endpoint")
+		c.DynamoEndpoint = viper.GetString("dynamo_endpoint")
+	}
+	if c.DynamoTable == "" {
+		c.DynamoTable = viper.GetString("dynamo_table")
 	}
 	if c.DynamoPartitionKey == "" {
-		c.DynamoPartitionKey = v.GetString("dynamo_partition_key")
+		c.DynamoPartitionKey = viper.GetString("dynamo_partition_key")
 	}
 	if c.DynamoPartitionKeyType == "" {
-		c.DynamoPartitionKeyType = v.GetString("dynamo_partition_key_type")
+		c.DynamoPartitionKeyType = viper.GetString("dynamo_partition_key_type")
 	}
 	if c.DynamoSortKey == "" {
-		c.DynamoSortKey = v.GetString("dynamo_sort_key")
+		c.DynamoSortKey = viper.GetString("dynamo_sort_key")
 	}
 	if c.DynamoSortKeyType == "" {
-		c.DynamoSortKeyType = v.GetString("dynamo_sort_key_type")
+		c.DynamoSortKeyType = viper.GetString("dynamo_sort_key_type")
 	}
 	if c.AWSRegion == "" {
-		c.AWSRegion = v.GetString("aws_region")
-	}
-	if !c.AutoApprove {
-		c.AutoApprove = v.GetBool("auto_approve")
-	}
-	if !c.DryRun {
-		c.DryRun = v.GetBool("dry_run")
+		c.AWSRegion = viper.GetString("aws_region")
 	}
 	if c.MaxRetries == 0 {
-		c.MaxRetries = v.GetInt("max_retries")
+		c.MaxRetries = viper.GetInt("max_retries")
+	}
+	if !c.AutoApprove {
+		c.AutoApprove = viper.GetBool("auto_approve")
+	}
+	if !c.DryRun {
+		c.DryRun = viper.GetBool("dry_run")
 	}
 
 	return nil
@@ -221,18 +219,6 @@ func (c *Config) GetDynamoTable() string {
 	return c.DynamoTable
 }
 
-func (c *Config) GetAutoApprove() bool {
-	return c.AutoApprove
-}
-
-func (c *Config) GetDryRun() bool {
-	return c.DryRun
-}
-
-func (c *Config) GetMaxRetries() int {
-	return c.MaxRetries
-}
-
 func (c *Config) GetDynamoPartitionKey() string {
 	return c.DynamoPartitionKey
 }
@@ -251,6 +237,18 @@ func (c *Config) GetDynamoSortKeyType() string {
 
 func (c *Config) GetAWSRegion() string {
 	return c.AWSRegion
+}
+
+func (c *Config) GetMaxRetries() int {
+	return c.MaxRetries
+}
+
+func (c *Config) GetAutoApprove() bool {
+	return c.AutoApprove
+}
+
+func (c *Config) GetDryRun() bool {
+	return c.DryRun
 }
 
 func (c *Config) SetDryRun(dryRun bool) {
