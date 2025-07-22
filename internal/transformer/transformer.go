@@ -12,11 +12,6 @@ import (
 	"mongo2dynamo/internal/worker"
 )
 
-var skipFields = map[string]struct{}{
-	"__v":    {},
-	"_class": {},
-}
-
 // DocTransformer transforms MongoDB documents.
 type DocTransformer struct{}
 
@@ -46,14 +41,14 @@ func (t *DocTransformer) Transform(
 
 		newDoc := make(map[string]interface{}, estimatedFields)
 		for k, v := range doc {
-			if k == "_id" {
+			switch k {
+			case "_id":
 				newDoc["id"] = convertID(v)
+			case "__v", "_class":
 				continue
+			default:
+				newDoc[k] = v
 			}
-			if _, skip := skipFields[k]; skip {
-				continue
-			}
-			newDoc[k] = v
 		}
 		return worker.Result[map[string]interface{}]{JobID: job.ID, Value: newDoc}
 	}
