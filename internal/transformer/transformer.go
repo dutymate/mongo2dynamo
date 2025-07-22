@@ -37,7 +37,14 @@ func (t *DocTransformer) Transform(
 	// This is the actual transformation logic for a single document.
 	transformFunc := func(_ context.Context, job worker.Job[map[string]interface{}]) worker.Result[map[string]interface{}] {
 		doc := job.Data
-		newDoc := make(map[string]interface{})
+
+		// Use original document size as base capacity estimate.
+		estimatedFields := len(doc)
+		if estimatedFields == 0 {
+			return worker.Result[map[string]interface{}]{JobID: job.ID, Value: map[string]interface{}{}}
+		}
+
+		newDoc := make(map[string]interface{}, estimatedFields)
 		for k, v := range doc {
 			if k == "_id" {
 				newDoc["id"] = convertID(v)
