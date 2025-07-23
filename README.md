@@ -123,8 +123,12 @@ export MONGO2DYNAMO_MONGO_PASSWORD=your_password
 export MONGO2DYNAMO_MONGO_DB=your_database
 export MONGO2DYNAMO_MONGO_COLLECTION=your_collection
 export MONGO2DYNAMO_MONGO_FILTER='{"status": "active"}'
-export MONGO2DYNAMO_DYNAMO_TABLE=your_table
 export MONGO2DYNAMO_DYNAMO_ENDPOINT=http://localhost:8000
+export MONGO2DYNAMO_DYNAMO_TABLE=your_table
+export MONGO2DYNAMO_DYNAMO_PARTITION_KEY=id
+export MONGO2DYNAMO_DYNAMO_PARTITION_KEY_TYPE=S
+export MONGO2DYNAMO_DYNAMO_SORT_KEY=timestamp
+export MONGO2DYNAMO_DYNAMO_SORT_KEY_TYPE=N
 export MONGO2DYNAMO_AWS_REGION=us-east-1
 export MONGO2DYNAMO_MAX_RETRIES=5
 export MONGO2DYNAMO_AUTO_APPROVE=false
@@ -142,8 +146,12 @@ mongo_password: your_password
 mongo_db: your_database
 mongo_collection: your_collection
 mongo_filter: '{"status": "active"}'
-dynamo_table: your_table
 dynamo_endpoint: http://localhost:8000
+dynamo_table: your_table
+dynamo_partition_key: id
+dynamo_partition_key_type: S
+dynamo_sort_key: timestamp
+dynamo_sort_key_type: N
 aws_region: us-east-1
 max_retries: 5
 auto_approve: false
