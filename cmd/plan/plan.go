@@ -62,10 +62,6 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 
 	// Validate configuration after all values are set.
 	if err := cfg.Validate(); err != nil {
-		if errors.Is(err, context.Canceled) {
-			fmt.Println("Plan canceled by user (table name confirmation declined).")
-			return nil
-		}
 		return fmt.Errorf("configuration validation failed: %w", err)
 	}
 
