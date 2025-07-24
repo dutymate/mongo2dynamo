@@ -73,3 +73,12 @@ func TestAddDynamoFlags(t *testing.T) {
 	assert.NotNil(t, maxRetriesFlag, "max-retries flag should be registered")
 	assert.Equal(t, "5", maxRetriesFlag.DefValue)
 }
+
+func TestAddAutoApproveFlag(t *testing.T) {
+	cmd := &cobra.Command{}
+	flags.AddAutoApproveFlag(cmd)
+
+	autoApproveFlag := cmd.Flags().Lookup("auto-approve")
+	assert.NotNil(t, autoApproveFlag, "auto-approve flag should be registered")
+	assert.Equal(t, "false", autoApproveFlag.DefValue)
+}

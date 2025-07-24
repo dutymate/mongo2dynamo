@@ -26,3 +26,8 @@ func AddDynamoFlags(cmd *cobra.Command) {
 	cmd.Flags().String("aws-region", "us-east-1", "AWS region.")
 	cmd.Flags().Int("max-retries", 5, "Maximum number of retries for DynamoDB batch write.")
 }
+
+// AddAutoApproveFlag adds the auto-approve flag to the command.
+func AddAutoApproveFlag(cmd *cobra.Command) {
+	cmd.Flags().Bool("auto-approve", false, "Skip all confirmation prompts")
+}
