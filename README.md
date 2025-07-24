@@ -97,21 +97,20 @@ Configuration can be provided via command-line flags, environment variables, or 
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--dynamo-table` | DynamoDB table name. | MongoDB collection name |
 | `--dynamo-endpoint` | DynamoDB endpoint. | `http://localhost:8000` |
-| `--aws-region` | AWS region. | `us-east-1` |
+| `--dynamo-table` | DynamoDB table name. | MongoDB collection name |
 | `--dynamo-partition-key` | The attribute name for the partition key. | `id` |
 | `--dynamo-partition-key-type` | The attribute type for the partition key (S, N, B). | `S` |
 | `--dynamo-sort-key` | The attribute name for the sort key. (Optional) | ` ` |
 | `--dynamo-sort-key-type` | The attribute type for the sort key (S, N, B). | `S` |
+| `--aws-region` | AWS region. | `us-east-1` |
+| `--max-retries` | Maximum retries for failed DynamoDB batch writes. | `5` |
 
-**General Flags**
+**Apply Control Flags**
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--max-retries` | Maximum retries for failed DynamoDB batch writes. | `5` |
 | `--auto-approve` | Skip all confirmation prompts. | `false` |
-| `-h`, `--help` | Show help for a command. | ` ` |
 
 ### Environment Variables
 
