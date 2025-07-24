@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/rand"
 	"sync"
 	"time"
 
@@ -15,17 +14,13 @@ import (
 
 	"mongo2dynamo/internal/common"
 	"mongo2dynamo/internal/dynamo"
+	"mongo2dynamo/internal/retry"
 )
 
 const (
 	batchSize            = 25
-	baseDelay            = 100 * time.Millisecond
-	maxDelay             = 30 * time.Second
 	defaultLoaderWorkers = 10
 )
-
-// Global random source for jitter calculation.
-var randomSource = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 // DBClient defines the interface for DynamoDB operations used by Loader.
 type DBClient interface {
@@ -39,19 +34,19 @@ type MarshalFunc func(item interface{}) (map[string]types.AttributeValue, error)
 
 // DynamoLoader implements the Loader interface for DynamoDB.
 type DynamoLoader struct {
-	client     DBClient
-	table      string
-	marshal    MarshalFunc
-	maxRetries int
+	client      DBClient
+	table       string
+	marshal     MarshalFunc
+	retryConfig *retry.Config
 }
 
 // newDynamoLoader creates a new DynamoDB loader.
 func newDynamoLoader(client DBClient, table string, maxRetries int) *DynamoLoader {
 	return &DynamoLoader{
-		client:     client,
-		table:      table,
-		marshal:    attributevalue.MarshalMap,
-		maxRetries: maxRetries,
+		client:      client,
+		table:       table,
+		marshal:     attributevalue.MarshalMap,
+		retryConfig: retry.NewConfig().WithMaxRetries(maxRetries),
 	}
 }
 
@@ -288,25 +283,14 @@ func (l *DynamoLoader) Load(ctx context.Context, data []map[string]interface{}) 
 	return <-errorChan
 }
 
-// calculateBackoffWithJitter calculates exponential backoff with jitter to prevent thundering herd.
-func calculateBackoffWithJitter(attempt int) time.Duration {
-	// Exponential backoff calculation, capped at maxDelay.
-	exponentialDelay := min(time.Duration(1<<attempt)*baseDelay, maxDelay)
-
-	// Add jitter (0.5 ~ 1.5 range) to prevent synchronized retries.
-	jitter := 0.5 + randomSource.Float64()*1.0
-	jitteredDelay := min(time.Duration(float64(exponentialDelay)*jitter), maxDelay)
-
-	return jitteredDelay
-}
-
 // batchWrite writes a batch of items to DynamoDB.
 func (l *DynamoLoader) batchWrite(ctx context.Context, writeRequests []types.WriteRequest) error {
-	var lastUnprocessed []types.WriteRequest
-	for attempt := 0; attempt < l.maxRetries; attempt++ {
+	var currentRequests = writeRequests
+
+	if err := retry.DoWithConfig(ctx, l.retryConfig, func() error {
 		input := &dynamodb.BatchWriteItemInput{
 			RequestItems: map[string][]types.WriteRequest{
-				l.table: writeRequests,
+				l.table: currentRequests,
 			},
 		}
 		output, err := l.client.BatchWriteItem(ctx, input)
@@ -318,26 +302,22 @@ func (l *DynamoLoader) batchWrite(ctx context.Context, writeRequests []types.Wri
 				Err:      err,
 			}
 		}
+
 		unprocessed := output.UnprocessedItems[l.table]
 		if len(unprocessed) == 0 {
 			return nil // All items processed successfully.
 		}
-		// Prepare for retry.
-		writeRequests = unprocessed
-		lastUnprocessed = unprocessed
-		// Exponential backoff with jitter.
-		backoffDuration := calculateBackoffWithJitter(attempt)
-		time.Sleep(backoffDuration)
-	}
-	// Log unprocessed items after exhausting retries.
-	if len(lastUnprocessed) > 0 {
+
+		// Update requests for next retry.
+		currentRequests = unprocessed
 		return &common.DatabaseOperationError{
 			Database: "DynamoDB",
 			Op:       "batch write (unprocessed items)",
-			Reason:   fmt.Sprintf("failed to process all items after %d retries", l.maxRetries),
-			Err:      fmt.Errorf("unprocessed items: %v", lastUnprocessed),
+			Reason:   fmt.Sprintf("unprocessed items: %d", len(unprocessed)),
+			Err:      fmt.Errorf("unprocessed items: %v", unprocessed),
 		}
+	}); err != nil {
+		return fmt.Errorf("batch write failed: %w", err)
 	}
-
 	return nil
 }

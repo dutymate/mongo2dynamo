@@ -15,6 +15,7 @@ import (
 
 	"mongo2dynamo/internal/common"
 	"mongo2dynamo/internal/config"
+	"mongo2dynamo/internal/retry"
 )
 
 const defaultMaxRetries = 5
@@ -66,10 +67,10 @@ func (m *MockDBClient) BatchWriteItem(ctx context.Context, params *dynamodb.Batc
 // newTestLoader creates a new DynamoDB loader with a custom marshal function for testing.
 func newTestLoader(client DBClient, table string, marshal MarshalFunc) *DynamoLoader {
 	return &DynamoLoader{
-		client:     client,
-		table:      table,
-		marshal:    marshal,
-		maxRetries: defaultMaxRetries,
+		client:      client,
+		table:       table,
+		marshal:     marshal,
+		retryConfig: retry.NewConfig().WithMaxRetries(defaultMaxRetries),
 	}
 }
 
@@ -305,13 +306,13 @@ func TestDynamoLoader_Load_UnprocessedItemsMaxRetriesExceeded(t *testing.T) {
 
 	mockClient.On("BatchWriteItem", mock.Anything, mock.Anything).Return(&dynamodb.BatchWriteItemOutput{
 		UnprocessedItems: map[string][]types.WriteRequest{"test-table": unprocessed},
-	}, nil).Times(1)
+	}, nil).Times(2) // Initial attempt + 1 retry.
 
 	err := dynamoLoader.Load(context.Background(), data)
 	require.Error(t, err)
 	var dbError *common.DatabaseOperationError
 	require.ErrorAs(t, err, &dbError)
-	assert.Contains(t, dbError.Reason, "failed to process all items after 1 retries")
+	assert.Contains(t, dbError.Reason, "unprocessed items:")
 }
 
 func TestDynamoLoader_Load_ContextCancellation(t *testing.T) {
@@ -370,9 +371,11 @@ func TestCalculateBackoffWithJitter(t *testing.T) {
 		},
 	}
 
+	backoffConfig := retry.NewBackoffConfig()
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := calculateBackoffWithJitter(tt.attempt)
+			result := backoffConfig.Calculate(tt.attempt)
 
 			// Check that result is within expected range (with jitter).
 			// Jitter range is 0.5 ~ 1.5, so result should be between 0.5x and 1.5x of expected.
@@ -386,7 +389,7 @@ func TestCalculateBackoffWithJitter(t *testing.T) {
 
 			// For attempts that should be capped, ensure they don't exceed maxDelay.
 			if tt.attempt >= 9 {
-				assert.LessOrEqual(t, result, maxDelay,
+				assert.LessOrEqual(t, result, retry.DefaultMaxDelay,
 					"Backoff duration should not exceed maxDelay for high attempts")
 			}
 		})
@@ -395,12 +398,13 @@ func TestCalculateBackoffWithJitter(t *testing.T) {
 
 func TestCalculateBackoffWithJitter_JitterVariation(t *testing.T) {
 	// Test that jitter provides variation across multiple calls.
+	backoffConfig := retry.NewBackoffConfig()
 	attempt := 2
 	expected := 400 * time.Millisecond // 2^2 * baseDelay.
 
 	results := make([]time.Duration, 100)
 	for i := 0; i < 100; i++ {
-		results[i] = calculateBackoffWithJitter(attempt)
+		results[i] = backoffConfig.Calculate(attempt)
 	}
 
 	// Check that we have some variation (not all results are the same).
@@ -429,6 +433,7 @@ func TestCalculateBackoffWithJitter_JitterVariation(t *testing.T) {
 
 func TestCalculateBackoffWithJitter_EdgeCases(t *testing.T) {
 	// Test very large attempt (should be capped).
-	result := calculateBackoffWithJitter(100)
-	assert.LessOrEqual(t, result, maxDelay, "Very large attempt should be capped at maxDelay")
+	backoffConfig := retry.NewBackoffConfig()
+	result := backoffConfig.Calculate(100)
+	assert.LessOrEqual(t, result, retry.DefaultMaxDelay, "Very large attempt should be capped at maxDelay")
 }
