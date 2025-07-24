@@ -214,4 +214,5 @@ func init() {
 	// Add flags.
 	flags.AddMongoFlags(ApplyCmd)
 	flags.AddDynamoFlags(ApplyCmd)
+	flags.AddAutoApproveFlag(ApplyCmd)
 }

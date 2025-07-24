@@ -4,7 +4,6 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	"mongo2dynamo/cmd/apply"
 	"mongo2dynamo/cmd/plan"
@@ -26,22 +25,8 @@ func Execute() {
 	}
 }
 
-func bindPersistentFlags() {
-	if err := viper.BindPFlag("auto-approve", rootCmd.PersistentFlags().Lookup("auto-approve")); err != nil {
-		rootCmd.PrintErrf("Failed to bind auto-approve flag: %v\n", err)
-		os.Exit(1)
-	}
-}
-
-func initConfig() {
-	viper.AutomaticEnv()
-}
-
 func init() {
-	cobra.OnInitialize(initConfig)
-	rootCmd.PersistentFlags().Bool("auto-approve", false, "Skip confirmation prompt")
 	rootCmd.CompletionOptions.DisableDefaultCmd = true
-	bindPersistentFlags()
 
 	rootCmd.AddCommand(apply.ApplyCmd)
 	rootCmd.AddCommand(plan.PlanCmd)
