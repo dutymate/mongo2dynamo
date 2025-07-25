@@ -22,6 +22,7 @@ type Config struct {
 	MongoDB         string
 	MongoCollection string
 	MongoFilter     string
+	MongoProjection string
 
 	// DynamoDB configuration.
 	DynamoTable            string
@@ -49,6 +50,7 @@ func (c *Config) Load() error {
 	v.SetDefault("mongo_host", "localhost")
 	v.SetDefault("mongo_port", "27017")
 	v.SetDefault("mongo_filter", "")
+	v.SetDefault("mongo_projection", "")
 	v.SetDefault("dynamo_endpoint", "http://localhost:8000")
 	v.SetDefault("dynamo_partition_key", "id")
 	v.SetDefault("dynamo_partition_key_type", "S")
@@ -99,6 +101,9 @@ func (c *Config) Load() error {
 	}
 	if c.MongoFilter == "" {
 		c.MongoFilter = v.GetString("mongo_filter")
+	}
+	if c.MongoProjection == "" {
+		c.MongoProjection = v.GetString("mongo_projection")
 	}
 	if c.DynamoTable == "" {
 		c.DynamoTable = v.GetString("dynamo_table")
@@ -203,6 +208,10 @@ func (c *Config) GetMongoCollection() string {
 
 func (c *Config) GetMongoFilter() string {
 	return c.MongoFilter
+}
+
+func (c *Config) GetMongoProjection() string {
+	return c.MongoProjection
 }
 
 func (c *Config) GetMongoURI() string {

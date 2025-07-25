@@ -27,12 +27,13 @@ type Cursor interface {
 	Err() error
 }
 
-// MongoExtractor implements the Extractor interface for MongoDB.
+// MongoExtractor extracts documents from a MongoDB collection.
 type MongoExtractor struct {
 	collection Collection
 	batchSize  int // Number of documents to fetch from MongoDB per batch.
 	chunkSize  int // Number of documents to pass to handleChunk per chunk.
 	filter     primitive.M
+	projection primitive.M
 	chunkPool  *pool.ChunkPool
 }
 
@@ -82,13 +83,24 @@ func NewMongoExtractor(ctx context.Context, cfg common.ConfigProvider) (common.E
 	// Parse MongoDB filter if provided.
 	var filter primitive.M
 	if cfg.GetMongoFilter() != "" {
-		filter, err = parseMongoFilter(cfg.GetMongoFilter())
+		filter, err = parseMongoJSON(cfg.GetMongoFilter())
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return newMongoExtractor(&mongoCollectionWrapper{collection}, filter), nil
+	// Parse MongoDB projection if provided.
+	var projection primitive.M
+	if cfg.GetMongoProjection() != "" {
+		projection, err = parseMongoJSON(cfg.GetMongoProjection())
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	extractor := newMongoExtractor(&mongoCollectionWrapper{collection}, filter)
+	extractor.projection = projection
+	return extractor, nil
 }
 
 // Count returns the total number of documents that match the filter.
@@ -104,34 +116,32 @@ func (e *MongoExtractor) Count(ctx context.Context) (int64, error) {
 	return 0, &common.DatabaseOperationError{Database: "MongoDB", Op: "count", Reason: "unable to access underlying collection", Err: nil}
 }
 
-// parseMongoFilter parses a JSON string into a MongoDB BSON filter using UnmarshalExtJSON for efficiency.
-// If the filter is not a valid BSON document, it will try to parse it as a standard JSON document.
-// If both fail, it will return an error.
-func parseMongoFilter(filterStr string) (primitive.M, error) {
-	// Handle empty string case.
-	if filterStr == "" {
+// parseMongoJSON parses a JSON string into a MongoDB BSON document (primitive.M).
+// This can be used for both filter and projection parsing.
+func parseMongoJSON(jsonStr string) (primitive.M, error) {
+	if jsonStr == "" {
 		return primitive.M{}, nil
 	}
 
-	var bsonFilter primitive.M
+	var doc primitive.M
 	// First, try to parse as extended JSON.
-	err := bson.UnmarshalExtJSON([]byte(filterStr), false, &bsonFilter)
+	err := bson.UnmarshalExtJSON([]byte(jsonStr), false, &doc)
 	if err == nil {
-		return bsonFilter, nil
+		return doc, nil
 	}
 
 	// If ExtJSON fails, fall back to standard JSON.
-	err = json.Unmarshal([]byte(filterStr), &bsonFilter)
+	err = json.Unmarshal([]byte(jsonStr), &doc)
 	if err == nil {
-		return bsonFilter, nil
+		return doc, nil
 	}
 
 	// If both fail, return a comprehensive error.
-	return nil, &common.FilterParseError{
-		Filter: filterStr,
-		Op:     "bson unmarshalextjson / json unmarshal",
-		Reason: "failed to parse as both extended and standard JSON",
-		Err:    err,
+	return nil, &common.ParseError{
+		JSONString: jsonStr,
+		Op:         "bson unmarshalextjson / json unmarshal",
+		Reason:     "failed to parse as both extended and standard JSON",
+		Err:        err,
 	}
 }
 
@@ -143,6 +153,11 @@ func (e *MongoExtractor) Extract(ctx context.Context, handleChunk common.ChunkHa
 	filter := primitive.M{}
 	if e.filter != nil {
 		filter = e.filter
+	}
+
+	// Set projection if specified.
+	if len(e.projection) > 0 {
+		findOptions.SetProjection(e.projection)
 	}
 
 	cursor, err := e.collection.Find(ctx, filter, findOptions)

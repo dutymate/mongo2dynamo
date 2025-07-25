@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func FuzzParseMongoFilter(f *testing.F) {
+func FuzzParseMongoJSON(f *testing.F) {
 	// Seed corpus with various representative values.
 	f.Add("")
 	f.Add("{}")
@@ -69,15 +69,15 @@ func FuzzParseMongoFilter(f *testing.F) {
 	f.Add(`{"field": 0}`)
 	f.Add(`{"field": {"$meta": "textScore"}}`)
 
-	f.Fuzz(func(t *testing.T, filterStr string) {
-		filter, err := parseMongoFilter(filterStr)
+	f.Fuzz(func(t *testing.T, jsonStr string) {
+		m, err := parseMongoJSON(jsonStr)
 		if err != nil {
 			// Error is expected for invalid JSON, but should not panic.
 			return
 		}
 		// Verify that the result is not nil when no error occurs.
-		if filter == nil {
-			t.Errorf("parseMongoFilter returned nil filter for input: %s", filterStr)
+		if m == nil {
+			t.Errorf("parseMongoJSON returned nil map for input: %s", jsonStr)
 		}
 	})
 }
