@@ -30,5 +30,5 @@ func AddDynamoFlags(cmd *cobra.Command) {
 
 // AddAutoApproveFlag adds the auto-approve flag to the command.
 func AddAutoApproveFlag(cmd *cobra.Command) {
-	cmd.Flags().Bool("auto-approve", false, "Skip all confirmation prompts")
+	cmd.Flags().Bool("auto-approve", false, "Skip all confirmation prompts.")
 }
