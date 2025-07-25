@@ -24,7 +24,7 @@ mongo2dynamo is designed for efficient and reliable data migration, incorporatin
 -   **High-Performance Transformation**: Utilizes a **dynamic worker pool** that scales based on CPU cores (from 2 to 2x `runtime.NumCPU()`) with real-time workload monitoring. Workers auto-scale every 500ms based on pending jobs, maximizing parallel processing efficiency.
 -   **Optimized Memory Management**: Implements strategic memory allocation - extractor uses `ChunkPool` for efficient slice reuse during document streaming, while transformer uses direct allocation with pre-calculated capacity for optimal performance based on benchmarking.
 -   **Robust Loading Mechanism**: Implements a reliable data loading strategy for DynamoDB using the `BatchWriteItem` API with a **concurrent worker pool**. Features **Exponential Backoff with Jitter** algorithm to automatically handle DynamoDB throttling exceptions, ensuring smooth migration process.
--   **Memory-Efficient Extraction**: Employs a streaming approach to extract data from MongoDB in configurable chunks (default: 2000 documents), minimizing memory footprint even with large datasets. Supports MongoDB query filters for selective migration.
+-   **Memory-Efficient Extraction**: Employs a streaming approach to extract data from MongoDB in configurable chunks (default: 2000 documents), minimizing memory footprint even with large datasets. Supports MongoDB query filters and projections for selective migration.
 -   **Intelligent Field Processing**: Automatically converts MongoDB-specific fields (`_id` → `id`) and removes framework metadata (`__v`, `_class`). Pre-calculates output document capacity to minimize memory allocations during transformation.
 -   **Fine-Grained Error Handling**: Defines domain-specific custom error types for each stage of the ETL process (Extract, Transform, Load). This enables precise error identification and facilitates targeted recovery logic.
 -   **Comprehensive CLI**: Built with `Cobra`, providing a user-friendly command-line interface with `plan` (dry-run) and `apply` commands, flexible configuration options (flags, env vars, config file), and an `--auto-approve` flag for non-interactive execution.
@@ -69,6 +69,11 @@ mongo2dynamo apply --mongo-db mydb --mongo-collection events \
 mongo2dynamo apply --mongo-db mydb --mongo-collection users \
   --mongo-filter '{"status": "active"}' \
   --auto-approve
+
+# With projection to select specific fields
+mongo2dynamo apply --mongo-db mydb --mongo-collection users \
+  --mongo-projection '{"name": 1, "email": 1, "_id": 0}' \
+  --auto-approve
 ```
 
 ## Configuration
@@ -92,6 +97,7 @@ Configuration can be provided via command-line flags, environment variables, or 
 | `--mongo-db` | **(Required)** MongoDB database name. | ` ` |
 | `--mongo-collection` | **(Required)** MongoDB collection name. | ` ` |
 | `--mongo-filter` | MongoDB query filter as a JSON string. | ` ` |
+| `--mongo-projection` | MongoDB projection as a JSON string to select specific fields. | ` ` |
 
 **DynamoDB Flags**
 
@@ -122,6 +128,7 @@ export MONGO2DYNAMO_MONGO_PASSWORD=your_password
 export MONGO2DYNAMO_MONGO_DB=your_database
 export MONGO2DYNAMO_MONGO_COLLECTION=your_collection
 export MONGO2DYNAMO_MONGO_FILTER='{"status": "active"}'
+export MONGO2DYNAMO_MONGO_PROJECTION='{"name": 1, "email": 1, "_id": 0}'
 export MONGO2DYNAMO_DYNAMO_ENDPOINT=http://localhost:8000
 export MONGO2DYNAMO_DYNAMO_TABLE=your_table
 export MONGO2DYNAMO_DYNAMO_PARTITION_KEY=id
@@ -145,6 +152,7 @@ mongo_password: your_password
 mongo_db: your_database
 mongo_collection: your_collection
 mongo_filter: '{"status": "active"}'
+mongo_projection: '{"name": 1, "email": 1, "_id": 0}'
 dynamo_endpoint: http://localhost:8000
 dynamo_table: your_table
 dynamo_partition_key: id
@@ -164,7 +172,7 @@ Performs a dry-run to preview the migration by executing the full ETL pipeline w
 
 **Features:**
 - Connects to MongoDB and validates configuration.
-- Extracts documents from MongoDB (with filters if specified).
+- Extracts documents from MongoDB (with filters and projections if specified).
 - Transforms documents to DynamoDB format using dynamic worker pools.
 - Counts the total number of documents that would be migrated.
 - No data is loaded to DynamoDB (dry-run mode).
