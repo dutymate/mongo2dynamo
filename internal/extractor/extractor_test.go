@@ -293,69 +293,135 @@ func TestExtractor_Extract_WithFilter(t *testing.T) {
 	mockCursor.AssertExpectations(t)
 }
 
-func TestParseMongoFilter_ValidJSON(t *testing.T) {
-	filterStr := `{"status": "active", "age": {"$gte": 18}}`
-	filter, err := parseMongoFilter(filterStr)
+func TestMongoExtractor_Extract_WithProjection(t *testing.T) {
+	mockCollection := new(MockCollection)
+	testDocs := []map[string]interface{}{
+		{"_id": "1", "name": "doc1", "age": 30},
+		{"_id": "2", "name": "doc2", "age": 40},
+	}
+	mockCursor := &MockCursor{
+		docs: testDocs,
+	}
+	mockCursor.On("Close", mock.Anything).Return(nil)
+	mockCursor.On("Err").Return(nil)
+
+	// Expect Find to be called with the projection.
+	projection := primitive.M{"name": 1}
+	mockCollection.On("Find", mock.Anything, mock.Anything, mock.MatchedBy(func(opts []*options.FindOptions) bool {
+		if len(opts) == 0 || opts[0] == nil {
+			return false
+		}
+		proj, ok := opts[0].Projection.(primitive.M)
+		return ok && proj["name"] == 1
+	})).Return(mockCursor, nil)
+
+	extractor := newMongoExtractor(mockCollection, primitive.M{})
+	extractor.projection = projection
+	var processedDocs []map[string]interface{}
+	err := extractor.Extract(context.Background(), func(chunk []map[string]interface{}) error {
+		processedDocs = append(processedDocs, chunk...)
+		return nil
+	})
 
 	assert.NoError(t, err)
-	assert.NotNil(t, filter)
-	assert.Equal(t, "active", filter["status"])
+	assert.Equal(t, testDocs, processedDocs)
+	mockCollection.AssertExpectations(t)
+	mockCursor.AssertExpectations(t)
+}
 
-	ageFilter, ok := filter["age"].(primitive.M)
+func TestMongoExtractor_Extract_ProjectionFieldsOnly(t *testing.T) {
+	mockCollection := new(MockCollection)
+	// Simulate MongoDB returning only the projected fields.
+	projectedDocs := []map[string]interface{}{
+		{"name": "doc1"},
+		{"name": "doc2"},
+	}
+	mockCursor := &MockCursor{
+		docs: projectedDocs,
+	}
+	mockCursor.On("Close", mock.Anything).Return(nil)
+	mockCursor.On("Err").Return(nil)
+
+	projection := primitive.M{"name": 1}
+	mockCollection.On("Find", mock.Anything, mock.Anything, mock.MatchedBy(func(opts []*options.FindOptions) bool {
+		if len(opts) == 0 || opts[0] == nil {
+			return false
+		}
+		proj, ok := opts[0].Projection.(primitive.M)
+		return ok && proj["name"] == 1
+	})).Return(mockCursor, nil)
+
+	extractor := newMongoExtractor(mockCollection, primitive.M{})
+	extractor.projection = projection
+	var processedDocs []map[string]interface{}
+	err := extractor.Extract(context.Background(), func(chunk []map[string]interface{}) error {
+		processedDocs = append(processedDocs, chunk...)
+		return nil
+	})
+
+	assert.NoError(t, err)
+	assert.Equal(t, projectedDocs, processedDocs)
+	for _, doc := range processedDocs {
+		assert.Len(t, doc, 1)
+		_, hasName := doc["name"]
+		assert.True(t, hasName)
+	}
+	mockCollection.AssertExpectations(t)
+	mockCursor.AssertExpectations(t)
+}
+
+func TestParseMongoJSON_ValidJSON(t *testing.T) {
+	jsonStr := `{"status": "active", "age": {"$gte": 18}}`
+	m, err := parseMongoJSON(jsonStr)
+	assert.NoError(t, err)
+	assert.NotNil(t, m)
+	assert.Equal(t, "active", m["status"])
+	ageFilter, ok := m["age"].(primitive.M)
 	assert.True(t, ok)
-	// bson.UnmarshalExtJSON correctly infers integer types as int32.
 	assert.Equal(t, int32(18), ageFilter["$gte"])
 }
 
-func TestParseMongoFilter_InvalidJSON(t *testing.T) {
-	filterStr := `{"key": "value",,}` // Invalid JSON.
-	_, err := parseMongoFilter(filterStr)
-
+func TestParseMongoJSON_InvalidJSON(t *testing.T) {
+	jsonStr := `{"key": "value",,}` // Invalid JSON.
+	_, err := parseMongoJSON(jsonStr)
 	require.Error(t, err)
-	var parseErr *common.FilterParseError
+	var parseErr *common.ParseError
 	require.ErrorAs(t, err, &parseErr)
-	assert.Equal(t, filterStr, parseErr.Filter)
+	assert.Equal(t, jsonStr, parseErr.JSONString)
 	assert.Equal(t, "bson unmarshalextjson / json unmarshal", parseErr.Op)
 	assert.Equal(t, "failed to parse as both extended and standard JSON", parseErr.Reason)
 }
 
-func TestParseMongoFilter_EmptyString(t *testing.T) {
-	// Empty string should be treated as empty filter.
-	filter, err := parseMongoFilter("")
-
+func TestParseMongoJSON_EmptyString(t *testing.T) {
+	m, err := parseMongoJSON("")
 	assert.NoError(t, err)
-	assert.NotNil(t, filter)
-	assert.Empty(t, filter)
+	assert.NotNil(t, m)
+	assert.Empty(t, m)
 }
 
-func TestParseMongoFilter_ComplexFilter(t *testing.T) {
-	filterStr := `{"$and": [{"status": "active"}, {"age": {"$gte": 18, "$lte": 65}}]}`
-	filter, err := parseMongoFilter(filterStr)
-
+func TestParseMongoJSON_Complex(t *testing.T) {
+	jsonStr := `{"$and": [{"status": "active"}, {"age": {"$gte": 18, "$lte": 65}}]}`
+	m, err := parseMongoJSON(jsonStr)
 	assert.NoError(t, err)
-	assert.NotNil(t, filter)
-
-	andFilter, ok := filter["$and"].(primitive.A)
+	assert.NotNil(t, m)
+	andFilter, ok := m["$and"].(primitive.A)
 	assert.True(t, ok)
 	assert.Len(t, andFilter, 2)
 }
 
-func TestParseMongoFilter_ExtendedJSON(t *testing.T) {
-	// Test parsing of MongoDB extended JSON format (e.g., for ObjectID and dates).
-	filterStr := `{"_id": {"$oid": "60c72b2f9b1e8b3b4e8b4567"}, "createdAt": {"$date": "2021-06-14T12:00:00Z"}}`
-	filter, err := parseMongoFilter(filterStr)
+func TestParseMongoJSON_ExtendedJSON(t *testing.T) {
+	jsonStr := `{"_id": {"$oid": "60c72b2f9b1e8b3b4e8b4567"}, "createdAt": {"$date": "2021-06-14T12:00:00Z"}}`
+	m, err := parseMongoJSON(jsonStr)
 	assert.NoError(t, err)
-	assert.NotNil(t, filter)
-
+	assert.NotNil(t, m)
 	// Check ObjectID.
-	oid, ok := filter["_id"].(primitive.ObjectID)
+	oid, ok := m["_id"].(primitive.ObjectID)
 	assert.True(t, ok)
 	expectedOid, err := primitive.ObjectIDFromHex("60c72b2f9b1e8b3b4e8b4567")
 	assert.NoError(t, err)
 	assert.Equal(t, expectedOid, oid)
-
 	// Check DateTime.
-	dt, ok := filter["createdAt"].(primitive.DateTime)
+	dt, ok := m["createdAt"].(primitive.DateTime)
 	assert.True(t, ok)
 	expectedDt, err := time.Parse(time.RFC3339, "2021-06-14T12:00:00Z")
 	assert.NoError(t, err)

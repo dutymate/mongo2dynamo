@@ -95,22 +95,22 @@ func (e *AuthError) Unwrap() error {
 	return e.Err
 }
 
-// FilterParseError is returned when MongoDB filter parsing fails.
-type FilterParseError struct {
-	Filter string
-	Op     string
-	Reason string
-	Err    error
+// ParseError is returned when MongoDB json parsing fails.
+type ParseError struct {
+	JSONString string
+	Op         string
+	Reason     string
+	Err        error
 }
 
-func (e *FilterParseError) Error() string {
-	if e.Filter != "" {
-		return fmt.Sprintf("MongoDB filter parse error during '%s' for filter '%s': %s", e.Op, e.Filter, e.Reason)
+func (e *ParseError) Error() string {
+	if e.JSONString != "" {
+		return fmt.Sprintf("MongoDB json parse error during '%s' for document '%s': %s", e.Op, e.JSONString, e.Reason)
 	}
-	return fmt.Sprintf("MongoDB filter parse error during '%s': %s", e.Op, e.Reason)
+	return fmt.Sprintf("MongoDB json parse error during '%s': %s", e.Op, e.Reason)
 }
 
-func (e *FilterParseError) Unwrap() error {
+func (e *ParseError) Unwrap() error {
 	return e.Err
 }
 

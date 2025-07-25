@@ -35,8 +35,9 @@ type ConfigProvider interface {
 	GetMongoPassword() string
 	GetMongoDB() string
 	GetMongoCollection() string
-	GetMongoURI() string
 	GetMongoFilter() string
+	GetMongoProjection() string
+	GetMongoURI() string
 	GetDynamoEndpoint() string
 	GetDynamoTable() string
 	GetDynamoPartitionKey() string
@@ -44,7 +45,7 @@ type ConfigProvider interface {
 	GetDynamoSortKey() string
 	GetDynamoSortKeyType() string
 	GetAWSRegion() string
+	GetMaxRetries() int
 	GetAutoApprove() bool
 	GetDryRun() bool
-	GetMaxRetries() int
 }
