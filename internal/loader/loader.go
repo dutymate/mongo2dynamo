@@ -30,7 +30,7 @@ type DBClient interface {
 }
 
 // MarshalFunc defines the interface for marshaling items to DynamoDB format.
-type MarshalFunc func(item interface{}) (map[string]types.AttributeValue, error)
+type MarshalFunc func(item any) (map[string]types.AttributeValue, error)
 
 // DynamoLoader implements the Loader interface for DynamoDB.
 type DynamoLoader struct {
@@ -68,7 +68,7 @@ func NewDynamoLoader(ctx context.Context, cfg common.ConfigProvider) (common.Loa
 }
 
 // marshalItem marshals a single item to DynamoDB format.
-func (l *DynamoLoader) marshalItem(item map[string]interface{}) (map[string]types.AttributeValue, error) {
+func (l *DynamoLoader) marshalItem(item map[string]any) (map[string]types.AttributeValue, error) {
 	return l.marshal(item)
 }
 
@@ -204,7 +204,7 @@ func (l *DynamoLoader) waitForTableActive(ctx context.Context) error {
 }
 
 // Load saves all documents to DynamoDB using a pool of workers.
-func (l *DynamoLoader) Load(ctx context.Context, data []map[string]interface{}) error {
+func (l *DynamoLoader) Load(ctx context.Context, data []map[string]any) error {
 	if len(data) == 0 {
 		return nil
 	}

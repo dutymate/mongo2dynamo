@@ -16,13 +16,13 @@ import (
 
 // Collection defines the interface for MongoDB collection operations needed by Extractor.
 type Collection interface {
-	Find(ctx context.Context, filter interface{}, opts ...*options.FindOptions) (Cursor, error)
+	Find(ctx context.Context, filter any, opts ...*options.FindOptions) (Cursor, error)
 }
 
 // Cursor defines the interface for MongoDB cursor operations needed by Extractor.
 type Cursor interface {
 	Next(ctx context.Context) bool
-	Decode(val interface{}) error
+	Decode(val any) error
 	Close(ctx context.Context) error
 	Err() error
 }
@@ -48,7 +48,7 @@ type mongoCursorWrapper struct {
 }
 
 // Find executes a MongoDB find operation on the wrapped collection.
-func (w *mongoCollectionWrapper) Find(ctx context.Context, filter interface{}, opts ...*options.FindOptions) (Cursor, error) {
+func (w *mongoCollectionWrapper) Find(ctx context.Context, filter any, opts ...*options.FindOptions) (Cursor, error) {
 	cursor, err := w.Collection.Find(ctx, filter, opts...)
 	if err != nil {
 		return nil, &common.DatabaseOperationError{
@@ -170,7 +170,7 @@ func (e *MongoExtractor) Extract(ctx context.Context, handleChunk common.ChunkHa
 	defer e.chunkPool.Put(chunkPtr)
 
 	for cursor.Next(ctx) {
-		var doc map[string]interface{}
+		var doc map[string]any
 		if err := cursor.Decode(&doc); err != nil {
 			return &common.DataValidationError{
 				Database: "MongoDB",

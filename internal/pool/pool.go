@@ -14,8 +14,8 @@ type ChunkPool struct {
 func NewChunkPool(chunkSize int) *ChunkPool {
 	return &ChunkPool{
 		pool: sync.Pool{
-			New: func() interface{} {
-				c := make([]map[string]interface{}, 0, chunkSize)
+			New: func() any {
+				c := make([]map[string]any, 0, chunkSize)
 				return &c
 			},
 		},
@@ -24,12 +24,12 @@ func NewChunkPool(chunkSize int) *ChunkPool {
 }
 
 // Get retrieves a document chunk pointer from the pool or creates a new one.
-func (p *ChunkPool) Get() *[]map[string]interface{} {
-	return p.pool.Get().(*[]map[string]interface{})
+func (p *ChunkPool) Get() *[]map[string]any {
+	return p.pool.Get().(*[]map[string]any)
 }
 
 // Put returns a document chunk pointer to the pool after clearing its contents.
-func (p *ChunkPool) Put(chunk *[]map[string]interface{}) {
+func (p *ChunkPool) Put(chunk *[]map[string]any) {
 	*chunk = (*chunk)[:0]
 	p.pool.Put(chunk)
 }

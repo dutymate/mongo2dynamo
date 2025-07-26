@@ -123,8 +123,8 @@ func runApply(cmd *cobra.Command, _ []string) error {
 
 	// Pipeline channels.
 	const pipelineChannelBufferSize = 10
-	extractChan := make(chan []map[string]interface{}, pipelineChannelBufferSize)
-	transformChan := make(chan []map[string]interface{}, pipelineChannelBufferSize)
+	extractChan := make(chan []map[string]any, pipelineChannelBufferSize)
+	transformChan := make(chan []map[string]any, pipelineChannelBufferSize)
 	errorChan := make(chan error, 3)
 
 	// Use a WaitGroup to wait for all pipeline stages to finish.
@@ -175,7 +175,7 @@ func runApply(cmd *cobra.Command, _ []string) error {
 
 	// Stage 1: Extractor.
 	fmt.Println("Starting data migration from MongoDB to DynamoDB...")
-	extractErr := mongoExtractor.Extract(ctx, func(chunk []map[string]interface{}) error {
+	extractErr := mongoExtractor.Extract(ctx, func(chunk []map[string]any) error {
 		select {
 		case extractChan <- chunk:
 			return nil

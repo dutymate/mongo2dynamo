@@ -32,7 +32,7 @@ func TestChunkPool(t *testing.T) {
 		chunk := pool.Get()
 
 		// Add data to chunk.
-		*chunk = []map[string]interface{}{
+		*chunk = []map[string]any{
 			{"key1": "value1"},
 			{"key2": "value2"},
 		}
@@ -60,7 +60,7 @@ func TestChunkPool(t *testing.T) {
 				defer wg.Done()
 				for j := 0; j < operationsPerGoroutine; j++ {
 					chunk := pool.Get()
-					*chunk = []map[string]interface{}{
+					*chunk = []map[string]any{
 						{"test": "value"},
 					}
 					pool.Put(chunk)
@@ -93,7 +93,7 @@ func TestChunkPoolMemoryEfficiency(t *testing.T) {
 
 	for i := 0; i < 500; i++ {
 		chunk := pool.Get()
-		*chunk = make([]map[string]interface{}, i%10)
+		*chunk = make([]map[string]any, i%10)
 		pool.Put(chunk)
 	}
 

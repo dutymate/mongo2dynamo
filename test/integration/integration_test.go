@@ -197,7 +197,7 @@ func TestApplyCommand_WithExistingTable(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result.Item)
 
-	var item map[string]interface{}
+	var item map[string]any
 	err = attributevalue.UnmarshalMap(result.Item, &item)
 	require.NoError(t, err)
 	require.Equal(t, "mongoid-001", item["id"])
@@ -270,7 +270,7 @@ func TestApplyCommand_WithAutoCreateTable(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result.Item)
 
-	var item map[string]interface{}
+	var item map[string]any
 	err = attributevalue.UnmarshalMap(result.Item, &item)
 	require.NoError(t, err)
 	require.Equal(t, "mongoid-001", item["id"])

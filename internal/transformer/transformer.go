@@ -23,23 +23,23 @@ func NewDocTransformer() common.Transformer {
 // Transform renames the '_id' field to 'id' and removes '__v' and '_class' fields.
 func (t *DocTransformer) Transform(
 	ctx context.Context,
-	input []map[string]interface{},
-) ([]map[string]interface{}, error) {
+	input []map[string]any,
+) ([]map[string]any, error) {
 	if len(input) == 0 {
-		return []map[string]interface{}{}, nil
+		return []map[string]any{}, nil
 	}
 
 	// This is the actual transformation logic for a single document.
-	transformFunc := func(_ context.Context, job worker.Job[map[string]interface{}]) worker.Result[map[string]interface{}] {
+	transformFunc := func(_ context.Context, job worker.Job[map[string]any]) worker.Result[map[string]any] {
 		doc := job.Data
 
 		// Use original document size as base capacity estimate.
 		estimatedFields := len(doc)
 		if estimatedFields == 0 {
-			return worker.Result[map[string]interface{}]{JobID: job.ID, Value: map[string]interface{}{}}
+			return worker.Result[map[string]any]{JobID: job.ID, Value: map[string]any{}}
 		}
 
-		newDoc := make(map[string]interface{}, estimatedFields)
+		newDoc := make(map[string]any, estimatedFields)
 		for k, v := range doc {
 			switch k {
 			case "_id":
@@ -50,7 +50,7 @@ func (t *DocTransformer) Transform(
 				newDoc[k] = v
 			}
 		}
-		return worker.Result[map[string]interface{}]{JobID: job.ID, Value: newDoc}
+		return worker.Result[map[string]any]{JobID: job.ID, Value: newDoc}
 	}
 
 	// Configure and run the dynamic worker pool.
@@ -62,7 +62,7 @@ func (t *DocTransformer) Transform(
 	pool.Start(ctx)
 	output, err := pool.Process(ctx, input)
 	if err != nil {
-		return []map[string]interface{}{}, &common.TransformError{
+		return []map[string]any{}, &common.TransformError{
 			Reason: "document transformation failed",
 			Err:    err,
 		}
@@ -71,7 +71,7 @@ func (t *DocTransformer) Transform(
 	return output, nil
 }
 
-func convertID(id interface{}) interface{} {
+func convertID(id any) any {
 	switch v := id.(type) {
 	case primitive.ObjectID:
 		return v.Hex()

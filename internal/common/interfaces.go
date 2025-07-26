@@ -5,7 +5,7 @@ import (
 )
 
 // ChunkHandler defines the callback type for processing a chunk of documents.
-type ChunkHandler func([]map[string]interface{}) error
+type ChunkHandler func([]map[string]any) error
 
 // Extractor defines the interface for extracting data from a source.
 type Extractor interface {
@@ -18,13 +18,13 @@ type Extractor interface {
 // Transformer defines the interface for transforming data between formats.
 type Transformer interface {
 	// Transform transforms the provided documents into a new format.
-	Transform(ctx context.Context, data []map[string]interface{}) ([]map[string]interface{}, error)
+	Transform(ctx context.Context, data []map[string]any) ([]map[string]any, error)
 }
 
 // Loader defines the interface for loading data to a destination.
 type Loader interface {
 	// Load saves the provided data to the destination.
-	Load(ctx context.Context, data []map[string]interface{}) error
+	Load(ctx context.Context, data []map[string]any) error
 }
 
 // ConfigProvider is the interface for providing configuration settings.

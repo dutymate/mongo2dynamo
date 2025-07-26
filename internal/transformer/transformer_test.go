@@ -15,11 +15,11 @@ import (
 
 func TestDocTransformer_Transform(t *testing.T) {
 	docTransformer := NewDocTransformer()
-	input := []map[string]interface{}{
+	input := []map[string]any{
 		{"_id": "abc123", "__v": 1, "_class": "com.example.MyEntity", "name": "test"},
 		{"_id": "def456", "__v": 2, "name": "test2", "other": 42},
 	}
-	expected := []map[string]interface{}{
+	expected := []map[string]any{
 		{"id": "abc123", "name": "test"},
 		{"id": "def456", "name": "test2", "other": 42},
 	}
@@ -28,7 +28,7 @@ func TestDocTransformer_Transform(t *testing.T) {
 	runs := 10
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	for i := 0; i < runs; i++ {
-		shuffled := make([]map[string]interface{}, len(input))
+		shuffled := make([]map[string]any, len(input))
 		copy(shuffled, input)
 		// Shuffle the input slice using the local random generator.
 		for j := range shuffled {
@@ -81,7 +81,7 @@ func TestDocTransformer_Transform(t *testing.T) {
 
 func TestDocTransformer_Transform_EmptyInput(t *testing.T) {
 	docTransformer := NewDocTransformer()
-	input := []map[string]interface{}{}
+	input := []map[string]any{}
 	output, err := docTransformer.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -94,8 +94,8 @@ func TestDocTransformer_Transform_EmptyInput(t *testing.T) {
 func TestConvertID(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    interface{}
-		expected interface{}
+		input    any
+		expected any
 	}{
 		{
 			name:     "ObjectID conversion",
@@ -177,7 +177,7 @@ func TestConvertID(t *testing.T) {
 					t.Errorf("primitive.M conversion: expected string in test data, got %T", tt.expected)
 					return
 				}
-				var resultMap, expectedMap map[string]interface{}
+				var resultMap, expectedMap map[string]any
 
 				if err := json.Unmarshal([]byte(resultStr), &resultMap); err != nil {
 					t.Errorf("Failed to unmarshal result JSON: %v", err)
@@ -218,9 +218,9 @@ func TestDocTransformer_Transform_LargeDataset(t *testing.T) {
 	docTransformer := NewDocTransformer()
 
 	// Create a large dataset to test dynamic worker scaling.
-	input := make([]map[string]interface{}, 10000)
+	input := make([]map[string]any, 10000)
 	for i := 0; i < 10000; i++ {
-		input[i] = map[string]interface{}{
+		input[i] = map[string]any{
 			"_id":     fmt.Sprintf("id_%d", i),
 			"__v":     i,
 			"_class":  "com.example.Entity",
@@ -271,9 +271,9 @@ func TestDocTransformer_Transform_ConcurrentAccess(t *testing.T) {
 	docTransformer := NewDocTransformer()
 
 	// Create test data.
-	input := make([]map[string]interface{}, 1000)
+	input := make([]map[string]any, 1000)
 	for i := 0; i < 1000; i++ {
-		input[i] = map[string]interface{}{
+		input[i] = map[string]any{
 			"_id":    fmt.Sprintf("id_%d", i),
 			"__v":    i,
 			"_class": "com.example.Entity",
@@ -284,7 +284,7 @@ func TestDocTransformer_Transform_ConcurrentAccess(t *testing.T) {
 	// Run multiple transformations concurrently.
 	numGoroutines := 10
 	var wg sync.WaitGroup
-	results := make([][]map[string]interface{}, numGoroutines)
+	results := make([][]map[string]any, numGoroutines)
 	errors := make([]error, numGoroutines)
 
 	for i := 0; i < numGoroutines; i++ {
@@ -320,9 +320,9 @@ func TestDocTransformer_Transform_WorkerScaling(t *testing.T) {
 	docTransformer := NewDocTransformer()
 
 	// Create a dataset that should trigger worker scaling.
-	input := make([]map[string]interface{}, 5000)
+	input := make([]map[string]any, 5000)
 	for i := 0; i < 5000; i++ {
-		input[i] = map[string]interface{}{
+		input[i] = map[string]any{
 			"_id":    fmt.Sprintf("id_%d", i),
 			"__v":    i,
 			"_class": "com.example.Entity",
