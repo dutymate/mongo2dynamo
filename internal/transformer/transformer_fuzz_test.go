@@ -16,7 +16,7 @@ func FuzzConvertID(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, data []byte) {
 		// Try to unmarshal as JSON to get various input types.
-		var input interface{}
+		var input any
 		if err := json.Unmarshal(data, &input); err != nil {
 			// If JSON unmarshaling fails, use the raw data as string.
 			input = string(data)

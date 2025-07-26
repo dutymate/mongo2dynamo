@@ -90,7 +90,7 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 
 	// Pipeline channels.
 	const pipelineChannelBufferSize = 10
-	extractChan := make(chan []map[string]interface{}, pipelineChannelBufferSize)
+	extractChan := make(chan []map[string]any, pipelineChannelBufferSize)
 	errorChan := make(chan error, 2)
 
 	// Use a WaitGroup to wait for all pipeline stages to finish.
@@ -121,7 +121,7 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 
 	// Stage 1: Extractor.
 	fmt.Println("Starting migration plan analysis...")
-	extractErr := mongoExtractor.Extract(ctx, func(chunk []map[string]interface{}) error {
+	extractErr := mongoExtractor.Extract(ctx, func(chunk []map[string]any) error {
 		select {
 		case extractChan <- chunk:
 			return nil
