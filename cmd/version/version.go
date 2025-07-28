@@ -12,7 +12,7 @@ import (
 var VersionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print the version number",
-	Long:  `Print the version number of mongo2dynamo`,
+	Long:  `Print the version number of mongo2dynamo.`,
 	Run:   runVersion,
 }
 
