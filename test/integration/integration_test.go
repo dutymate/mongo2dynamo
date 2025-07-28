@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -76,7 +76,7 @@ func setupMongoDB(t *testing.T, mongoHost, mongoPort string) *mongo.Client {
 
 	// Insert test data.
 	collection := mongoClient.Database("testdb").Collection("testcol")
-	_, err = collection.InsertOne(ctx, primitive.M{
+	_, err = collection.InsertOne(ctx, bson.M{
 		"_id":    "mongoid-001",
 		"__v":    7,
 		"_class": "com.example.MyEntity",

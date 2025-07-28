@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	goMongo "go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -32,8 +31,8 @@ type MongoExtractor struct {
 	collection Collection
 	batchSize  int // Number of documents to fetch from MongoDB per batch.
 	chunkSize  int // Number of documents to pass to handleChunk per chunk.
-	filter     primitive.M
-	projection primitive.M
+	filter     bson.M
+	projection bson.M
 	chunkPool  *pool.ChunkPool
 }
 
@@ -62,7 +61,7 @@ func (w *mongoCollectionWrapper) Find(ctx context.Context, filter any, opts ...*
 }
 
 // newMongoExtractor creates a new MongoDB extractor with default values.
-func newMongoExtractor(collection Collection, filter primitive.M) *MongoExtractor {
+func newMongoExtractor(collection Collection, filter bson.M) *MongoExtractor {
 	return &MongoExtractor{
 		collection: collection,
 		batchSize:  1000,
@@ -81,7 +80,7 @@ func NewMongoExtractor(ctx context.Context, cfg common.ConfigProvider) (common.E
 	collection := client.Database(cfg.GetMongoDB()).Collection(cfg.GetMongoCollection())
 
 	// Parse MongoDB filter if provided.
-	var filter primitive.M
+	var filter bson.M
 	if cfg.GetMongoFilter() != "" {
 		filter, err = parseMongoJSON(cfg.GetMongoFilter())
 		if err != nil {
@@ -90,7 +89,7 @@ func NewMongoExtractor(ctx context.Context, cfg common.ConfigProvider) (common.E
 	}
 
 	// Parse MongoDB projection if provided.
-	var projection primitive.M
+	var projection bson.M
 	if cfg.GetMongoProjection() != "" {
 		projection, err = parseMongoJSON(cfg.GetMongoProjection())
 		if err != nil {
@@ -116,14 +115,14 @@ func (e *MongoExtractor) Count(ctx context.Context) (int64, error) {
 	return 0, &common.DatabaseOperationError{Database: "MongoDB", Op: "count", Reason: "unable to access underlying collection", Err: nil}
 }
 
-// parseMongoJSON parses a JSON string into a MongoDB BSON document (primitive.M).
+// parseMongoJSON parses a JSON string into a MongoDB BSON document (bson.M).
 // This can be used for both filter and projection parsing.
-func parseMongoJSON(jsonStr string) (primitive.M, error) {
+func parseMongoJSON(jsonStr string) (bson.M, error) {
 	if jsonStr == "" {
-		return primitive.M{}, nil
+		return bson.M{}, nil
 	}
 
-	var doc primitive.M
+	var doc bson.M
 	// First, try to parse as extended JSON.
 	err := bson.UnmarshalExtJSON([]byte(jsonStr), false, &doc)
 	if err == nil {
@@ -150,7 +149,7 @@ func (e *MongoExtractor) Extract(ctx context.Context, handleChunk common.ChunkHa
 	findOptions := options.Find().SetBatchSize(int32(e.batchSize))
 
 	// Parse MongoDB filter if provided.
-	filter := primitive.M{}
+	filter := bson.M{}
 	if e.filter != nil {
 		filter = e.filter
 	}
