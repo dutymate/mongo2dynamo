@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"runtime"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"mongo2dynamo/internal/common"
@@ -75,7 +76,7 @@ func convertID(id any) any {
 	switch v := id.(type) {
 	case primitive.ObjectID:
 		return v.Hex()
-	case primitive.M:
+	case bson.M:
 		jsonBytes, err := json.Marshal(v)
 		if err != nil {
 			return fmt.Sprintf("%v", v)

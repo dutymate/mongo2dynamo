@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -123,17 +124,17 @@ func TestConvertID(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "primitive.M conversion",
-			input: primitive.M{
+			name: "bson.M conversion",
+			input: bson.M{
 				"user": "some user",
 				"ts":   "2023-01-01T00:00:00Z",
 			},
 			expected: `{"ts":"2023-01-01T00:00:00Z","user":"some user"}`,
 		},
 		{
-			name: "nested primitive.M conversion",
-			input: primitive.M{
-				"user": primitive.M{
+			name: "nested bson.M conversion",
+			input: bson.M{
+				"user": bson.M{
 					"id":   "123",
 					"name": "John Doe",
 				},
@@ -165,16 +166,16 @@ func TestConvertID(t *testing.T) {
 				if resultStr != expectedHex {
 					t.Errorf("ObjectID conversion: expected %s, got %s", expectedHex, resultStr)
 				}
-			case "primitive.M conversion", "nested primitive.M conversion":
+			case "bson.M conversion", "nested bson.M conversion":
 				// For JSON objects, we need to parse and compare the structure.
 				resultStr, ok := result.(string)
 				if !ok {
-					t.Errorf("primitive.M conversion: expected string result, got %T", result)
+					t.Errorf("bson.M conversion: expected string result, got %T", result)
 					return
 				}
 				expectedStr, ok := tt.expected.(string)
 				if !ok {
-					t.Errorf("primitive.M conversion: expected string in test data, got %T", tt.expected)
+					t.Errorf("bson.M conversion: expected string in test data, got %T", tt.expected)
 					return
 				}
 				var resultMap, expectedMap map[string]any

@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -95,7 +96,7 @@ func TestMongoExtractor_Extract_EmptyCollection(t *testing.T) {
 	mockCursor.On("Err").Return(nil)
 	mockCollection.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(mockCursor, nil)
 
-	mongoExtractor := newMongoExtractor(mockCollection, primitive.M{})
+	mongoExtractor := newMongoExtractor(mockCollection, bson.M{})
 	var processedDocs []map[string]any
 
 	err := mongoExtractor.Extract(context.Background(), func(chunk []map[string]any) error {
@@ -122,7 +123,7 @@ func TestExtractor_Extract_SingleChunk(t *testing.T) {
 	mockCursor.On("Err").Return(nil)
 	mockCollection.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(mockCursor, nil)
 
-	mongoExtractor := newMongoExtractor(mockCollection, primitive.M{})
+	mongoExtractor := newMongoExtractor(mockCollection, bson.M{})
 	var processedDocs []map[string]any
 
 	err := mongoExtractor.Extract(context.Background(), func(chunk []map[string]any) error {
@@ -152,7 +153,7 @@ func TestExtractor_Extract_MultipleChunks(t *testing.T) {
 	mockCursor.On("Err").Return(nil)
 	mockCollection.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(mockCursor, nil)
 
-	mongoExtractor := newMongoExtractor(mockCollection, primitive.M{})
+	mongoExtractor := newMongoExtractor(mockCollection, bson.M{})
 	var processedDocs []map[string]any
 	chunkCount := 0
 
@@ -174,7 +175,7 @@ func TestExtractor_Extract_FindError(t *testing.T) {
 	expectedErr := errors.New("find error")
 	mockCollection.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(nil, expectedErr)
 
-	mongoExtractor := newMongoExtractor(mockCollection, primitive.M{})
+	mongoExtractor := newMongoExtractor(mockCollection, bson.M{})
 	err := mongoExtractor.Extract(context.Background(), func(_ []map[string]any) error {
 		return nil
 	})
@@ -196,7 +197,7 @@ func TestExtractor_Extract_DecodeError(t *testing.T) {
 	mockCursor.On("Close", mock.Anything).Return(nil)
 	mockColl.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(mockCursor, nil)
 
-	mongoExtractor := newMongoExtractor(mockColl, primitive.M{})
+	mongoExtractor := newMongoExtractor(mockColl, bson.M{})
 
 	err := mongoExtractor.Extract(context.Background(), func(_ []map[string]any) error {
 		return nil
@@ -223,7 +224,7 @@ func TestExtractor_Extract_CallbackError(t *testing.T) {
 	mockCursor.On("Close", mock.Anything).Return(nil)
 	mockCollection.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(mockCursor, nil)
 
-	mongoExtractor := newMongoExtractor(mockCollection, primitive.M{})
+	mongoExtractor := newMongoExtractor(mockCollection, bson.M{})
 	expectedErr := errors.New("callback error")
 
 	err := mongoExtractor.Extract(context.Background(), func(_ []map[string]any) error {
@@ -249,7 +250,7 @@ func TestExtractor_Extract_CursorError(t *testing.T) {
 	mockCursor.On("Err").Return(expectedErr)
 	mockCollection.On("Find", mock.Anything, mock.Anything, mock.Anything).Return(mockCursor, nil)
 
-	mongoExtractor := newMongoExtractor(mockCollection, primitive.M{})
+	mongoExtractor := newMongoExtractor(mockCollection, bson.M{})
 	err := mongoExtractor.Extract(context.Background(), func(_ []map[string]any) error {
 		return nil
 	})
@@ -276,7 +277,7 @@ func TestExtractor_Extract_WithFilter(t *testing.T) {
 	mockCursor.On("Err").Return(nil)
 
 	// Expect Find to be called with the filter.
-	expectedFilter := primitive.M{"status": "active"}
+	expectedFilter := bson.M{"status": "active"}
 	mockCollection.On("Find", mock.Anything, expectedFilter, mock.Anything).Return(mockCursor, nil)
 
 	mongoExtractor := newMongoExtractor(mockCollection, expectedFilter)
@@ -306,16 +307,16 @@ func TestMongoExtractor_Extract_WithProjection(t *testing.T) {
 	mockCursor.On("Err").Return(nil)
 
 	// Expect Find to be called with the projection.
-	projection := primitive.M{"name": 1}
+	projection := bson.M{"name": 1}
 	mockCollection.On("Find", mock.Anything, mock.Anything, mock.MatchedBy(func(opts []*options.FindOptions) bool {
 		if len(opts) == 0 || opts[0] == nil {
 			return false
 		}
-		proj, ok := opts[0].Projection.(primitive.M)
+		proj, ok := opts[0].Projection.(bson.M)
 		return ok && proj["name"] == 1
 	})).Return(mockCursor, nil)
 
-	extractor := newMongoExtractor(mockCollection, primitive.M{})
+	extractor := newMongoExtractor(mockCollection, bson.M{})
 	extractor.projection = projection
 	var processedDocs []map[string]any
 	err := extractor.Extract(context.Background(), func(chunk []map[string]any) error {
@@ -342,16 +343,16 @@ func TestMongoExtractor_Extract_ProjectionFieldsOnly(t *testing.T) {
 	mockCursor.On("Close", mock.Anything).Return(nil)
 	mockCursor.On("Err").Return(nil)
 
-	projection := primitive.M{"name": 1}
+	projection := bson.M{"name": 1}
 	mockCollection.On("Find", mock.Anything, mock.Anything, mock.MatchedBy(func(opts []*options.FindOptions) bool {
 		if len(opts) == 0 || opts[0] == nil {
 			return false
 		}
-		proj, ok := opts[0].Projection.(primitive.M)
+		proj, ok := opts[0].Projection.(bson.M)
 		return ok && proj["name"] == 1
 	})).Return(mockCursor, nil)
 
-	extractor := newMongoExtractor(mockCollection, primitive.M{})
+	extractor := newMongoExtractor(mockCollection, bson.M{})
 	extractor.projection = projection
 	var processedDocs []map[string]any
 	err := extractor.Extract(context.Background(), func(chunk []map[string]any) error {
@@ -376,7 +377,7 @@ func TestParseMongoJSON_ValidJSON(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, m)
 	assert.Equal(t, "active", m["status"])
-	ageFilter, ok := m["age"].(primitive.M)
+	ageFilter, ok := m["age"].(bson.M)
 	assert.True(t, ok)
 	assert.Equal(t, int32(18), ageFilter["$gte"])
 }
@@ -404,7 +405,7 @@ func TestParseMongoJSON_Complex(t *testing.T) {
 	m, err := parseMongoJSON(jsonStr)
 	assert.NoError(t, err)
 	assert.NotNil(t, m)
-	andFilter, ok := m["$and"].(primitive.A)
+	andFilter, ok := m["$and"].(bson.A)
 	assert.True(t, ok)
 	assert.Len(t, andFilter, 2)
 }
