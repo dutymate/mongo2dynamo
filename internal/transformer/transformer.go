@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"runtime"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -57,7 +58,8 @@ func (t *DocTransformer) Transform(
 	// Configure and run the dynamic worker pool.
 	minWorkers := 2
 	maxWorkers := runtime.NumCPU() * 2
-	pool := worker.NewDynamicWorkerPool(transformFunc, minWorkers, maxWorkers, maxWorkers, 0) // Use default scale interval.
+	queueSize := maxWorkers * 2
+	pool := worker.NewDynamicWorkerPool(transformFunc, minWorkers, maxWorkers, queueSize, 500*time.Millisecond)
 	defer pool.Stop()
 
 	pool.Start(ctx)
