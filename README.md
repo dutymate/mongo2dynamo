@@ -261,7 +261,8 @@ flowchart LR
 
 ### 2. Transformation
 - Utilizes a **dynamic worker pool** starting with CPU core count, scaling up to 2x CPU cores based on workload.
-- **Real-time scaling**: Workers auto-adjust every 500ms when pending jobs exceed 2x current worker count.
+- **Intelligent scaling**: Workers auto-adjust every 500ms with optimized thresholds (scale up at 80% load, scale down at 30% load).
+- **Bidirectional scaling**: Automatically scales down when workload decreases to optimize resource usage.
 - **Memory optimization**: Pre-calculates field counts to allocate maps with optimal capacity, reducing garbage collection overhead.
 - **Field processing**: Converts `_id` to `id` with intelligent type handling (ObjectID → hex, bson.M → JSON), removes `__v` and `_class` fields.
 - Implements panic recovery and comprehensive error reporting for worker failures.
