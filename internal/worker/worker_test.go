@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -84,14 +85,26 @@ func TestDynamicWorkerPool_ScaleUp(t *testing.T) {
 		jobs[i] = i
 	}
 
-	results, err := pool.Process(ctx, jobs)
-	require.NoError(t, err)
-	assert.Len(t, results, 50)
+	// Use a WaitGroup to synchronize the goroutine.
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		results, err := pool.Process(ctx, jobs)
+		require.NoError(t, err)
+		assert.Len(t, results, 50)
+	}()
+
+	// Wait for scaling to occur.
+	time.Sleep(200 * time.Millisecond)
 
 	// Check that workers scaled up.
 	stats := pool.GetStats()
 	activeWorkers := stats["active_workers"].(int32)
 	assert.Greater(t, activeWorkers, int32(2), "Should have scaled up from minimum workers")
+
+	// Wait for the goroutine to finish.
+	wg.Wait()
 }
 
 func TestDynamicWorkerPool_ScaleDown(t *testing.T) {
@@ -113,35 +126,39 @@ func TestDynamicWorkerPool_ScaleDown(t *testing.T) {
 	defer pool.Stop()
 
 	// First, scale up with high load.
-	highLoadJobs := make([]int, 30)
+	highLoadJobs := make([]int, 100)
 	for i := range highLoadJobs {
 		highLoadJobs[i] = i
 	}
 
-	results, err := pool.Process(ctx, highLoadJobs)
-	require.NoError(t, err)
-	assert.Len(t, results, 30)
+	// Use a WaitGroup to synchronize the goroutine.
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		results, err := pool.Process(ctx, highLoadJobs)
+		require.NoError(t, err)
+		assert.Len(t, results, 100)
+	}()
 
-	// Wait a bit for scaling to stabilize.
-	time.Sleep(200 * time.Millisecond)
+	// Wait for scaling to stabilize.
+	time.Sleep(400 * time.Millisecond)
 
-	// Then submit very few jobs to trigger scale down.
-	lowLoadJobs := make([]int, 2)
-	for i := range lowLoadJobs {
-		lowLoadJobs[i] = i
-	}
-
-	results, err = pool.Process(ctx, lowLoadJobs)
-	require.NoError(t, err)
-	assert.Len(t, results, 2)
-
-	// Wait for scale down to occur.
-	time.Sleep(300 * time.Millisecond)
-
-	// Check that workers scaled down.
+	// Check that workers scaled up.
 	stats := pool.GetStats()
 	activeWorkers := stats["active_workers"].(int32)
+	assert.Greater(t, activeWorkers, int32(2), "Should have scaled up from minimum workers")
+
+	// Wait for all jobs to complete and then check scale down.
+	time.Sleep(800 * time.Millisecond)
+
+	// Check that workers scaled down.
+	stats = pool.GetStats()
+	activeWorkers = stats["active_workers"].(int32)
 	assert.LessOrEqual(t, activeWorkers, int32(5), "Should have scaled down due to low load")
+
+	// Wait for the goroutine to finish.
+	wg.Wait()
 }
 
 func TestDynamicWorkerPool_MaintainMinimumWorkers(t *testing.T) {
@@ -185,10 +202,10 @@ func TestDynamicWorkerPool_LoadFactorCalculation(t *testing.T) {
 		func(_ context.Context, job Job[int]) Result[int] {
 			return Result[int]{JobID: job.ID, Value: job.Data}
 		},
-		2,                   // minWorkers.
-		10,                  // maxWorkers.
-		100,                 // queueSize.
-		50*time.Millisecond, // scaleInterval.
+		2,                    // minWorkers.
+		10,                   // maxWorkers.
+		100,                  // queueSize.
+		100*time.Millisecond, // scaleInterval.
 	)
 
 	ctx := context.Background()
@@ -225,10 +242,10 @@ func TestDynamicWorkerPool_DefaultThresholds(t *testing.T) {
 		func(_ context.Context, job Job[int]) Result[int] {
 			return Result[int]{JobID: job.ID, Value: job.Data}
 		},
-		2,                   // minWorkers.
-		10,                  // maxWorkers.
-		100,                 // queueSize.
-		50*time.Millisecond, // scaleInterval.
+		2,                    // minWorkers.
+		10,                   // maxWorkers.
+		100,                  // queueSize.
+		100*time.Millisecond, // scaleInterval.
 	)
 
 	// Test default threshold values.
