@@ -47,7 +47,7 @@ type DynamicWorkerPool[T, V any] struct {
 	pendingJobs   int64
 	mu            sync.Mutex
 	activeWorkers int32
-
+	scaleDownChan chan struct{}
 	startOnce     sync.Once
 	stopOnce      sync.Once
 	closeJobsOnce sync.Once
@@ -72,6 +72,7 @@ func NewDynamicWorkerPool[T, V any](
 	if scaleInterval <= 0 {
 		scaleInterval = DefaultScaleInterval
 	}
+	scaleDownChan := make(chan struct{}, 1) // Buffered channel for scale down signals.
 	return &DynamicWorkerPool[T, V]{
 		jobFunc:            jobFunc,
 		minWorkers:         minWorkers,
@@ -80,6 +81,7 @@ func NewDynamicWorkerPool[T, V any](
 		scaleInterval:      scaleInterval,
 		scaleUpThreshold:   DefaultScaleUpThreshold,
 		scaleDownThreshold: DefaultScaleDownThreshold,
+		scaleDownChan:      scaleDownChan,
 	}
 }
 
@@ -111,11 +113,25 @@ func (p *DynamicWorkerPool[T, V]) Process(ctx context.Context, jobsData []T) ([]
 	numJobs := len(jobsData)
 	outputs := make([]V, numJobs)
 
-	// Send jobs to the pool.
-	go p.sendJobs(ctx, jobsData)
+	// Create a dedicated context for sendJobs.
+	sendCtx, sendCancel := context.WithCancel(ctx)
+
+	// Use a WaitGroup to ensure sendJobs completes before canceling sendCtx.
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		p.sendJobs(sendCtx, jobsData)
+	}()
 
 	// Collect results.
-	return p.collectResults(ctx, outputs)
+	results, err := p.collectResults(ctx, outputs)
+
+	// Wait for sendJobs to complete before canceling the context.
+	wg.Wait()
+	sendCancel()
+
+	return results, err
 }
 
 // sendJobs sends jobs to the worker pool.
@@ -161,6 +177,8 @@ func (p *DynamicWorkerPool[T, V]) Stop() {
 			p.cancel()
 		}
 		p.closeJobs()
+		// Close scale down channel to signal all workers to stop.
+		close(p.scaleDownChan)
 		p.wg.Wait()
 	})
 }
@@ -200,41 +218,49 @@ func (p *DynamicWorkerPool[T, V]) GetStats() map[string]any {
 // worker processes jobs from the jobs channel and sends results to the results channel.
 func (p *DynamicWorkerPool[T, V]) worker(ctx context.Context) {
 	defer p.wg.Done()
-	defer atomic.AddInt32(&p.activeWorkers, -1) // Ensure worker count is decremented when worker exits.
+
+	workerCountDecremented := false
+	defer func() {
+		if !workerCountDecremented {
+			atomic.AddInt32(&p.activeWorkers, -1)
+		}
+	}()
 
 	for {
 		select {
 		case <-ctx.Done():
+			atomic.AddInt32(&p.activeWorkers, -1)
+			workerCountDecremented = true
 			return
+		case <-p.scaleDownChan:
+			// Decrement worker count immediately when scaling down.
+			atomic.AddInt32(&p.activeWorkers, -1)
+			workerCountDecremented = true
+
+			// Received scale down signal, drain remaining jobs before exiting.
+			for {
+				select {
+				case job, ok := <-p.jobs:
+					if !ok {
+						return // Channel is closed.
+					}
+					p.processJobWithRecovery(ctx, job)
+				default:
+					// No more jobs in channel, exit gracefully.
+					return
+				}
+			}
 		case job, ok := <-p.jobs:
 			if !ok {
+				atomic.AddInt32(&p.activeWorkers, -1)
+				workerCountDecremented = true
 				return
 			}
 
-			// Check if we should scale down this worker.
-			if p.shouldScaleDown() {
-				// Process the job and then exit.
-				p.processJobWithRecovery(ctx, job)
-				return
-			}
-
-			// Process the job normally.
+			// Process the job.
 			p.processJobWithRecovery(ctx, job)
 		}
 	}
-}
-
-// shouldScaleDown checks if the current worker should scale down.
-func (p *DynamicWorkerPool[T, V]) shouldScaleDown() bool {
-	workers := atomic.LoadInt32(&p.activeWorkers)
-	pending := atomic.LoadInt64(&p.pendingJobs)
-
-	if workers <= int32(p.minWorkers) {
-		return false // Never scale down below minimum workers.
-	}
-
-	loadFactor := float64(pending) / float64(workers)
-	return loadFactor < p.scaleDownThreshold
 }
 
 // processJobWithRecovery processes a job with panic recovery and pending jobs tracking.
@@ -282,7 +308,7 @@ func (p *DynamicWorkerPool[T, V]) adjustWorkers(ctx context.Context) {
 	}
 
 	// Scale down if needed.
-	if p.shouldScaleDownScaler(loadFactor, workers) {
+	if p.shouldScaleDown(loadFactor, workers) {
 		p.scaleDown()
 	}
 }
@@ -300,8 +326,8 @@ func (p *DynamicWorkerPool[T, V]) shouldScaleUp(loadFactor float64, workers int3
 	return loadFactor > p.scaleUpThreshold && workers < int32(p.maxWorkers)
 }
 
-// shouldScaleDownScaler checks if we should scale down based on load factor and current workers.
-func (p *DynamicWorkerPool[T, V]) shouldScaleDownScaler(loadFactor float64, workers int32) bool {
+// shouldScaleDown checks if we should scale down based on load factor and current workers.
+func (p *DynamicWorkerPool[T, V]) shouldScaleDown(loadFactor float64, workers int32) bool {
 	return loadFactor < p.scaleDownThreshold && workers > int32(p.minWorkers)
 }
 
@@ -312,7 +338,13 @@ func (p *DynamicWorkerPool[T, V]) scaleUp(ctx context.Context) {
 	go p.worker(ctx)
 }
 
-// scaleDown signals workers to stop by reducing the active workers count.
+// scaleDown signals a worker to stop by sending a signal to the scale down channel.
 func (p *DynamicWorkerPool[T, V]) scaleDown() {
-	atomic.AddInt32(&p.activeWorkers, -1)
+	// Send a scale down signal to one worker.
+	select {
+	case p.scaleDownChan <- struct{}{}:
+		// Signal sent successfully. Worker will decrement counter when it exits.
+	default:
+		// Channel is full or no workers are listening, which is fine.
+	}
 }
