@@ -18,8 +18,11 @@ import (
 )
 
 const (
-	batchSize            = 25
-	defaultLoaderWorkers = 10
+	BatchSize            = 25
+	DefaultLoaderWorkers = 10
+
+	MaxWaitTimeForTableActive   = 30 * time.Second
+	CheckIntervalForTableActive = 2 * time.Second
 )
 
 // DBClient defines the interface for DynamoDB operations used by Loader.
@@ -165,10 +168,7 @@ func (l *DynamoLoader) createTable(ctx context.Context, cfg common.ConfigProvide
 
 // waitForTableActive waits for the table to become active.
 func (l *DynamoLoader) waitForTableActive(ctx context.Context) error {
-	const maxWaitTime = 30 * time.Second
-	const checkInterval = 2 * time.Second
-
-	timeoutCtx, cancel := context.WithTimeout(ctx, maxWaitTime)
+	timeoutCtx, cancel := context.WithTimeout(ctx, MaxWaitTimeForTableActive)
 	defer cancel()
 
 	for {
@@ -198,7 +198,7 @@ func (l *DynamoLoader) waitForTableActive(ctx context.Context) error {
 				return nil
 			}
 
-			time.Sleep(checkInterval)
+			time.Sleep(CheckIntervalForTableActive)
 		}
 	}
 }
@@ -210,11 +210,11 @@ func (l *DynamoLoader) Load(ctx context.Context, data []map[string]any) error {
 	}
 
 	jobChan := make(chan []types.WriteRequest)
-	errorChan := make(chan error, defaultLoaderWorkers)
+	errorChan := make(chan error, DefaultLoaderWorkers)
 	var wg sync.WaitGroup
 
 	// Start a pool of workers.
-	for i := 0; i < defaultLoaderWorkers; i++ {
+	for i := 0; i < DefaultLoaderWorkers; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -242,7 +242,7 @@ func (l *DynamoLoader) Load(ctx context.Context, data []map[string]any) error {
 	// Dispatch jobs.
 	go func() {
 		defer close(jobChan)
-		writeRequests := make([]types.WriteRequest, 0, batchSize)
+		writeRequests := make([]types.WriteRequest, 0, BatchSize)
 		for _, item := range data {
 			// Check for cancellation before dispatching new jobs.
 			if ctx.Err() != nil {
@@ -258,13 +258,13 @@ func (l *DynamoLoader) Load(ctx context.Context, data []map[string]any) error {
 				return // Stop dispatching.
 			}
 			writeRequests = append(writeRequests, types.WriteRequest{PutRequest: &types.PutRequest{Item: av}})
-			if len(writeRequests) == batchSize {
+			if len(writeRequests) == BatchSize {
 				select {
 				case jobChan <- writeRequests:
 				case <-ctx.Done():
 					return
 				}
-				writeRequests = make([]types.WriteRequest, 0, batchSize)
+				writeRequests = make([]types.WriteRequest, 0, BatchSize)
 			}
 		}
 		if len(writeRequests) > 0 {

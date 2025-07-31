@@ -8,6 +8,8 @@ import (
 const (
 	DefaultBaseDelay = 100 * time.Millisecond
 	DefaultMaxDelay  = 30 * time.Second
+	DefaultJitterMin = 0.5
+	DefaultJitterMax = 1.5
 )
 
 // BackoffConfig holds configuration for exponential backoff with jitter.
@@ -23,8 +25,8 @@ func NewBackoffConfig() *BackoffConfig {
 	return &BackoffConfig{
 		BaseDelay: DefaultBaseDelay,
 		MaxDelay:  DefaultMaxDelay,
-		JitterMin: 0.5,
-		JitterMax: 1.5,
+		JitterMin: DefaultJitterMin,
+		JitterMax: DefaultJitterMax,
 	}
 }
 
