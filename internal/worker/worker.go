@@ -10,9 +10,16 @@ import (
 )
 
 const (
-	DefaultScaleInterval      = 500 * time.Millisecond
-	DefaultScaleUpThreshold   = 0.8
-	DefaultScaleDownThreshold = 0.3
+	DefaultScaleInterval       = 500 * time.Millisecond
+	DefaultScaleUpThreshold    = 0.8
+	DefaultScaleDownThreshold  = 0.3
+	DefaultMinWorkers          = 1
+	ScaleDownChannelBufferSize = 1
+)
+
+var (
+	DefaultMaxWorkers = runtime.NumCPU()
+	DefaultQueueSize  = runtime.NumCPU()
 )
 
 // Job represents a unit of work to be processed, with an ID and payload.
@@ -61,18 +68,18 @@ func NewDynamicWorkerPool[T, V any](
 	scaleInterval time.Duration,
 ) *DynamicWorkerPool[T, V] {
 	if minWorkers <= 0 {
-		minWorkers = 1
+		minWorkers = DefaultMinWorkers
 	}
 	if maxWorkers <= 0 {
-		maxWorkers = runtime.NumCPU()
+		maxWorkers = DefaultMaxWorkers
 	}
 	if queueSize <= 0 {
-		queueSize = runtime.NumCPU()
+		queueSize = DefaultQueueSize
 	}
 	if scaleInterval <= 0 {
 		scaleInterval = DefaultScaleInterval
 	}
-	scaleDownChan := make(chan struct{}, 1) // Buffered channel for scale down signals.
+	scaleDownChan := make(chan struct{}, ScaleDownChannelBufferSize) // Buffered channel for scale down signals.
 	return &DynamicWorkerPool[T, V]{
 		jobFunc:            jobFunc,
 		minWorkers:         minWorkers,
@@ -94,7 +101,7 @@ func (p *DynamicWorkerPool[T, V]) Start(ctx context.Context) {
 		p.jobs = make(chan Job[T], p.queueSize)
 		p.results = make(chan Result[V], p.queueSize)
 
-		initialWorkers := max(p.minWorkers, 1)
+		initialWorkers := p.minWorkers
 		p.activeWorkers = int32(initialWorkers)
 
 		for i := 0; i < initialWorkers; i++ {

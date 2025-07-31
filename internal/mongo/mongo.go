@@ -11,6 +11,13 @@ import (
 	"mongo2dynamo/internal/common"
 )
 
+const (
+	MongoErrorCodeUnauthorized         = 13
+	MongoErrorCodeAuthenticationFailed = 18
+	MongoErrorCodeIllegalOperation     = 35
+	MongoErrorCodeMechanismUnavailable = 334
+)
+
 // mongoAuthErrorPatterns contains common authentication failure patterns for MongoDB errors.
 var mongoAuthErrorPatterns = []string{
 	"authentication failed",
@@ -96,7 +103,7 @@ func isMongoAuthError(err error) bool {
 // isAuthErrorCode returns true if the code is a known MongoDB auth error code.
 func isAuthErrorCode(code int32) bool {
 	switch code {
-	case 13, 18, 334, 35: // Unauthorized(13), AuthenticationFailed(18), MechanismUnavailable(334), IllegalOperation(35).
+	case MongoErrorCodeUnauthorized, MongoErrorCodeAuthenticationFailed, MongoErrorCodeMechanismUnavailable, MongoErrorCodeIllegalOperation:
 		return true
 	default:
 		return false
