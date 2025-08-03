@@ -48,4 +48,5 @@ type ConfigProvider interface {
 	GetMaxRetries() int
 	GetAutoApprove() bool
 	GetDryRun() bool
+	GetNoProgress() bool
 }

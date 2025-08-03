@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -13,6 +14,7 @@ import (
 	"mongo2dynamo/internal/config"
 	"mongo2dynamo/internal/extractor"
 	"mongo2dynamo/internal/flags"
+	"mongo2dynamo/internal/progress"
 	"mongo2dynamo/internal/transformer"
 )
 
@@ -56,6 +58,9 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 	if cmd.Flags().Changed("mongo-filter") {
 		cfg.MongoFilter, _ = cmd.Flags().GetString("mongo-filter")
 	}
+	if cmd.Flags().Changed("no-progress") {
+		cfg.NoProgress, _ = cmd.Flags().GetBool("no-progress")
+	}
 
 	// Set dry run mode.
 	cfg.SetDryRun(true)
@@ -88,6 +93,14 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 	ctx, cancel := context.WithCancel(cmd.Context())
 	defer cancel()
 
+	// Create progress tracker for plan mode (only if progress is enabled).
+	var tracker *progress.Tracker
+	if !cfg.GetNoProgress() {
+		tracker = progress.NewProgressTracker(total, 1*time.Second)
+		tracker.Start(cmd.Context())
+		defer tracker.Stop()
+	}
+
 	// Pipeline channels.
 	const pipelineChannelBufferSize = 10
 	extractChan := make(chan []map[string]any, pipelineChannelBufferSize)
@@ -115,7 +128,11 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 				cancel()
 				return
 			}
-			atomic.AddInt64(&totalCount, int64(len(transformed)))
+			processed := int64(len(transformed))
+			atomic.AddInt64(&totalCount, processed)
+			if tracker != nil {
+				tracker.UpdateProgress(processed)
+			}
 		}
 	}()
 
@@ -133,6 +150,11 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 
 	// Wait for the pipeline to finish processing all extracted data.
 	wg.Wait()
+
+	// Clear progress tracker if it was enabled.
+	if tracker != nil {
+		tracker.ClearProgress()
+	}
 
 	// Check for errors.
 	close(errorChan)
@@ -159,4 +181,5 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 func init() {
 	// Add flags.
 	flags.AddMongoFlags(PlanCmd)
+	flags.AddNoProgressFlag(PlanCmd)
 }
