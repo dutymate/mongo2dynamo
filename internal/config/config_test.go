@@ -2,12 +2,18 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"mongo2dynamo/internal/common"
+	"mongo2dynamo/internal/flags"
+
+	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const defaultMaxRetries = 5
@@ -343,6 +349,163 @@ func TestConfig_Validate(t *testing.T) {
 				// This should not happen after Validate() is called.
 				t.Errorf("DynamoTable should be set to MongoCollection '%s' when empty, but it's still empty", tt.config.MongoCollection)
 			}
+		})
+	}
+}
+
+func TestConfig_OverrideConfigWithFlags(t *testing.T) {
+	tests := []struct {
+		name     string
+		initial  *Config
+		flags    map[string]any
+		expected *Config
+	}{
+		{
+			name: "override string flags",
+			initial: &Config{
+				MongoHost:       "localhost",
+				MongoPort:       "27017",
+				MongoDB:         "testdb",
+				MongoCollection: "testcol",
+			},
+			flags: map[string]any{
+				"mongo-host":       "remote-host",
+				"mongo-port":       "27018",
+				"mongo-db":         "newdb",
+				"mongo-collection": "newcol",
+			},
+			expected: &Config{
+				MongoHost:       "remote-host",
+				MongoPort:       "27018",
+				MongoDB:         "newdb",
+				MongoCollection: "newcol",
+			},
+		},
+		{
+			name: "override int flags",
+			initial: &Config{
+				MaxRetries: 3,
+			},
+			flags: map[string]any{
+				"max-retries": 10,
+			},
+			expected: &Config{
+				MaxRetries: 10,
+			},
+		},
+		{
+			name: "override bool flags",
+			initial: &Config{
+				AutoApprove: false,
+				NoProgress:  false,
+			},
+			flags: map[string]any{
+				"auto-approve": true,
+				"no-progress":  true,
+			},
+			expected: &Config{
+				AutoApprove: true,
+				NoProgress:  true,
+			},
+		},
+		{
+			name: "mixed flag types",
+			initial: &Config{
+				MongoHost:   "localhost",
+				MaxRetries:  5,
+				AutoApprove: false,
+			},
+			flags: map[string]any{
+				"mongo-host":   "new-host",
+				"max-retries":  15,
+				"auto-approve": true,
+			},
+			expected: &Config{
+				MongoHost:   "new-host",
+				MaxRetries:  15,
+				AutoApprove: true,
+			},
+		},
+		{
+			name: "no flags changed - should not override",
+			initial: &Config{
+				MongoHost:   "localhost",
+				MaxRetries:  5,
+				AutoApprove: false,
+			},
+			flags: map[string]any{},
+			expected: &Config{
+				MongoHost:   "localhost",
+				MaxRetries:  5,
+				AutoApprove: false,
+			},
+		},
+		{
+			name:    "all mongo flags",
+			initial: &Config{},
+			flags: map[string]any{
+				"mongo-host":       "mongo.example.com",
+				"mongo-port":       "27019",
+				"mongo-user":       "testuser",
+				"mongo-password":   "testpass",
+				"mongo-db":         "production",
+				"mongo-collection": "users",
+				"mongo-filter":     `{"active": true}`,
+				"mongo-projection": `{"name": 1, "email": 1}`,
+			},
+			expected: &Config{
+				MongoHost:       "mongo.example.com",
+				MongoPort:       "27019",
+				MongoUser:       "testuser",
+				MongoPassword:   "testpass",
+				MongoDB:         "production",
+				MongoCollection: "users",
+				MongoFilter:     `{"active": true}`,
+				MongoProjection: `{"name": 1, "email": 1}`,
+			},
+		},
+		{
+			name:    "all dynamo flags",
+			initial: &Config{},
+			flags: map[string]any{
+				"dynamo-endpoint":           "https://dynamodb.us-west-2.amazonaws.com",
+				"dynamo-table":              "users-table",
+				"dynamo-partition-key":      "user_id",
+				"dynamo-partition-key-type": "S",
+				"dynamo-sort-key":           "created_at",
+				"dynamo-sort-key-type":      "N",
+				"aws-region":                "us-west-2",
+			},
+			expected: &Config{
+				DynamoEndpoint:         "https://dynamodb.us-west-2.amazonaws.com",
+				DynamoTable:            "users-table",
+				DynamoPartitionKey:     "user_id",
+				DynamoPartitionKeyType: "S",
+				DynamoSortKey:          "created_at",
+				DynamoSortKeyType:      "N",
+				AWSRegion:              "us-west-2",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := &cobra.Command{}
+			flags.AddMongoFlags(cmd)
+			flags.AddDynamoFlags(cmd)
+			flags.AddAutoApproveFlag(cmd)
+			flags.AddNoProgressFlag(cmd)
+
+			for flagName, value := range tt.flags {
+				err := cmd.Flags().Set(flagName, fmt.Sprintf("%v", value))
+				require.NoError(t, err, "failed to set flag %s", flagName)
+			}
+
+			cfg := *tt.initial // Copy to avoid modifying the original.
+			err := cfg.OverrideConfigWithFlags(cmd)
+			require.NoError(t, err, "failed to override config with flags")
+
+			assert.Equal(t, tt.expected, &cfg)
 		})
 	}
 }

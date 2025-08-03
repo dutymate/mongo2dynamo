@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
 	"mongo2dynamo/internal/common"
@@ -184,6 +185,98 @@ func isValidKeyType(keyType string) bool {
 	default:
 		return false
 	}
+}
+
+func overrideStringFlag(cmd *cobra.Command, flagName string, target *string) error {
+	if cmd.Flags().Changed(flagName) {
+		val, err := cmd.Flags().GetString(flagName)
+		if err != nil {
+			return fmt.Errorf("failed to get string flag %s: %w", flagName, err)
+		}
+		*target = val
+	}
+	return nil
+}
+
+func overrideIntFlag(cmd *cobra.Command, flagName string, target *int) error {
+	if cmd.Flags().Changed(flagName) {
+		val, err := cmd.Flags().GetInt(flagName)
+		if err != nil {
+			return fmt.Errorf("failed to get int flag %s: %w", flagName, err)
+		}
+		*target = val
+	}
+	return nil
+}
+
+func overrideBoolFlag(cmd *cobra.Command, flagName string, target *bool) error {
+	if cmd.Flags().Changed(flagName) {
+		val, err := cmd.Flags().GetBool(flagName)
+		if err != nil {
+			return fmt.Errorf("failed to get bool flag %s: %w", flagName, err)
+		}
+		*target = val
+	}
+	return nil
+}
+
+// OverrideConfigWithFlags overrides the config with the values from the flags.
+func (c *Config) OverrideConfigWithFlags(cmd *cobra.Command) error {
+	if err := overrideStringFlag(cmd, "mongo-host", &c.MongoHost); err != nil {
+		return err
+	}
+	if err := overrideStringFlag(cmd, "mongo-port", &c.MongoPort); err != nil {
+		return err
+	}
+	if err := overrideStringFlag(cmd, "mongo-user", &c.MongoUser); err != nil {
+		return err
+	}
+	if err := overrideStringFlag(cmd, "mongo-password", &c.MongoPassword); err != nil {
+		return err
+	}
+	if err := overrideStringFlag(cmd, "mongo-db", &c.MongoDB); err != nil {
+		return err
+	}
+	if err := overrideStringFlag(cmd, "mongo-collection", &c.MongoCollection); err != nil {
+		return err
+	}
+	if err := overrideStringFlag(cmd, "mongo-filter", &c.MongoFilter); err != nil {
+		return err
+	}
+	if err := overrideStringFlag(cmd, "mongo-projection", &c.MongoProjection); err != nil {
+		return err
+	}
+	if err := overrideStringFlag(cmd, "dynamo-endpoint", &c.DynamoEndpoint); err != nil {
+		return err
+	}
+	if err := overrideStringFlag(cmd, "dynamo-table", &c.DynamoTable); err != nil {
+		return err
+	}
+	if err := overrideStringFlag(cmd, "dynamo-partition-key", &c.DynamoPartitionKey); err != nil {
+		return err
+	}
+	if err := overrideStringFlag(cmd, "dynamo-partition-key-type", &c.DynamoPartitionKeyType); err != nil {
+		return err
+	}
+	if err := overrideStringFlag(cmd, "dynamo-sort-key", &c.DynamoSortKey); err != nil {
+		return err
+	}
+	if err := overrideStringFlag(cmd, "dynamo-sort-key-type", &c.DynamoSortKeyType); err != nil {
+		return err
+	}
+	if err := overrideStringFlag(cmd, "aws-region", &c.AWSRegion); err != nil {
+		return err
+	}
+	if err := overrideIntFlag(cmd, "max-retries", &c.MaxRetries); err != nil {
+		return err
+	}
+	if err := overrideBoolFlag(cmd, "auto-approve", &c.AutoApprove); err != nil {
+		return err
+	}
+	if err := overrideBoolFlag(cmd, "no-progress", &c.NoProgress); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (c *Config) GetMongoHost() string {

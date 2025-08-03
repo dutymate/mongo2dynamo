@@ -37,29 +37,8 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 	}
 
 	// Then override with flag values if they were explicitly set.
-	if cmd.Flags().Changed("mongo-host") {
-		cfg.MongoHost, _ = cmd.Flags().GetString("mongo-host")
-	}
-	if cmd.Flags().Changed("mongo-port") {
-		cfg.MongoPort, _ = cmd.Flags().GetString("mongo-port")
-	}
-	if cmd.Flags().Changed("mongo-user") {
-		cfg.MongoUser, _ = cmd.Flags().GetString("mongo-user")
-	}
-	if cmd.Flags().Changed("mongo-password") {
-		cfg.MongoPassword, _ = cmd.Flags().GetString("mongo-password")
-	}
-	if cmd.Flags().Changed("mongo-db") {
-		cfg.MongoDB, _ = cmd.Flags().GetString("mongo-db")
-	}
-	if cmd.Flags().Changed("mongo-collection") {
-		cfg.MongoCollection, _ = cmd.Flags().GetString("mongo-collection")
-	}
-	if cmd.Flags().Changed("mongo-filter") {
-		cfg.MongoFilter, _ = cmd.Flags().GetString("mongo-filter")
-	}
-	if cmd.Flags().Changed("no-progress") {
-		cfg.NoProgress, _ = cmd.Flags().GetBool("no-progress")
+	if err := cfg.OverrideConfigWithFlags(cmd); err != nil {
+		return fmt.Errorf("failed to override config with flags: %w", err)
 	}
 
 	// Set dry run mode.
