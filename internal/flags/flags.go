@@ -32,3 +32,8 @@ func AddDynamoFlags(cmd *cobra.Command) {
 func AddAutoApproveFlag(cmd *cobra.Command) {
 	cmd.Flags().Bool("auto-approve", false, "Skip all confirmation prompts.")
 }
+
+// AddNoProgressFlag adds the no-progress flag to the command.
+func AddNoProgressFlag(cmd *cobra.Command) {
+	cmd.Flags().Bool("no-progress", false, "Disable progress display during migration.")
+}

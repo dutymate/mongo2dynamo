@@ -86,3 +86,12 @@ func TestAddAutoApproveFlag(t *testing.T) {
 	assert.NotNil(t, autoApproveFlag, "auto-approve flag should be registered")
 	assert.Equal(t, "false", autoApproveFlag.DefValue)
 }
+
+func TestAddNoProgressFlag(t *testing.T) {
+	cmd := &cobra.Command{}
+	flags.AddNoProgressFlag(cmd)
+
+	noProgressFlag := cmd.Flags().Lookup("no-progress")
+	assert.NotNil(t, noProgressFlag, "no-progress flag should be registered")
+	assert.Equal(t, "false", noProgressFlag.DefValue)
+}

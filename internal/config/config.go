@@ -37,6 +37,7 @@ type Config struct {
 	// Application configuration.
 	AutoApprove bool
 	DryRun      bool
+	NoProgress  bool
 }
 
 // Ensure Config implements the interface.
@@ -126,14 +127,17 @@ func (c *Config) Load() error {
 	if c.AWSRegion == "" {
 		c.AWSRegion = v.GetString("aws_region")
 	}
+	if c.MaxRetries == 0 {
+		c.MaxRetries = v.GetInt("max_retries")
+	}
 	if !c.AutoApprove {
 		c.AutoApprove = v.GetBool("auto_approve")
 	}
 	if !c.DryRun {
 		c.DryRun = v.GetBool("dry_run")
 	}
-	if c.MaxRetries == 0 {
-		c.MaxRetries = v.GetInt("max_retries")
+	if !c.NoProgress {
+		c.NoProgress = v.GetBool("no_progress")
 	}
 
 	return nil
@@ -260,6 +264,10 @@ func (c *Config) GetAutoApprove() bool {
 
 func (c *Config) GetDryRun() bool {
 	return c.DryRun
+}
+
+func (c *Config) GetNoProgress() bool {
+	return c.NoProgress
 }
 
 func (c *Config) SetDryRun(dryRun bool) {
