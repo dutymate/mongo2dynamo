@@ -58,6 +58,9 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 	if cmd.Flags().Changed("mongo-filter") {
 		cfg.MongoFilter, _ = cmd.Flags().GetString("mongo-filter")
 	}
+	if cmd.Flags().Changed("mongo-projection") {
+		cfg.MongoProjection, _ = cmd.Flags().GetString("mongo-projection")
+	}
 	if cmd.Flags().Changed("no-progress") {
 		cfg.NoProgress, _ = cmd.Flags().GetBool("no-progress")
 	}
