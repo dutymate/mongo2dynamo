@@ -117,11 +117,11 @@ Configuration can be provided via command-line flags, environment variables, or 
 | `--aws-region` | AWS region. | `us-east-1` |
 | `--max-retries` | Maximum retries for failed DynamoDB batch writes. | `5` |
 
-**Apply Control Flags**
+**Control Flags**
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--auto-approve` | Skip all confirmation prompts. | `false` |
+| `--auto-approve` | Skip all confirmation prompts (applies only to the apply command). | `false` |
 | `--no-progress` | Disable progress display during migration. | `false` |
 
 ### Environment Variables
