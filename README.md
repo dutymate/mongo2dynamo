@@ -29,6 +29,7 @@ mongo2dynamo is designed for efficient and reliable data migration, incorporatin
 -   **Fine-Grained Error Handling**: Defines domain-specific custom error types for each stage of the ETL process (Extract, Transform, Load). This enables precise error identification and facilitates targeted recovery logic.
 -   **Comprehensive CLI**: Built with `Cobra`, providing a user-friendly command-line interface with `plan` (dry-run) and `apply` commands, flexible configuration options (flags, env vars, config file), and an `--auto-approve` flag for non-interactive execution.
 -   **Automatic Table Management**: Automatically creates DynamoDB tables if they don't exist, with user confirmation prompts (unless auto-approved). **Supports custom primary keys (Partition and Sort Keys).** Waits for table activation before proceeding with migration.
+-   **Real-Time Progress Tracking**: Provides visual progress indicators with real-time status updates, processing rate, and estimated completion time. Progress display can be disabled with `--no-progress` flag for non-interactive environments.
 
 ## Installation
 
@@ -74,6 +75,10 @@ mongo2dynamo apply --mongo-db mydb --mongo-collection users \
 mongo2dynamo apply --mongo-db mydb --mongo-collection users \
   --mongo-projection '{"name": 1, "email": 1, "_id": 0}' \
   --auto-approve
+
+# Disable progress display for non-interactive environments
+mongo2dynamo apply --mongo-db mydb --mongo-collection users \
+  --no-progress
 ```
 
 ## Configuration
@@ -117,6 +122,7 @@ Configuration can be provided via command-line flags, environment variables, or 
 | Flag | Description | Default |
 | --- | --- | --- |
 | `--auto-approve` | Skip all confirmation prompts. | `false` |
+| `--no-progress` | Disable progress display during migration. | `false` |
 
 ### Environment Variables
 
@@ -138,6 +144,7 @@ export MONGO2DYNAMO_DYNAMO_SORT_KEY_TYPE=N
 export MONGO2DYNAMO_AWS_REGION=us-east-1
 export MONGO2DYNAMO_MAX_RETRIES=5
 export MONGO2DYNAMO_AUTO_APPROVE=false
+export MONGO2DYNAMO_NO_PROGRESS=false
 ```
 
 ### Config File
@@ -162,6 +169,7 @@ dynamo_sort_key_type: N
 aws_region: us-east-1
 max_retries: 5
 auto_approve: false
+no_progress: false
 ```
 
 ## Commands
@@ -180,7 +188,8 @@ Performs a dry-run to preview the migration by executing the full ETL pipeline w
 **Example Output:**
 ```text
 Starting migration plan analysis...
-Found 1,234 documents to migrate.
+▶ 904,000/2,000,000 items (45.2%) | 120,000 items/sec | 9s left
+Found 2,000,000 documents to migrate.
 ```
 
 ### `apply` - Execute Migration
@@ -201,7 +210,8 @@ Creating DynamoDB table 'users'...
 Waiting for table 'users' to become active...
 Table 'users' is now active and ready for use.
 Starting data migration from MongoDB to DynamoDB...
-Successfully migrated 1,234 documents.
+▶ 904,000/2,000,000 items (45.2%) | 20,000 items/sec | 54s left
+Successfully migrated 2,000,000 documents.
 ```
 
 ### `version` - Show Version
