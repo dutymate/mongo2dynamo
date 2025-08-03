@@ -15,65 +15,63 @@ import (
 // Config holds all configuration for the application.
 type Config struct {
 	// MongoDB configuration.
-	MongoHost       string
-	MongoPort       string
-	MongoUser       string
-	MongoPassword   string
-	MongoDB         string
-	MongoCollection string
-	MongoFilter     string
-	MongoProjection string
+	MongoHost       string `mapstructure:"mongo_host"`
+	MongoPort       string `mapstructure:"mongo_port"`
+	MongoUser       string `mapstructure:"mongo_user"`
+	MongoPassword   string `mapstructure:"mongo_password"`
+	MongoDB         string `mapstructure:"mongo_db"`
+	MongoCollection string `mapstructure:"mongo_collection"`
+	MongoFilter     string `mapstructure:"mongo_filter"`
+	MongoProjection string `mapstructure:"mongo_projection"`
 
 	// DynamoDB configuration.
-	DynamoTable            string
-	DynamoEndpoint         string
-	DynamoPartitionKey     string
-	DynamoPartitionKeyType string
-	DynamoSortKey          string
-	DynamoSortKeyType      string
-	AWSRegion              string
-	MaxRetries             int
+	DynamoTable            string `mapstructure:"dynamo_table"`
+	DynamoEndpoint         string `mapstructure:"dynamo_endpoint"`
+	DynamoPartitionKey     string `mapstructure:"dynamo_partition_key"`
+	DynamoPartitionKeyType string `mapstructure:"dynamo_partition_key_type"`
+	DynamoSortKey          string `mapstructure:"dynamo_sort_key"`
+	DynamoSortKeyType      string `mapstructure:"dynamo_sort_key_type"`
+	AWSRegion              string `mapstructure:"aws_region"`
+	MaxRetries             int    `mapstructure:"max_retries"`
 
 	// Application configuration.
-	AutoApprove bool
-	DryRun      bool
-	NoProgress  bool
+	AutoApprove bool `mapstructure:"auto_approve"`
+	DryRun      bool `mapstructure:"dry_run"`
+	NoProgress  bool `mapstructure:"no_progress"`
 }
-
-// Ensure Config implements the interface.
-var _ common.ConfigProvider = (*Config)(nil)
 
 // Load loads configuration from environment variables and config file.
 func (c *Config) Load() error {
-	v := viper.New()
-
 	// Set default values.
-	v.SetDefault("mongo_host", "localhost")
-	v.SetDefault("mongo_port", "27017")
-	v.SetDefault("mongo_filter", "")
-	v.SetDefault("mongo_projection", "")
-	v.SetDefault("dynamo_endpoint", "http://localhost:8000")
-	v.SetDefault("dynamo_partition_key", "id")
-	v.SetDefault("dynamo_partition_key_type", "S")
-	v.SetDefault("dynamo_sort_key", "")
-	v.SetDefault("dynamo_sort_key_type", "S")
-	v.SetDefault("aws_region", "us-east-1")
-	v.SetDefault("max_retries", 5)
-
-	// Read from environment variables.
-	v.SetEnvPrefix("MONGO2DYNAMO")
-	v.AutomaticEnv()
+	viper.SetDefault("mongo_host", "localhost")
+	viper.SetDefault("mongo_port", "27017")
+	viper.SetDefault("mongo_filter", "")
+	viper.SetDefault("mongo_projection", "")
+	viper.SetDefault("dynamo_endpoint", "http://localhost:8000")
+	viper.SetDefault("dynamo_partition_key", "id")
+	viper.SetDefault("dynamo_partition_key_type", "S")
+	viper.SetDefault("dynamo_sort_key", "")
+	viper.SetDefault("dynamo_sort_key_type", "S")
+	viper.SetDefault("aws_region", "us-east-1")
+	viper.SetDefault("max_retries", 5)
 
 	// Read from config file if it exists.
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return &common.FileIOError{Op: "get user home dir", Reason: err.Error(), Err: err}
 	}
+
 	configPath := filepath.Join(home, ".mongo2dynamo")
-	v.AddConfigPath(configPath)
-	v.SetConfigName("config")
-	v.SetConfigType("yaml")
-	if err := v.ReadInConfig(); err != nil {
+	viper.AddConfigPath(configPath)
+	viper.SetConfigName("config")
+	viper.SetConfigType("yaml")
+
+	// Read from environment variables.
+	viper.AutomaticEnv()
+	viper.SetEnvPrefix("MONGO2DYNAMO")
+	viper.SetOptions(viper.ExperimentalBindStruct())
+
+	if err := viper.ReadInConfig(); err != nil {
 		// Ignore error if config file doesn't exist, but wrap other errors.
 		var notFoundErr viper.ConfigFileNotFoundError
 		if !errors.As(err, &notFoundErr) {
@@ -81,63 +79,9 @@ func (c *Config) Load() error {
 		}
 	}
 
-	// Only set values if they are not already set by flags.
-	if c.MongoHost == "" {
-		c.MongoHost = v.GetString("mongo_host")
-	}
-	if c.MongoPort == "" {
-		c.MongoPort = v.GetString("mongo_port")
-	}
-	if c.MongoUser == "" {
-		c.MongoUser = v.GetString("mongo_user")
-	}
-	if c.MongoPassword == "" {
-		c.MongoPassword = v.GetString("mongo_password")
-	}
-	if c.MongoDB == "" {
-		c.MongoDB = v.GetString("mongo_db")
-	}
-	if c.MongoCollection == "" {
-		c.MongoCollection = v.GetString("mongo_collection")
-	}
-	if c.MongoFilter == "" {
-		c.MongoFilter = v.GetString("mongo_filter")
-	}
-	if c.MongoProjection == "" {
-		c.MongoProjection = v.GetString("mongo_projection")
-	}
-	if c.DynamoTable == "" {
-		c.DynamoTable = v.GetString("dynamo_table")
-	}
-	if c.DynamoEndpoint == "" {
-		c.DynamoEndpoint = v.GetString("dynamo_endpoint")
-	}
-	if c.DynamoPartitionKey == "" {
-		c.DynamoPartitionKey = v.GetString("dynamo_partition_key")
-	}
-	if c.DynamoPartitionKeyType == "" {
-		c.DynamoPartitionKeyType = v.GetString("dynamo_partition_key_type")
-	}
-	if c.DynamoSortKey == "" {
-		c.DynamoSortKey = v.GetString("dynamo_sort_key")
-	}
-	if c.DynamoSortKeyType == "" {
-		c.DynamoSortKeyType = v.GetString("dynamo_sort_key_type")
-	}
-	if c.AWSRegion == "" {
-		c.AWSRegion = v.GetString("aws_region")
-	}
-	if c.MaxRetries == 0 {
-		c.MaxRetries = v.GetInt("max_retries")
-	}
-	if !c.AutoApprove {
-		c.AutoApprove = v.GetBool("auto_approve")
-	}
-	if !c.DryRun {
-		c.DryRun = v.GetBool("dry_run")
-	}
-	if !c.NoProgress {
-		c.NoProgress = v.GetBool("no_progress")
+	// Unmarshal the config into the struct.
+	if err := viper.Unmarshal(&c); err != nil {
+		return &common.ConfigError{Op: "unmarshal config", Reason: err.Error(), Err: err}
 	}
 
 	return nil
