@@ -56,23 +56,38 @@ func runApply(cmd *cobra.Command, _ []string) error {
 	if cmd.Flags().Changed("mongo-collection") {
 		cfg.MongoCollection, _ = cmd.Flags().GetString("mongo-collection")
 	}
+	if cmd.Flags().Changed("mongo-filter") {
+		cfg.MongoFilter, _ = cmd.Flags().GetString("mongo-filter")
+	}
+	if cmd.Flags().Changed("mongo-projection") {
+		cfg.MongoProjection, _ = cmd.Flags().GetString("mongo-projection")
+	}
 	if cmd.Flags().Changed("dynamo-endpoint") {
 		cfg.DynamoEndpoint, _ = cmd.Flags().GetString("dynamo-endpoint")
 	}
 	if cmd.Flags().Changed("dynamo-table") {
 		cfg.DynamoTable, _ = cmd.Flags().GetString("dynamo-table")
 	}
+	if cmd.Flags().Changed("dynamo-partition-key") {
+		cfg.DynamoPartitionKey, _ = cmd.Flags().GetString("dynamo-partition-key")
+	}
+	if cmd.Flags().Changed("dynamo-partition-key-type") {
+		cfg.DynamoPartitionKeyType, _ = cmd.Flags().GetString("dynamo-partition-key-type")
+	}
+	if cmd.Flags().Changed("dynamo-sort-key") {
+		cfg.DynamoSortKey, _ = cmd.Flags().GetString("dynamo-sort-key")
+	}
+	if cmd.Flags().Changed("dynamo-sort-key-type") {
+		cfg.DynamoSortKeyType, _ = cmd.Flags().GetString("dynamo-sort-key-type")
+	}
 	if cmd.Flags().Changed("aws-region") {
 		cfg.AWSRegion, _ = cmd.Flags().GetString("aws-region")
-	}
-	if cmd.Flags().Changed("auto-approve") {
-		cfg.AutoApprove, _ = cmd.Flags().GetBool("auto-approve")
 	}
 	if cmd.Flags().Changed("max-retries") {
 		cfg.MaxRetries, _ = cmd.Flags().GetInt("max-retries")
 	}
-	if cmd.Flags().Changed("mongo-filter") {
-		cfg.MongoFilter, _ = cmd.Flags().GetString("mongo-filter")
+	if cmd.Flags().Changed("auto-approve") {
+		cfg.AutoApprove, _ = cmd.Flags().GetBool("auto-approve")
 	}
 	if cmd.Flags().Changed("no-progress") {
 		cfg.NoProgress, _ = cmd.Flags().GetBool("no-progress")
