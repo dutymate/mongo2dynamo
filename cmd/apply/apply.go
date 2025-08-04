@@ -141,12 +141,12 @@ func runApply(cmd *cobra.Command, _ []string) error {
 	ctx, cancel := context.WithCancel(cmd.Context())
 	defer cancel()
 
-	// Create progress tracker (only if progress is enabled).
-	var tracker *progress.Tracker
+	// Create progressTracker (only if progress is enabled).
+	var progressTracker *progress.Tracker
 	if !cfg.GetNoProgress() {
-		tracker = progress.NewProgressTracker(total, 1*time.Second)
-		tracker.Start(cmd.Context())
-		defer tracker.Stop()
+		progressTracker = progress.NewProgressTracker(total, 1*time.Second)
+		progressTracker.Start(cmd.Context())
+		defer progressTracker.Stop()
 	}
 
 	// Pipeline channels.
@@ -171,8 +171,8 @@ func runApply(cmd *cobra.Command, _ []string) error {
 			}
 			processed := int64(len(transformed))
 			atomic.AddInt64(&migratedCount, processed)
-			if tracker != nil {
-				tracker.UpdateProgress(processed)
+			if progressTracker != nil {
+				progressTracker.UpdateProgress(processed)
 			}
 		}
 	}()
@@ -221,8 +221,8 @@ func runApply(cmd *cobra.Command, _ []string) error {
 	wg.Wait()
 
 	// Clear progress tracker if it was enabled.
-	if tracker != nil {
-		tracker.ClearProgress()
+	if progressTracker != nil {
+		progressTracker.ClearProgress()
 	}
 
 	// Check for errors.
