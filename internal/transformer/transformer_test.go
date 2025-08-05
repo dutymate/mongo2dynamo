@@ -2,7 +2,6 @@ package transformer
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math/rand"
 	"reflect"
@@ -89,129 +88,6 @@ func TestDocTransformer_Transform_EmptyInput(t *testing.T) {
 	}
 	if len(output) != 0 {
 		t.Errorf("expected output length 0, got %d", len(output))
-	}
-}
-
-func TestConvertID(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    any
-		expected any
-	}{
-		{
-			name:     "ObjectID conversion",
-			input:    primitive.NewObjectID(),
-			expected: "", // Will be set dynamically.
-		},
-		{
-			name:     "string conversion",
-			input:    "test123",
-			expected: "test123",
-		},
-		{
-			name:     "integer conversion",
-			input:    42,
-			expected: 42,
-		},
-		{
-			name:     "float conversion",
-			input:    3.14,
-			expected: 3.14,
-		},
-		{
-			name:     "boolean conversion",
-			input:    true,
-			expected: true,
-		},
-		{
-			name: "bson.M conversion",
-			input: bson.M{
-				"user": "some user",
-				"ts":   "2023-01-01T00:00:00Z",
-			},
-			expected: `{"ts":"2023-01-01T00:00:00Z","user":"some user"}`,
-		},
-		{
-			name: "nested bson.M conversion",
-			input: bson.M{
-				"user": bson.M{
-					"id":   "123",
-					"name": "John Doe",
-				},
-				"timestamp": "2023-01-01T00:00:00Z",
-			},
-			expected: `{"timestamp":"2023-01-01T00:00:00Z","user":{"id":"123","name":"John Doe"}}`,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := convertID(tt.input)
-
-			// Special handling for ObjectID test.
-			switch tt.name {
-			case "ObjectID conversion":
-				// Verify it's a valid hex string.
-				resultStr, ok := result.(string)
-				if !ok {
-					t.Errorf("ObjectID conversion: expected string result, got %T", result)
-					return
-				}
-				if len(resultStr) != 24 {
-					t.Errorf("ObjectID conversion: expected 24-character hex string, got %s (length: %d)", resultStr, len(resultStr))
-				}
-				// Verify it's the same as the original ObjectID's hex representation.
-				objID := tt.input.(primitive.ObjectID)
-				expectedHex := objID.Hex()
-				if resultStr != expectedHex {
-					t.Errorf("ObjectID conversion: expected %s, got %s", expectedHex, resultStr)
-				}
-			case "bson.M conversion", "nested bson.M conversion":
-				// For JSON objects, we need to parse and compare the structure.
-				resultStr, ok := result.(string)
-				if !ok {
-					t.Errorf("bson.M conversion: expected string result, got %T", result)
-					return
-				}
-				expectedStr, ok := tt.expected.(string)
-				if !ok {
-					t.Errorf("bson.M conversion: expected string in test data, got %T", tt.expected)
-					return
-				}
-				var resultMap, expectedMap map[string]any
-
-				if err := json.Unmarshal([]byte(resultStr), &resultMap); err != nil {
-					t.Errorf("Failed to unmarshal result JSON: %v", err)
-					return
-				}
-				if err := json.Unmarshal([]byte(expectedStr), &expectedMap); err != nil {
-					t.Errorf("Failed to unmarshal expected JSON: %v", err)
-					return
-				}
-
-				if !reflect.DeepEqual(resultMap, expectedMap) {
-					t.Errorf("convertID() = %v, want %v", result, tt.expected)
-				}
-			default:
-				if !reflect.DeepEqual(result, tt.expected) {
-					t.Errorf("convertID() = %v, want %v", result, tt.expected)
-				}
-			}
-		})
-	}
-}
-
-func TestConvertID_ObjectIDVariations(t *testing.T) {
-	// Test with a known ObjectID.
-	knownHex := "1234567890abcdef12345678"
-	objID, err := primitive.ObjectIDFromHex(knownHex)
-	if err != nil {
-		t.Fatalf("Failed to create ObjectID from hex: %v", err)
-	}
-
-	result := convertID(objID)
-	if result != knownHex {
-		t.Errorf("convertID() with known ObjectID = %s, want %s", result, knownHex)
 	}
 }
 
@@ -348,5 +224,360 @@ func TestDocTransformer_Transform_WorkerScaling(t *testing.T) {
 		if doc["id"] != fmt.Sprintf("id_%d", i) {
 			t.Errorf("at index %d: expected id 'id_%d', got %v", i, i, doc["id"])
 		}
+	}
+}
+
+func TestConvertValue(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    any
+		expected any
+	}{
+		{
+			name:     "ObjectID conversion",
+			input:    primitive.NewObjectID(),
+			expected: "", // Will be set dynamically.
+		},
+		{
+			name:     "string value",
+			input:    "test123",
+			expected: "test123",
+		},
+		{
+			name:     "integer value",
+			input:    42,
+			expected: 42,
+		},
+		{
+			name:     "float value",
+			input:    3.14,
+			expected: 3.14,
+		},
+		{
+			name:     "boolean value",
+			input:    true,
+			expected: true,
+		},
+		{
+			name:     "nil value",
+			input:    nil,
+			expected: nil,
+		},
+		{
+			name: "array with ObjectIDs",
+			input: []any{
+				primitive.NewObjectID(),
+				primitive.NewObjectID(),
+				"string",
+				42,
+			},
+			expected: []any{"", "", "string", 42}, // Will be set dynamically.
+		},
+		{
+			name: "nested map with ObjectIDs",
+			input: map[string]any{
+				"user": map[string]any{
+					"id":   primitive.NewObjectID(),
+					"name": "John Doe",
+				},
+				"timestamp": "2023-01-01T00:00:00Z",
+			},
+			expected: map[string]any{
+				"user": map[string]any{
+					"id":   "", // Will be set dynamically.
+					"name": "John Doe",
+				},
+				"timestamp": "2023-01-01T00:00:00Z",
+			},
+		},
+		{
+			name: "bson.M with ObjectIDs",
+			input: bson.M{
+				"userId": primitive.NewObjectID(),
+				"data":   "some data",
+			},
+			expected: bson.M{
+				"userId": "", // Will be set dynamically.
+				"data":   "some data",
+			},
+		},
+		{
+			name: "bson.A with mixed types",
+			input: bson.A{
+				primitive.NewObjectID(),
+				"string",
+				42,
+				bson.M{"nested": primitive.NewObjectID()},
+			},
+			expected: bson.A{
+				"", // Will be set dynamically.
+				"string",
+				42,
+				bson.M{"nested": ""}, // Will be set dynamically.
+			},
+		},
+		{
+			name:     "empty array",
+			input:    []any{},
+			expected: []any{},
+		},
+		{
+			name:     "empty map",
+			input:    map[string]any{},
+			expected: map[string]any{},
+		},
+		{
+			name:     "empty bson.M",
+			input:    bson.M{},
+			expected: map[string]any{},
+		},
+		{
+			name:     "empty bson.A",
+			input:    bson.A{},
+			expected: []any{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := convertValue(tt.input)
+
+			// Special handling for ObjectID tests.
+			switch tt.name {
+			case "ObjectID conversion":
+				// Verify it's a valid hex string.
+				resultStr, ok := result.(string)
+				if !ok {
+					t.Errorf("ObjectID conversion: expected string result, got %T", result)
+					return
+				}
+				if len(resultStr) != 24 {
+					t.Errorf("ObjectID conversion: expected 24-character hex string, got %s (length: %d)", resultStr, len(resultStr))
+				}
+				// Verify it's the same as the original ObjectID's hex representation.
+				objID := tt.input.(primitive.ObjectID)
+				expectedHex := objID.Hex()
+				if resultStr != expectedHex {
+					t.Errorf("ObjectID conversion: expected %s, got %s", expectedHex, resultStr)
+				}
+			case "array with ObjectIDs":
+				// Verify array structure and ObjectID conversions.
+				resultArr, ok := result.([]any)
+				if !ok {
+					t.Errorf("array conversion: expected []any result, got %T", result)
+					return
+				}
+				inputArr := tt.input.([]any)
+				if len(resultArr) != len(inputArr) {
+					t.Errorf("array conversion: expected length %d, got %d", len(inputArr), len(resultArr))
+					return
+				}
+				// Check ObjectID conversions in array.
+				for i, item := range inputArr {
+					if objID, isObjID := item.(primitive.ObjectID); isObjID {
+						expectedHex := objID.Hex()
+						if resultArr[i] != expectedHex {
+							t.Errorf("array[%d]: expected %s, got %v", i, expectedHex, resultArr[i])
+						}
+					} else if resultArr[i] != item {
+						t.Errorf("array[%d]: expected %v, got %v", i, item, resultArr[i])
+					}
+				}
+			case "nested map with ObjectIDs":
+				// Verify nested map structure and ObjectID conversions.
+				resultMap, ok := result.(map[string]any)
+				if !ok {
+					t.Errorf("nested map conversion: expected map[string]any result, got %T", result)
+					return
+				}
+				// Check user.id conversion.
+				userMap, ok := resultMap["user"].(map[string]any)
+				if !ok {
+					t.Errorf("nested map conversion: expected user to be map[string]any, got %T", resultMap["user"])
+					return
+				}
+				inputMap := tt.input.(map[string]any)
+				inputUserMap := inputMap["user"].(map[string]any)
+				inputObjID := inputUserMap["id"].(primitive.ObjectID)
+				expectedHex := inputObjID.Hex()
+				if userMap["id"] != expectedHex {
+					t.Errorf("nested map user.id: expected %s, got %v", expectedHex, userMap["id"])
+				}
+			case "bson.M with ObjectIDs":
+				// Verify bson.M structure and ObjectID conversions.
+				resultMap, ok := result.(map[string]any)
+				if !ok {
+					t.Errorf("bson.M conversion: expected map[string]any result, got %T", result)
+					return
+				}
+				inputMap := tt.input.(bson.M)
+				inputObjID := inputMap["userId"].(primitive.ObjectID)
+				expectedHex := inputObjID.Hex()
+				if resultMap["userId"] != expectedHex {
+					t.Errorf("bson.M userId: expected %s, got %v", expectedHex, resultMap["userId"])
+				}
+			case "bson.A with mixed types":
+				// Verify bson.A structure and ObjectID conversions.
+				resultArr, ok := result.([]any)
+				if !ok {
+					t.Errorf("bson.A conversion: expected []any result, got %T", result)
+					return
+				}
+				inputArr := tt.input.(bson.A)
+				// Check first ObjectID.
+				inputObjID := inputArr[0].(primitive.ObjectID)
+				expectedHex := inputObjID.Hex()
+				if resultArr[0] != expectedHex {
+					t.Errorf("bson.A[0]: expected %s, got %v", expectedHex, resultArr[0])
+				}
+				// Check nested ObjectID in bson.M.
+				resultNestedMap := resultArr[3].(map[string]any)
+				inputNestedMap := inputArr[3].(bson.M)
+				inputNestedObjID := inputNestedMap["nested"].(primitive.ObjectID)
+				expectedNestedHex := inputNestedObjID.Hex()
+				if resultNestedMap["nested"] != expectedNestedHex {
+					t.Errorf("bson.A[3].nested: expected %s, got %v", expectedNestedHex, resultNestedMap["nested"])
+				}
+			default:
+				if !reflect.DeepEqual(result, tt.expected) {
+					t.Errorf("convertValue() = %v, want %v", result, tt.expected)
+				}
+			}
+		})
+	}
+}
+
+func TestConvertValue_EdgeCases(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    any
+		expected any
+	}{
+		{
+			name:     "zero ObjectID",
+			input:    primitive.NilObjectID,
+			expected: "000000000000000000000000",
+		},
+		{
+			name: "deeply nested ObjectIDs",
+			input: map[string]any{
+				"level1": map[string]any{
+					"level2": map[string]any{
+						"level3": map[string]any{
+							"level4": map[string]any{
+								"id": primitive.NewObjectID(),
+							},
+						},
+					},
+				},
+			},
+			expected: map[string]any{
+				"level1": map[string]any{
+					"level2": map[string]any{
+						"level3": map[string]any{
+							"level4": map[string]any{
+								"id": "", // Will be set dynamically.
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "mixed array types",
+			input: []any{
+				primitive.NewObjectID(),
+				[]any{primitive.NewObjectID(), "nested"},
+				map[string]any{"id": primitive.NewObjectID()},
+				bson.M{"ref": primitive.NewObjectID()},
+				bson.A{primitive.NewObjectID()},
+			},
+			expected: []any{
+				"",
+				[]any{"", "nested"},
+				map[string]any{"id": ""},
+				bson.M{"ref": ""},
+				bson.A{""},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := convertValue(tt.input)
+
+			switch tt.name {
+			case "zero ObjectID":
+				if result != tt.expected {
+					t.Errorf("zero ObjectID: expected %s, got %v", tt.expected, result)
+				}
+			case "deeply nested ObjectIDs":
+				// Verify the deeply nested ObjectID is converted.
+				resultMap := result.(map[string]any)
+				level1 := resultMap["level1"].(map[string]any)
+				level2 := level1["level2"].(map[string]any)
+				level3 := level2["level3"].(map[string]any)
+				level4 := level3["level4"].(map[string]any)
+
+				inputMap := tt.input.(map[string]any)
+				inputLevel1 := inputMap["level1"].(map[string]any)
+				inputLevel2 := inputLevel1["level2"].(map[string]any)
+				inputLevel3 := inputLevel2["level3"].(map[string]any)
+				inputLevel4 := inputLevel3["level4"].(map[string]any)
+				inputObjID := inputLevel4["id"].(primitive.ObjectID)
+				expectedHex := inputObjID.Hex()
+
+				if level4["id"] != expectedHex {
+					t.Errorf("deeply nested ObjectID: expected %s, got %v", expectedHex, level4["id"])
+				}
+			case "mixed array types":
+				// Verify all ObjectIDs in the mixed array are converted.
+				resultArr := result.([]any)
+				inputArr := tt.input.([]any)
+
+				// Check first ObjectID.
+				inputObjID1 := inputArr[0].(primitive.ObjectID)
+				expectedHex1 := inputObjID1.Hex()
+				if resultArr[0] != expectedHex1 {
+					t.Errorf("mixed array[0]: expected %s, got %v", expectedHex1, resultArr[0])
+				}
+
+				// Check nested array ObjectID.
+				resultNestedArr := resultArr[1].([]any)
+				inputNestedArr := inputArr[1].([]any)
+				inputNestedObjID := inputNestedArr[0].(primitive.ObjectID)
+				expectedNestedHex := inputNestedObjID.Hex()
+				if resultNestedArr[0] != expectedNestedHex {
+					t.Errorf("mixed array[1][0]: expected %s, got %v", expectedNestedHex, resultNestedArr[0])
+				}
+
+				// Check map ObjectID.
+				resultMap := resultArr[2].(map[string]any)
+				inputMap := inputArr[2].(map[string]any)
+				inputMapObjID := inputMap["id"].(primitive.ObjectID)
+				expectedMapHex := inputMapObjID.Hex()
+				if resultMap["id"] != expectedMapHex {
+					t.Errorf("mixed array[2].id: expected %s, got %v", expectedMapHex, resultMap["id"])
+				}
+
+				// Check bson.M ObjectID.
+				resultBsonM := resultArr[3].(map[string]any)
+				inputBsonM := inputArr[3].(bson.M)
+				inputBsonMObjID := inputBsonM["ref"].(primitive.ObjectID)
+				expectedBsonMHex := inputBsonMObjID.Hex()
+				if resultBsonM["ref"] != expectedBsonMHex {
+					t.Errorf("mixed array[3].ref: expected %s, got %v", expectedBsonMHex, resultBsonM["ref"])
+				}
+
+				// Check bson.A ObjectID.
+				resultBsonA := resultArr[4].([]any)
+				inputBsonA := inputArr[4].(bson.A)
+				inputBsonAObjID := inputBsonA[0].(primitive.ObjectID)
+				expectedBsonAHex := inputBsonAObjID.Hex()
+				if resultBsonA[0] != expectedBsonAHex {
+					t.Errorf("mixed array[4][0]: expected %s, got %v", expectedBsonAHex, resultBsonA[0])
+				}
+			}
+		})
 	}
 }

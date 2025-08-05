@@ -2,8 +2,6 @@ package transformer
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"runtime"
 	"time"
 
@@ -45,11 +43,11 @@ func (t *DocTransformer) Transform(
 		for k, v := range doc {
 			switch k {
 			case "_id":
-				newDoc["id"] = convertID(v)
+				newDoc["id"] = convertValue(v)
 			case "__v", "_class":
 				continue
 			default:
-				newDoc[k] = v
+				newDoc[k] = convertValue(v)
 			}
 		}
 		return worker.Result[map[string]any]{JobID: job.ID, Value: newDoc}
@@ -74,17 +72,42 @@ func (t *DocTransformer) Transform(
 	return output, nil
 }
 
-func convertID(id any) any {
-	switch v := id.(type) {
+// convertValue recursively converts values, handling ObjectID references.
+func convertValue(v any) any {
+	switch val := v.(type) {
 	case primitive.ObjectID:
-		return v.Hex()
-	case bson.M:
-		jsonBytes, err := json.Marshal(v)
-		if err != nil {
-			return fmt.Sprintf("%v", v)
+		// Convert ObjectID to hex string for references.
+		return val.Hex()
+	case []any:
+		// Handle arrays (e.g., array of ObjectIDs).
+		result := make([]any, len(val))
+		for i, item := range val {
+			result[i] = convertValue(item)
 		}
-		return string(jsonBytes)
+		return result
+	case map[string]any:
+		// Handle nested objects.
+		result := make(map[string]any, len(val))
+		for k, item := range val {
+			result[k] = convertValue(item)
+		}
+		return result
+	case bson.M:
+		// Handle BSON maps.
+		result := make(map[string]any, len(val))
+		for k, item := range val {
+			result[k] = convertValue(item)
+		}
+		return result
+	case bson.A:
+		// Handle BSON arrays.
+		result := make([]any, len(val))
+		for i, item := range val {
+			result[i] = convertValue(item)
+		}
+		return result
 	default:
+		// For other types, return as-is.
 		return v
 	}
 }
