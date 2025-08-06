@@ -18,11 +18,10 @@ import (
 )
 
 const (
-	DefaultDynamoBatchSize = 25
-	DefaultLoaderWorkers   = 10
-
 	MaxWaitTimeForTableActive   = 30 * time.Second
 	CheckIntervalForTableActive = 2 * time.Second
+	DefaultDynamoBatchSize      = 25
+	DefaultLoaderWorkers        = 10
 )
 
 // DBClient defines the interface for DynamoDB operations used by Loader.
