@@ -10,9 +10,10 @@ import (
 )
 
 const (
-	DefaultScaleInterval       = 500 * time.Millisecond
-	DefaultScaleUpThreshold    = 0.8
-	DefaultScaleDownThreshold  = 0.3
+	DefaultScaleInterval      = 500 * time.Millisecond
+	DefaultScaleUpThreshold   = 0.8
+	DefaultScaleDownThreshold = 0.3
+
 	DefaultMinWorkers          = 1
 	ScaleDownChannelBufferSize = 1
 )

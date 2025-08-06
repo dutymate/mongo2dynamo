@@ -13,6 +13,11 @@ import (
 	"mongo2dynamo/internal/pool"
 )
 
+const (
+	DefaultMongoBatchSize = 1000
+	DefaultChunkSize      = 2000
+)
+
 // Collection defines the interface for MongoDB collection operations needed by Extractor.
 type Collection interface {
 	Find(ctx context.Context, filter any, opts ...*options.FindOptions) (Cursor, error)
@@ -64,10 +69,10 @@ func (w *mongoCollectionWrapper) Find(ctx context.Context, filter any, opts ...*
 func newMongoExtractor(collection Collection, filter bson.M) *MongoExtractor {
 	return &MongoExtractor{
 		collection: collection,
-		batchSize:  1000,
-		chunkSize:  2000,
+		batchSize:  DefaultMongoBatchSize,
+		chunkSize:  DefaultChunkSize,
 		filter:     filter,
-		chunkPool:  pool.NewChunkPool(2000),
+		chunkPool:  pool.NewChunkPool(DefaultChunkSize),
 	}
 }
 

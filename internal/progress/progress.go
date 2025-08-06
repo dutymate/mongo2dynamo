@@ -10,6 +10,10 @@ import (
 	"mongo2dynamo/internal/common"
 )
 
+const (
+	DefaultUpdateInterval = 1 * time.Second
+)
+
 // Status contains information about the migration progress.
 type Status struct {
 	Processed  int64
@@ -40,7 +44,7 @@ type Tracker struct {
 // NewProgressTracker creates a new progress tracker.
 func NewProgressTracker(totalItems int64, updateInterval time.Duration) *Tracker {
 	if updateInterval <= 0 {
-		updateInterval = 1 * time.Second
+		updateInterval = DefaultUpdateInterval
 	}
 
 	return &Tracker{

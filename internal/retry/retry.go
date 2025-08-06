@@ -6,6 +6,10 @@ import (
 	"time"
 )
 
+const (
+	DefaultMaxRetries = 5
+)
+
 // RetryableFunc defines a function that can be retried and returns only an error.
 type RetryableFunc func() error
 
@@ -18,7 +22,7 @@ type Config struct {
 // NewConfig creates a new retry configuration with default values.
 func NewConfig() *Config {
 	return &Config{
-		MaxRetries:    5,
+		MaxRetries:    DefaultMaxRetries,
 		BackoffConfig: NewBackoffConfig(),
 	}
 }

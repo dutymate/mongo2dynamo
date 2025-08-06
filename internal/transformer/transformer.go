@@ -12,6 +12,16 @@ import (
 	"mongo2dynamo/internal/worker"
 )
 
+const (
+	DefaultMinWorkers    = 2
+	DefaultScaleInterval = 500 * time.Millisecond
+)
+
+var (
+	DefaultMaxWorkers = runtime.NumCPU() * 2
+	DefaultQueueSize  = DefaultMaxWorkers * 2
+)
+
 // DocTransformer transforms MongoDB documents.
 type DocTransformer struct{}
 
@@ -54,10 +64,7 @@ func (t *DocTransformer) Transform(
 	}
 
 	// Configure and run the dynamic worker pool.
-	minWorkers := 2
-	maxWorkers := runtime.NumCPU() * 2
-	queueSize := maxWorkers * 2
-	pool := worker.NewDynamicWorkerPool(transformFunc, minWorkers, maxWorkers, queueSize, 500*time.Millisecond)
+	pool := worker.NewDynamicWorkerPool(transformFunc, DefaultMinWorkers, DefaultMaxWorkers, DefaultQueueSize, DefaultScaleInterval)
 	defer pool.Stop()
 
 	pool.Start(ctx)

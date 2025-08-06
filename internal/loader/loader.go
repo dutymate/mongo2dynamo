@@ -18,8 +18,8 @@ import (
 )
 
 const (
-	BatchSize            = 25
-	DefaultLoaderWorkers = 10
+	DefaultDynamoBatchSize = 25
+	DefaultLoaderWorkers   = 10
 
 	MaxWaitTimeForTableActive   = 30 * time.Second
 	CheckIntervalForTableActive = 2 * time.Second
@@ -242,7 +242,7 @@ func (l *DynamoLoader) Load(ctx context.Context, data []map[string]any) error {
 	// Dispatch jobs.
 	go func() {
 		defer close(jobChan)
-		writeRequests := make([]types.WriteRequest, 0, BatchSize)
+		writeRequests := make([]types.WriteRequest, 0, DefaultDynamoBatchSize)
 		for _, item := range data {
 			// Check for cancellation before dispatching new jobs.
 			if ctx.Err() != nil {
@@ -258,13 +258,13 @@ func (l *DynamoLoader) Load(ctx context.Context, data []map[string]any) error {
 				return // Stop dispatching.
 			}
 			writeRequests = append(writeRequests, types.WriteRequest{PutRequest: &types.PutRequest{Item: av}})
-			if len(writeRequests) == BatchSize {
+			if len(writeRequests) == DefaultDynamoBatchSize {
 				select {
 				case jobChan <- writeRequests:
 				case <-ctx.Done():
 					return
 				}
-				writeRequests = make([]types.WriteRequest, 0, BatchSize)
+				writeRequests = make([]types.WriteRequest, 0, DefaultDynamoBatchSize)
 			}
 		}
 		if len(writeRequests) > 0 {
