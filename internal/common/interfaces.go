@@ -26,27 +26,3 @@ type Loader interface {
 	// Load saves the provided data to the destination.
 	Load(ctx context.Context, data []map[string]any) error
 }
-
-// ConfigProvider is the interface for providing configuration settings.
-type ConfigProvider interface {
-	GetMongoHost() string
-	GetMongoPort() string
-	GetMongoUser() string
-	GetMongoPassword() string
-	GetMongoDB() string
-	GetMongoCollection() string
-	GetMongoFilter() string
-	GetMongoProjection() string
-	GetMongoURI() string
-	GetDynamoEndpoint() string
-	GetDynamoTable() string
-	GetDynamoPartitionKey() string
-	GetDynamoPartitionKeyType() string
-	GetDynamoSortKey() string
-	GetDynamoSortKeyType() string
-	GetAWSRegion() string
-	GetMaxRetries() int
-	GetAutoApprove() bool
-	GetDryRun() bool
-	GetNoProgress() bool
-}

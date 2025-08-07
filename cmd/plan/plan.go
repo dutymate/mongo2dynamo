@@ -30,6 +30,7 @@ This command will display what would be migrated without making any changes.`,
 func runPlan(cmd *cobra.Command, _ []string) error {
 	// Create config.
 	cfg := &config.Config{}
+	cfg.SetDryRun(true)
 
 	// Load configuration from environment variables, config file, and defaults first.
 	if err := cfg.Load(); err != nil {
@@ -65,9 +66,6 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 		cfg.NoProgress, _ = cmd.Flags().GetBool("no-progress")
 	}
 
-	// Set dry run mode.
-	cfg.SetDryRun(true)
-
 	// Validate configuration after all values are set.
 	if err := cfg.Validate(); err != nil {
 		return fmt.Errorf("configuration validation failed: %w", err)
@@ -98,7 +96,7 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 
 	// Create progressTracker for plan mode (only if progress is enabled).
 	var progressTracker *progress.Tracker
-	if !cfg.GetNoProgress() {
+	if !cfg.NoProgress {
 		progressTracker = progress.NewProgressTracker(total, 1*time.Second)
 		progressTracker.Start(cmd.Context())
 		defer progressTracker.Stop()

@@ -257,27 +257,33 @@ func TestConfig_Validate(t *testing.T) {
 		},
 		{
 			name: "missing dynamo_table but dry run",
-			config: &Config{
-				MongoDB:                "testdb",
-				MongoCollection:        "testcollection",
-				DryRun:                 true,
-				DynamoPartitionKey:     "id",
-				DynamoPartitionKeyType: "S",
-				MaxRetries:             defaultMaxRetries,
-			},
+			config: func() *Config {
+				cfg := &Config{
+					MongoDB:                "testdb",
+					MongoCollection:        "testcollection",
+					DynamoPartitionKey:     "id",
+					DynamoPartitionKeyType: "S",
+					MaxRetries:             defaultMaxRetries,
+				}
+				cfg.SetDryRun(true)
+				return cfg
+			}(),
 			wantErr: false,
 		},
 		{
 			name: "missing dynamo_table with auto-approve should set DynamoTable to collection name",
-			config: &Config{
-				MongoDB:                "testdb",
-				MongoCollection:        "testcollection",
-				DryRun:                 false,
-				AutoApprove:            true,
-				DynamoPartitionKey:     "id",
-				DynamoPartitionKeyType: "S",
-				MaxRetries:             defaultMaxRetries,
-			},
+			config: func() *Config {
+				cfg := &Config{
+					MongoDB:                "testdb",
+					MongoCollection:        "testcollection",
+					AutoApprove:            true,
+					DynamoPartitionKey:     "id",
+					DynamoPartitionKeyType: "S",
+					MaxRetries:             defaultMaxRetries,
+				}
+				cfg.SetDryRun(false)
+				return cfg
+			}(),
 			wantErr: false,
 		},
 		{
@@ -339,7 +345,7 @@ func TestConfig_Validate(t *testing.T) {
 
 			// Check if DynamoTable is automatically set to MongoCollection when empty.
 			// Note: In dry run mode, DynamoTable is not set automatically.
-			if !tt.config.DryRun && tt.config.MongoCollection != "" && tt.config.DynamoTable == "" {
+			if !tt.config.IsDryRun() && tt.config.MongoCollection != "" && tt.config.DynamoTable == "" {
 				// This should not happen after Validate() is called.
 				t.Errorf("DynamoTable should be set to MongoCollection '%s' when empty, but it's still empty", tt.config.MongoCollection)
 			}
@@ -347,7 +353,7 @@ func TestConfig_Validate(t *testing.T) {
 	}
 }
 
-func TestConfig_GetMongoURI(t *testing.T) {
+func TestConfig_BuildMongoURI(t *testing.T) {
 	tests := []struct {
 		name     string
 		config   *Config
@@ -375,9 +381,9 @@ func TestConfig_GetMongoURI(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := tt.config.GetMongoURI()
+			result := tt.config.BuildMongoURI()
 			if result != tt.expected {
-				t.Errorf("GetMongoURI() = %v, want %v", result, tt.expected)
+				t.Errorf("BuildMongoURI() = %v, want %v", result, tt.expected)
 			}
 		})
 	}
