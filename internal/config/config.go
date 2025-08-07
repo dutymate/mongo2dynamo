@@ -36,8 +36,10 @@ type Config struct {
 
 	// Application configuration.
 	AutoApprove bool `mapstructure:"auto_approve"`
-	DryRun      bool `mapstructure:"dry_run"`
 	NoProgress  bool `mapstructure:"no_progress"`
+
+	// Dry run mode.
+	dryRun bool
 }
 
 // Load loads configuration from environment variables and config file.
@@ -109,7 +111,7 @@ func (c *Config) Validate() error {
 	}
 
 	// If DynamoTable is not set and not in DryRun mode, use the collection name as the DynamoDB table name.
-	if !c.DryRun && c.DynamoTable == "" {
+	if !c.IsDryRun() && c.DynamoTable == "" {
 		// If AutoApprove is false, prompt the user for confirmation before proceeding.
 		if !c.AutoApprove && !common.Confirm("Use collection name as DynamoDB table name? (y/N) ") {
 			return fmt.Errorf("required field 'dynamo_table' not set: user declined to use collection name: %w", context.Canceled)
@@ -130,90 +132,21 @@ func isValidKeyType(keyType string) bool {
 	}
 }
 
-func (c *Config) GetMongoHost() string {
-	return c.MongoHost
+// SetDryRun sets the dry run mode.
+func (c *Config) SetDryRun(dryRun bool) {
+	c.dryRun = dryRun
 }
 
-func (c *Config) GetMongoPort() string {
-	return c.MongoPort
+// IsDryRun returns whether dry run mode is enabled.
+func (c *Config) IsDryRun() bool {
+	return c.dryRun
 }
 
-func (c *Config) GetMongoUser() string {
-	return c.MongoUser
-}
-
-func (c *Config) GetMongoPassword() string {
-	return c.MongoPassword
-}
-
-func (c *Config) GetMongoDB() string {
-	return c.MongoDB
-}
-
-func (c *Config) GetMongoCollection() string {
-	return c.MongoCollection
-}
-
-func (c *Config) GetMongoFilter() string {
-	return c.MongoFilter
-}
-
-func (c *Config) GetMongoProjection() string {
-	return c.MongoProjection
-}
-
-func (c *Config) GetMongoURI() string {
+// BuildMongoURI builds the MongoDB connection URI.
+func (c *Config) BuildMongoURI() string {
 	if c.MongoUser != "" && c.MongoPassword != "" {
 		return fmt.Sprintf("mongodb://%s:%s@%s:%s",
 			c.MongoUser, c.MongoPassword, c.MongoHost, c.MongoPort)
 	}
 	return fmt.Sprintf("mongodb://%s:%s", c.MongoHost, c.MongoPort)
-}
-
-func (c *Config) GetDynamoEndpoint() string {
-	return c.DynamoEndpoint
-}
-
-func (c *Config) GetDynamoTable() string {
-	return c.DynamoTable
-}
-
-func (c *Config) GetDynamoPartitionKey() string {
-	return c.DynamoPartitionKey
-}
-
-func (c *Config) GetDynamoPartitionKeyType() string {
-	return c.DynamoPartitionKeyType
-}
-
-func (c *Config) GetDynamoSortKey() string {
-	return c.DynamoSortKey
-}
-
-func (c *Config) GetDynamoSortKeyType() string {
-	return c.DynamoSortKeyType
-}
-
-func (c *Config) GetAWSRegion() string {
-	return c.AWSRegion
-}
-
-func (c *Config) GetMaxRetries() int {
-	return c.MaxRetries
-}
-
-func (c *Config) GetAutoApprove() bool {
-	return c.AutoApprove
-}
-
-func (c *Config) GetDryRun() bool {
-	return c.DryRun
-}
-
-func (c *Config) GetNoProgress() bool {
-	return c.NoProgress
-}
-
-func (c *Config) SetDryRun(dryRun bool) {
-	c.DryRun = dryRun
 }

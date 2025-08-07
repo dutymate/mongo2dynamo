@@ -143,7 +143,7 @@ func runApply(cmd *cobra.Command, _ []string) error {
 
 	// Create progressTracker (only if progress is enabled).
 	var progressTracker *progress.Tracker
-	if !cfg.GetNoProgress() {
+	if !cfg.NoProgress {
 		progressTracker = progress.NewProgressTracker(total, 1*time.Second)
 		progressTracker.Start(cmd.Context())
 		defer progressTracker.Stop()

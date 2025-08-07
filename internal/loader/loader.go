@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 
 	"mongo2dynamo/internal/common"
+	"mongo2dynamo/internal/config"
 	"mongo2dynamo/internal/dynamo"
 	"mongo2dynamo/internal/retry"
 )
@@ -53,13 +54,13 @@ func newDynamoLoader(client DBClient, table string, maxRetries int) *DynamoLoade
 }
 
 // NewDynamoLoader creates a DynamoLoader for DynamoDB based on the configuration.
-func NewDynamoLoader(ctx context.Context, cfg common.ConfigProvider) (common.Loader, error) {
+func NewDynamoLoader(ctx context.Context, cfg *config.Config) (common.Loader, error) {
 	client, err := dynamo.Connect(ctx, cfg)
 	if err != nil {
 		return nil, &common.DatabaseConnectionError{Database: "DynamoDB", Reason: err.Error(), Err: err}
 	}
 
-	loader := newDynamoLoader(client, cfg.GetDynamoTable(), cfg.GetMaxRetries())
+	loader := newDynamoLoader(client, cfg.DynamoTable, cfg.MaxRetries)
 
 	// Ensure table exists, create if it doesn't.
 	if err := loader.ensureTableExists(ctx, cfg); err != nil {
@@ -75,7 +76,7 @@ func (l *DynamoLoader) marshalItem(item map[string]any) (map[string]types.Attrib
 }
 
 // ensureTableExists checks if the table exists and creates it if it doesn't.
-func (l *DynamoLoader) ensureTableExists(ctx context.Context, cfg common.ConfigProvider) error {
+func (l *DynamoLoader) ensureTableExists(ctx context.Context, cfg *config.Config) error {
 	// Check if table exists.
 	_, err := l.client.DescribeTable(ctx, &dynamodb.DescribeTableInput{
 		TableName: &l.table,
@@ -100,7 +101,7 @@ func (l *DynamoLoader) ensureTableExists(ctx context.Context, cfg common.ConfigP
 	}
 
 	// Check if auto-approve is enabled.
-	if cfg.GetAutoApprove() {
+	if cfg.AutoApprove {
 		return l.createTable(ctx, cfg)
 	}
 
@@ -113,28 +114,28 @@ func (l *DynamoLoader) ensureTableExists(ctx context.Context, cfg common.ConfigP
 }
 
 // createTable creates a new DynamoDB table with a user-defined schema.
-func (l *DynamoLoader) createTable(ctx context.Context, cfg common.ConfigProvider) error {
+func (l *DynamoLoader) createTable(ctx context.Context, cfg *config.Config) error {
 	fmt.Printf("Creating DynamoDB table '%s'...\n", l.table)
 
 	// Define attribute definitions and key schema based on config.
 	attributeDefinitions := []types.AttributeDefinition{
 		{
-			AttributeName: aws.String(cfg.GetDynamoPartitionKey()),
-			AttributeType: types.ScalarAttributeType(cfg.GetDynamoPartitionKeyType()),
+			AttributeName: aws.String(cfg.DynamoPartitionKey),
+			AttributeType: types.ScalarAttributeType(cfg.DynamoPartitionKeyType),
 		},
 	}
 	keySchema := []types.KeySchemaElement{
 		{
-			AttributeName: aws.String(cfg.GetDynamoPartitionKey()),
+			AttributeName: aws.String(cfg.DynamoPartitionKey),
 			KeyType:       types.KeyTypeHash,
 		},
 	}
 
 	// Add sort key if defined.
-	if sortKey := cfg.GetDynamoSortKey(); sortKey != "" {
+	if sortKey := cfg.DynamoSortKey; sortKey != "" {
 		attributeDefinitions = append(attributeDefinitions, types.AttributeDefinition{
 			AttributeName: aws.String(sortKey),
-			AttributeType: types.ScalarAttributeType(cfg.GetDynamoSortKeyType()),
+			AttributeType: types.ScalarAttributeType(cfg.DynamoSortKeyType),
 		})
 		keySchema = append(keySchema, types.KeySchemaElement{
 			AttributeName: aws.String(sortKey),

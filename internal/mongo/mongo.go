@@ -9,6 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"mongo2dynamo/internal/common"
+	"mongo2dynamo/internal/config"
 )
 
 const (
@@ -32,14 +33,14 @@ var mongoAuthErrorPatterns = []string{
 }
 
 // Connect establishes a connection to MongoDB.
-func Connect(ctx context.Context, cfg common.ConfigProvider) (*mongo.Client, error) {
-	clientOpts := options.Client().ApplyURI(cfg.GetMongoURI())
+func Connect(ctx context.Context, cfg *config.Config) (*mongo.Client, error) {
+	clientOpts := options.Client().ApplyURI(cfg.BuildMongoURI())
 
 	// Explicitly set authentication credentials if provided.
-	if cfg.GetMongoUser() != "" && cfg.GetMongoPassword() != "" {
+	if cfg.MongoUser != "" && cfg.MongoPassword != "" {
 		clientOpts.SetAuth(options.Credential{
-			Username: cfg.GetMongoUser(),
-			Password: cfg.GetMongoPassword(),
+			Username: cfg.MongoUser,
+			Password: cfg.MongoPassword,
 		})
 	}
 

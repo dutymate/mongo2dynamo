@@ -9,6 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"mongo2dynamo/internal/common"
+	"mongo2dynamo/internal/config"
 	"mongo2dynamo/internal/mongo"
 	"mongo2dynamo/internal/pool"
 )
@@ -77,17 +78,18 @@ func newMongoExtractor(collection Collection, filter bson.M) *MongoExtractor {
 }
 
 // NewMongoExtractor creates a MongoExtractor for MongoDB based on the configuration.
-func NewMongoExtractor(ctx context.Context, cfg common.ConfigProvider) (common.Extractor, error) {
+func NewMongoExtractor(ctx context.Context, cfg *config.Config) (common.Extractor, error) {
 	client, err := mongo.Connect(ctx, cfg)
 	if err != nil {
 		return nil, &common.DatabaseConnectionError{Database: "MongoDB", Reason: err.Error(), Err: err}
 	}
-	collection := client.Database(cfg.GetMongoDB()).Collection(cfg.GetMongoCollection())
+
+	collection := client.Database(cfg.MongoDB).Collection(cfg.MongoCollection)
 
 	// Parse MongoDB filter if provided.
 	var filter bson.M
-	if cfg.GetMongoFilter() != "" {
-		filter, err = parseMongoJSON(cfg.GetMongoFilter())
+	if cfg.MongoFilter != "" {
+		filter, err = parseMongoJSON(cfg.MongoFilter)
 		if err != nil {
 			return nil, err
 		}
@@ -95,8 +97,8 @@ func NewMongoExtractor(ctx context.Context, cfg common.ConfigProvider) (common.E
 
 	// Parse MongoDB projection if provided.
 	var projection bson.M
-	if cfg.GetMongoProjection() != "" {
-		projection, err = parseMongoJSON(cfg.GetMongoProjection())
+	if cfg.MongoProjection != "" {
+		projection, err = parseMongoJSON(cfg.MongoProjection)
 		if err != nil {
 			return nil, err
 		}
