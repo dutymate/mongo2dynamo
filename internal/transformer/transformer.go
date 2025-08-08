@@ -30,7 +30,7 @@ func NewDocTransformer() common.Transformer {
 	return &DocTransformer{}
 }
 
-// Transform renames the '_id' field to 'id' and removes '__v' and '_class' fields.
+// Transform removes framework metadata fields while preserving all other fields.
 func (t *DocTransformer) Transform(
 	ctx context.Context,
 	input []map[string]any,
@@ -52,9 +52,8 @@ func (t *DocTransformer) Transform(
 		newDoc := make(map[string]any, estimatedFields)
 		for k, v := range doc {
 			switch k {
-			case "_id":
-				newDoc["id"] = convertValue(v)
 			case "__v", "_class":
+				// Remove framework metadata fields.
 				continue
 			default:
 				newDoc[k] = convertValue(v)

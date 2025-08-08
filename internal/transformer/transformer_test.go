@@ -20,8 +20,8 @@ func TestDocTransformer_Transform(t *testing.T) {
 		{"_id": "def456", "__v": 2, "name": "test2", "other": 42},
 	}
 	expected := []map[string]any{
-		{"id": "abc123", "name": "test"},
-		{"id": "def456", "name": "test2", "other": 42},
+		{"_id": "abc123", "name": "test"},
+		{"_id": "def456", "name": "test2", "other": 42},
 	}
 
 	// Run the test multiple times with shuffled input to check for race conditions and order preservation.
@@ -43,12 +43,12 @@ func TestDocTransformer_Transform(t *testing.T) {
 		if len(output) != len(shuffled) {
 			t.Errorf("expected output length %d, got %d", len(shuffled), len(output))
 		}
-		// The order of output must match the input: input _id and output id must be equal at each index.
+		// The order of output must match the input: input _id and output _id must be equal at each index.
 		for idx, doc := range output {
 			inID := shuffled[idx]["_id"]
-			outID := doc["id"]
+			outID := doc["_id"]
 			if inID != outID {
-				t.Errorf("at idx %d: expected id %v, got %v", idx, inID, outID)
+				t.Errorf("at idx %d: expected _id %v, got %v", idx, inID, outID)
 			}
 		}
 		// Check that all expected documents are present in the output, regardless of order.
@@ -65,9 +65,6 @@ func TestDocTransformer_Transform(t *testing.T) {
 			}
 			// Check that no forbidden fields are present in the output.
 			for _, doc := range output {
-				if _, exists := doc["_id"]; exists {
-					t.Errorf("_id should not be present in output: %v", doc)
-				}
 				if _, exists := doc["_class"]; exists {
 					t.Errorf("_class should not be present in output: %v", doc)
 				}
@@ -121,15 +118,12 @@ func TestDocTransformer_Transform_LargeDataset(t *testing.T) {
 
 	// Verify transformation correctness.
 	for i, doc := range output {
-		// Check that _id was converted to id.
-		if doc["id"] != fmt.Sprintf("id_%d", i) {
-			t.Errorf("at index %d: expected id 'id_%d', got %v", i, i, doc["id"])
+		// Check that _id was preserved.
+		if doc["_id"] != fmt.Sprintf("id_%d", i) {
+			t.Errorf("at index %d: expected _id 'id_%d', got %v", i, i, doc["_id"])
 		}
 
 		// Check that forbidden fields were removed.
-		if _, exists := doc["_id"]; exists {
-			t.Errorf("at index %d: _id should not be present", i)
-		}
 		if _, exists := doc["__v"]; exists {
 			t.Errorf("at index %d: __v should not be present", i)
 		}
@@ -221,8 +215,8 @@ func TestDocTransformer_Transform_WorkerScaling(t *testing.T) {
 
 	// Verify transformation correctness.
 	for i, doc := range output {
-		if doc["id"] != fmt.Sprintf("id_%d", i) {
-			t.Errorf("at index %d: expected id 'id_%d', got %v", i, i, doc["id"])
+		if doc["_id"] != fmt.Sprintf("id_%d", i) {
+			t.Errorf("at index %d: expected _id 'id_%d', got %v", i, i, doc["_id"])
 		}
 	}
 }
@@ -277,14 +271,14 @@ func TestConvertValue(t *testing.T) {
 			name: "nested map with ObjectIDs",
 			input: map[string]any{
 				"user": map[string]any{
-					"id":   primitive.NewObjectID(),
+					"_id":  primitive.NewObjectID(),
 					"name": "John Doe",
 				},
 				"timestamp": "2023-01-01T00:00:00Z",
 			},
 			expected: map[string]any{
 				"user": map[string]any{
-					"id":   "", // Will be set dynamically.
+					"_id":  "", // Will be set dynamically.
 					"name": "John Doe",
 				},
 				"timestamp": "2023-01-01T00:00:00Z",
@@ -398,10 +392,10 @@ func TestConvertValue(t *testing.T) {
 				}
 				inputMap := tt.input.(map[string]any)
 				inputUserMap := inputMap["user"].(map[string]any)
-				inputObjID := inputUserMap["id"].(primitive.ObjectID)
+				inputObjID := inputUserMap["_id"].(primitive.ObjectID)
 				expectedHex := inputObjID.Hex()
-				if userMap["id"] != expectedHex {
-					t.Errorf("nested map user.id: expected %s, got %v", expectedHex, userMap["id"])
+				if userMap["_id"] != expectedHex {
+					t.Errorf("nested map user._id: expected %s, got %v", expectedHex, userMap["_id"])
 				}
 			case "bson.M with ObjectIDs":
 				// Verify bson.M structure and ObjectID conversions.
@@ -465,7 +459,7 @@ func TestConvertValue_EdgeCases(t *testing.T) {
 					"level2": map[string]any{
 						"level3": map[string]any{
 							"level4": map[string]any{
-								"id": primitive.NewObjectID(),
+								"_id": primitive.NewObjectID(),
 							},
 						},
 					},
@@ -476,7 +470,7 @@ func TestConvertValue_EdgeCases(t *testing.T) {
 					"level2": map[string]any{
 						"level3": map[string]any{
 							"level4": map[string]any{
-								"id": "", // Will be set dynamically.
+								"_id": "", // Will be set dynamically.
 							},
 						},
 					},
@@ -488,14 +482,14 @@ func TestConvertValue_EdgeCases(t *testing.T) {
 			input: []any{
 				primitive.NewObjectID(),
 				[]any{primitive.NewObjectID(), "nested"},
-				map[string]any{"id": primitive.NewObjectID()},
+				map[string]any{"_id": primitive.NewObjectID()},
 				bson.M{"ref": primitive.NewObjectID()},
 				bson.A{primitive.NewObjectID()},
 			},
 			expected: []any{
 				"",
 				[]any{"", "nested"},
-				map[string]any{"id": ""},
+				map[string]any{"_id": ""},
 				bson.M{"ref": ""},
 				bson.A{""},
 			},
@@ -524,11 +518,11 @@ func TestConvertValue_EdgeCases(t *testing.T) {
 				inputLevel2 := inputLevel1["level2"].(map[string]any)
 				inputLevel3 := inputLevel2["level3"].(map[string]any)
 				inputLevel4 := inputLevel3["level4"].(map[string]any)
-				inputObjID := inputLevel4["id"].(primitive.ObjectID)
+				inputObjID := inputLevel4["_id"].(primitive.ObjectID)
 				expectedHex := inputObjID.Hex()
 
-				if level4["id"] != expectedHex {
-					t.Errorf("deeply nested ObjectID: expected %s, got %v", expectedHex, level4["id"])
+				if level4["_id"] != expectedHex {
+					t.Errorf("deeply nested ObjectID: expected %s, got %v", expectedHex, level4["_id"])
 				}
 			case "mixed array types":
 				// Verify all ObjectIDs in the mixed array are converted.
@@ -554,10 +548,10 @@ func TestConvertValue_EdgeCases(t *testing.T) {
 				// Check map ObjectID.
 				resultMap := resultArr[2].(map[string]any)
 				inputMap := inputArr[2].(map[string]any)
-				inputMapObjID := inputMap["id"].(primitive.ObjectID)
+				inputMapObjID := inputMap["_id"].(primitive.ObjectID)
 				expectedMapHex := inputMapObjID.Hex()
-				if resultMap["id"] != expectedMapHex {
-					t.Errorf("mixed array[2].id: expected %s, got %v", expectedMapHex, resultMap["id"])
+				if resultMap["_id"] != expectedMapHex {
+					t.Errorf("mixed array[2]._id: expected %s, got %v", expectedMapHex, resultMap["_id"])
 				}
 
 				// Check bson.M ObjectID.
