@@ -21,8 +21,8 @@ func FuzzConvertValue(f *testing.F) {
 	// Add seed corpus for JSON strings representing complex types.
 	f.Add(`["string", 42, true]`, 0, 0.0, false)
 	f.Add(`{"key": "value", "num": 42}`, 0, 0.0, false)
-	f.Add(`{"id": "`+primitive.NewObjectID().Hex()+`", "name": "test"}`, 0, 0.0, false)
-	f.Add(`{"id": "`+primitive.NewObjectID().Hex()+`", "name": "test", "nested": {"id": "`+primitive.NewObjectID().Hex()+`", "name": "test"}}`, 0, 0.0, false)
+	f.Add(`{"_id": "`+primitive.NewObjectID().Hex()+`", "name": "test"}`, 0, 0.0, false)
+	f.Add(`{"_id": "`+primitive.NewObjectID().Hex()+`", "name": "test", "nested": {"_id": "`+primitive.NewObjectID().Hex()+`", "name": "test"}}`, 0, 0.0, false)
 
 	f.Fuzz(func(t *testing.T, inputStr string, inputInt int, inputFloat float64, inputBool bool) {
 		// Create test inputs from fuzzed values.

@@ -109,13 +109,13 @@ func createDynamoTable(t *testing.T, client *dynamodb.Client, tableName string) 
 		TableName: aws.String(tableName),
 		AttributeDefinitions: []types.AttributeDefinition{
 			{
-				AttributeName: aws.String("id"),
+				AttributeName: aws.String("_id"),
 				AttributeType: types.ScalarAttributeTypeS,
 			},
 		},
 		KeySchema: []types.KeySchemaElement{
 			{
-				AttributeName: aws.String("id"),
+				AttributeName: aws.String("_id"),
 				KeyType:       types.KeyTypeHash,
 			},
 		},
@@ -191,7 +191,7 @@ func TestApplyCommand_WithExistingTable(t *testing.T) {
 	result, err := dynamoClient.GetItem(context.Background(), &dynamodb.GetItemInput{
 		TableName: aws.String("test_table"),
 		Key: map[string]types.AttributeValue{
-			"id": &types.AttributeValueMemberS{Value: "mongoid-001"},
+			"_id": &types.AttributeValueMemberS{Value: "mongoid-001"},
 		},
 	})
 	require.NoError(t, err)
@@ -200,10 +200,9 @@ func TestApplyCommand_WithExistingTable(t *testing.T) {
 	var item map[string]any
 	err = attributevalue.UnmarshalMap(result.Item, &item)
 	require.NoError(t, err)
-	require.Equal(t, "mongoid-001", item["id"])
+	require.Equal(t, "mongoid-001", item["_id"])
 	require.Equal(t, "test", item["name"])
 	require.Equal(t, float64(123), item["value"])
-	require.NotContains(t, item, "_id")
 	require.NotContains(t, item, "__v")
 	require.NotContains(t, item, "_class")
 }
@@ -264,7 +263,7 @@ func TestApplyCommand_WithAutoCreateTable(t *testing.T) {
 	result, err := dynamoClient.GetItem(context.Background(), &dynamodb.GetItemInput{
 		TableName: aws.String("test_table_auto"),
 		Key: map[string]types.AttributeValue{
-			"id": &types.AttributeValueMemberS{Value: "mongoid-001"},
+			"_id": &types.AttributeValueMemberS{Value: "mongoid-001"},
 		},
 	})
 	require.NoError(t, err)
@@ -273,10 +272,9 @@ func TestApplyCommand_WithAutoCreateTable(t *testing.T) {
 	var item map[string]any
 	err = attributevalue.UnmarshalMap(result.Item, &item)
 	require.NoError(t, err)
-	require.Equal(t, "mongoid-001", item["id"])
+	require.Equal(t, "mongoid-001", item["_id"])
 	require.Equal(t, "test", item["name"])
 	require.Equal(t, float64(123), item["value"])
-	require.NotContains(t, item, "_id")
 	require.NotContains(t, item, "__v")
 	require.NotContains(t, item, "_class")
 }
