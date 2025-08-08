@@ -25,7 +25,7 @@ mongo2dynamo is designed for efficient and reliable data migration, incorporatin
 -   **Optimized Memory Management**: Implements strategic memory allocation - extractor uses `ChunkPool` for efficient slice reuse during document streaming, while transformer uses direct allocation with pre-calculated capacity for optimal performance based on benchmarking.
 -   **Robust Loading Mechanism**: Implements a reliable data loading strategy for DynamoDB using the `BatchWriteItem` API with a **concurrent worker pool**. Features **Exponential Backoff with Jitter** algorithm to automatically handle DynamoDB throttling exceptions, ensuring smooth migration process.
 -   **Memory-Efficient Extraction**: Employs a streaming approach to extract data from MongoDB in configurable chunks (default: 2000 documents), minimizing memory footprint even with large datasets. Supports MongoDB query filters and projections for selective migration.
--   **Intelligent Field Processing**: Automatically converts MongoDB-specific fields (`_id` → `id`) and removes framework metadata (`__v`, `_class`). Pre-calculates output document capacity to minimize memory allocations during transformation.
+-   **Intelligent Field Processing**: Removes framework metadata (`__v`, `_class`) while preserving all other fields including `_id`. Pre-calculates output document capacity to minimize memory allocations during transformation.
 -   **Fine-Grained Error Handling**: Defines domain-specific custom error types for each stage of the ETL process (Extract, Transform, Load). This enables precise error identification and facilitates targeted recovery logic.
 -   **Comprehensive CLI**: Built with `Cobra`, providing a user-friendly command-line interface with `plan` (dry-run) and `apply` commands, flexible configuration options (flags, env vars, config file), and an `--auto-approve` flag for non-interactive execution.
 -   **Automatic Table Management**: Automatically creates DynamoDB tables if they don't exist, with user confirmation prompts (unless auto-approved). **Supports custom primary keys (Partition and Sort Keys).** Waits for table activation before proceeding with migration.
@@ -73,7 +73,7 @@ mongo2dynamo apply --mongo-db mydb --mongo-collection users \
 
 # With projection to select specific fields
 mongo2dynamo apply --mongo-db mydb --mongo-collection users \
-  --mongo-projection '{"name": 1, "email": 1, "_id": 0}' \
+  --mongo-projection '{"name": 1, "email": 0, "_id": 1}' \
   --auto-approve
 
 # Disable progress display for non-interactive environments
@@ -110,7 +110,7 @@ Configuration can be provided via command-line flags, environment variables, or 
 | --- | --- | --- |
 | `--dynamo-endpoint` | DynamoDB endpoint. | `http://localhost:8000` |
 | `--dynamo-table` | DynamoDB table name. | MongoDB collection name |
-| `--dynamo-partition-key` | The attribute name for the partition key. | `id` |
+| `--dynamo-partition-key` | The attribute name for the partition key. | `_id` |
 | `--dynamo-partition-key-type` | The attribute type for the partition key (S, N, B). | `S` |
 | `--dynamo-sort-key` | The attribute name for the sort key. (Optional) | ` ` |
 | `--dynamo-sort-key-type` | The attribute type for the sort key (S, N, B). | `S` |
@@ -134,10 +134,10 @@ export MONGO2DYNAMO_MONGO_PASSWORD=your_password
 export MONGO2DYNAMO_MONGO_DB=your_database
 export MONGO2DYNAMO_MONGO_COLLECTION=your_collection
 export MONGO2DYNAMO_MONGO_FILTER='{"status": "active"}'
-export MONGO2DYNAMO_MONGO_PROJECTION='{"name": 1, "email": 1, "_id": 0}'
+export MONGO2DYNAMO_MONGO_PROJECTION='{"name": 1, "email": 0, "_id": 1}'
 export MONGO2DYNAMO_DYNAMO_ENDPOINT=http://localhost:8000
 export MONGO2DYNAMO_DYNAMO_TABLE=your_table
-export MONGO2DYNAMO_DYNAMO_PARTITION_KEY=id
+export MONGO2DYNAMO_DYNAMO_PARTITION_KEY=_id
 export MONGO2DYNAMO_DYNAMO_PARTITION_KEY_TYPE=S
 export MONGO2DYNAMO_DYNAMO_SORT_KEY=timestamp
 export MONGO2DYNAMO_DYNAMO_SORT_KEY_TYPE=N
@@ -159,10 +159,10 @@ mongo_password: your_password
 mongo_db: your_database
 mongo_collection: your_collection
 mongo_filter: '{"status": "active"}'
-mongo_projection: '{"name": 1, "email": 1, "_id": 0}'
+mongo_projection: '{"name": 1, "email": 0, "_id": 1}'
 dynamo_endpoint: http://localhost:8000
 dynamo_table: your_table
-dynamo_partition_key: id
+dynamo_partition_key: _id
 dynamo_partition_key_type: S
 dynamo_sort_key: timestamp
 dynamo_sort_key_type: N
@@ -274,7 +274,7 @@ flowchart LR
 - **Intelligent scaling**: Workers auto-adjust every 500ms with optimized thresholds (scale up at 80% load, scale down at 30% load).
 - **Bidirectional scaling**: Automatically scales down when workload decreases to optimize resource usage.
 - **Memory optimization**: Pre-calculates field counts to allocate maps with optimal capacity, reducing garbage collection overhead.
-- **Field processing**: Converts `_id` to `id` with intelligent type handling (ObjectID → hex, bson.M → JSON), removes `__v` and `_class` fields.
+- **Field processing**: Removes framework metadata (`__v`, `_class`) while preserving all other fields including `_id` with intelligent type handling (ObjectID → hex, bson.M → JSON).
 - Implements panic recovery and comprehensive error reporting for worker failures.
 
 ### 3. Loading
