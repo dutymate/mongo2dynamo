@@ -51,13 +51,7 @@ func (t *DocTransformer) Transform(
 
 		newDoc := make(map[string]any, estimatedFields)
 		for k, v := range doc {
-			switch k {
-			case "__v", "_class":
-				// Remove framework metadata fields.
-				continue
-			default:
-				newDoc[k] = convertValue(v)
-			}
+			newDoc[k] = convertValue(v)
 		}
 		return worker.Result[map[string]any]{JobID: job.ID, Value: newDoc}
 	}

@@ -39,7 +39,7 @@ func TestAddMongoFlags(t *testing.T) {
 
 	projectionFlag := cmd.Flags().Lookup("mongo-projection")
 	assert.NotNil(t, projectionFlag, "mongo-projection flag should be registered")
-	assert.Equal(t, "", projectionFlag.DefValue)
+	assert.Equal(t, "{\"__v\":0,\"_class\":0}", projectionFlag.DefValue)
 }
 
 func TestAddDynamoFlags(t *testing.T) {
