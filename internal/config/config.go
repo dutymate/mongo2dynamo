@@ -48,7 +48,7 @@ func (c *Config) Load() error {
 	viper.SetDefault("mongo_host", "localhost")
 	viper.SetDefault("mongo_port", "27017")
 	viper.SetDefault("mongo_filter", "")
-	viper.SetDefault("mongo_projection", "")
+	viper.SetDefault("mongo_projection", "{\"__v\":0,\"_class\":0}")
 	viper.SetDefault("dynamo_endpoint", "http://localhost:8000")
 	viper.SetDefault("dynamo_partition_key", "_id")
 	viper.SetDefault("dynamo_partition_key_type", "S")
