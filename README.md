@@ -71,9 +71,9 @@ mongo2dynamo apply --mongo-db mydb --mongo-collection users \
   --mongo-filter '{"status": "active"}' \
   --auto-approve
 
-# With projection to select specific fields
+# With projection to select specific fields (default excludes __v and _class)
 mongo2dynamo apply --mongo-db mydb --mongo-collection users \
-  --mongo-projection '{"name": 1, "email": 0, "_id": 1}' \
+  --mongo-projection '{"name": 1, "email": 1}' \
   --auto-approve
 
 # Disable progress display for non-interactive environments
@@ -102,7 +102,7 @@ Configuration can be provided via command-line flags, environment variables, or 
 | `--mongo-db` | **(Required)** MongoDB database name. | ` ` |
 | `--mongo-collection` | **(Required)** MongoDB collection name. | ` ` |
 | `--mongo-filter` | MongoDB query filter as a JSON string. | ` ` |
-| `--mongo-projection` | MongoDB projection as a JSON string to select specific fields. | ` ` |
+| `--mongo-projection` | MongoDB projection as a JSON string to select specific fields. | `{"__v":0,"_class":0}` |
 
 **DynamoDB Flags**
 
@@ -134,7 +134,7 @@ export MONGO2DYNAMO_MONGO_PASSWORD=your_password
 export MONGO2DYNAMO_MONGO_DB=your_database
 export MONGO2DYNAMO_MONGO_COLLECTION=your_collection
 export MONGO2DYNAMO_MONGO_FILTER='{"status": "active"}'
-export MONGO2DYNAMO_MONGO_PROJECTION='{"name": 1, "email": 0, "_id": 1}'
+export MONGO2DYNAMO_MONGO_PROJECTION='{"__v":0,"_class":0}'
 export MONGO2DYNAMO_DYNAMO_ENDPOINT=http://localhost:8000
 export MONGO2DYNAMO_DYNAMO_TABLE=your_table
 export MONGO2DYNAMO_DYNAMO_PARTITION_KEY=_id
@@ -159,7 +159,7 @@ mongo_password: your_password
 mongo_db: your_database
 mongo_collection: your_collection
 mongo_filter: '{"status": "active"}'
-mongo_projection: '{"name": 1, "email": 0, "_id": 1}'
+mongo_projection: '{"__v":0,"_class":0}'
 dynamo_endpoint: http://localhost:8000
 dynamo_table: your_table
 dynamo_partition_key: _id
@@ -267,6 +267,7 @@ flowchart LR
 - Uses a streaming approach with `ChunkPool` memory reuse to handle large datasets efficiently.
 - Processes documents in configurable chunks (default: 2000 documents) to maintain low memory footprint.
 - Applies user-defined filters (`--mongo-filter`) with JSON-to-BSON conversion for selective data migration.
+- Applies default projection to exclude framework metadata (`__v`, `_class`) unless overridden by `--mongo-projection`.
 - Implements robust error handling for connection, decode, and cursor operations.
 
 ### 2. Transformation
@@ -274,7 +275,7 @@ flowchart LR
 - **Intelligent scaling**: Workers auto-adjust every 500ms with optimized thresholds (scale up at 80% load, scale down at 30% load).
 - **Bidirectional scaling**: Automatically scales down when workload decreases to optimize resource usage.
 - **Memory optimization**: Pre-calculates field counts to allocate maps with optimal capacity, reducing garbage collection overhead.
-- **Field processing**: Removes framework metadata (`__v`, `_class`) while preserving all other fields including `_id` with intelligent type handling (ObjectID → hex, bson.M → JSON).
+- **Field processing**: Preserves all fields including `_id` with intelligent type handling (ObjectID → hex, bson.M → JSON). Framework metadata (`__v`, `_class`) is excluded by default via MongoDB projection.
 - Implements panic recovery and comprehensive error reporting for worker failures.
 
 ### 3. Loading
