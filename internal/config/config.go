@@ -38,6 +38,10 @@ type Config struct {
 	AutoApprove bool `mapstructure:"auto_approve"`
 	NoProgress  bool `mapstructure:"no_progress"`
 
+	// Metrics configuration.
+	MetricsEnabled bool   `mapstructure:"metrics_enabled"`
+	MetricsAddr    string `mapstructure:"metrics_addr"`
+
 	// Dry run mode.
 	dryRun bool
 }
@@ -56,6 +60,8 @@ func (c *Config) Load() error {
 	viper.SetDefault("dynamo_sort_key_type", "S")
 	viper.SetDefault("aws_region", "us-east-1")
 	viper.SetDefault("max_retries", 5)
+	viper.SetDefault("metrics_enabled", false)
+	viper.SetDefault("metrics_addr", ":2112")
 
 	// Read from config file if it exists.
 	home, err := os.UserHomeDir()
