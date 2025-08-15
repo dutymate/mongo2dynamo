@@ -30,6 +30,7 @@ mongo2dynamo is designed for efficient and reliable data migration, incorporatin
 -   **Comprehensive CLI**: Built with `Cobra`, providing a user-friendly command-line interface with `plan` (dry-run) and `apply` commands, flexible configuration options (flags, env vars, config file), and an `--auto-approve` flag for non-interactive execution.
 -   **Automatic Table Management**: Automatically creates DynamoDB tables if they don't exist, with user confirmation prompts (unless auto-approved). **Supports custom primary keys (Partition and Sort Keys).** Waits for table activation before proceeding with migration.
 -   **Real-Time Progress Tracking**: Provides visual progress indicators with real-time status updates, processing rate, and estimated completion time. Progress display can be disabled with `--no-progress` flag for non-interactive environments.
+-   **Prometheus Metrics**: Built-in monitoring with Prometheus-compatible metrics for real-time performance tracking, including document processing rates, error counts, and migration duration. Metrics server can be enabled with `--metrics-enabled` flag.
 
 ## Installation
 
@@ -79,6 +80,11 @@ mongo2dynamo apply --mongo-db mydb --mongo-collection users \
 # Disable progress display for non-interactive environments
 mongo2dynamo apply --mongo-db mydb --mongo-collection users \
   --no-progress
+
+# Enable Prometheus metrics for monitoring
+mongo2dynamo apply --mongo-db mydb --mongo-collection users \
+  --metrics-enabled \
+  --metrics-addr :2112
 ```
 
 ## Configuration
@@ -124,6 +130,13 @@ Configuration can be provided via command-line flags, environment variables, or 
 | `--auto-approve` | Skip all confirmation prompts (applies only to the apply command). | `false` |
 | `--no-progress` | Disable progress display during migration. | `false` |
 
+**Monitoring Flags**
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--metrics-enabled` | Enable Prometheus metrics server for monitoring. | `false` |
+| `--metrics-addr` | Address for the metrics server to listen on. | `:2112` |
+
 ### Environment Variables
 
 ```bash
@@ -145,6 +158,8 @@ export MONGO2DYNAMO_AWS_REGION=us-east-1
 export MONGO2DYNAMO_MAX_RETRIES=5
 export MONGO2DYNAMO_AUTO_APPROVE=false
 export MONGO2DYNAMO_NO_PROGRESS=false
+export MONGO2DYNAMO_METRICS_ENABLED=false
+export MONGO2DYNAMO_METRICS_ADDR=:2112
 ```
 
 ### Config File
@@ -170,6 +185,8 @@ aws_region: us-east-1
 max_retries: 5
 auto_approve: false
 no_progress: false
+metrics_enabled: false
+metrics_addr: ":2112"
 ```
 
 ## Commands
@@ -184,6 +201,7 @@ Performs a dry-run to preview the migration by executing the full ETL pipeline w
 - Transforms documents to DynamoDB format using dynamic worker pools.
 - Counts the total number of documents that would be migrated.
 - No data is loaded to DynamoDB (dry-run mode).
+- Provides Prometheus metrics when enabled (document counts, processing rates, error tracking).
 
 **Example Output:**
 ```text
@@ -203,6 +221,7 @@ Executes the complete ETL pipeline to migrate data from MongoDB to DynamoDB.
 - Batch processing with optimized chunk sizes (1000 documents per MongoDB batch, 2000 documents per extraction chunk, 25 documents per DynamoDB batch, concurrent loader workers).
 - Dynamic worker pool scaling for optimal performance.
 - Retry logic for failed operations (configurable via `--max-retries`).
+- Real-time Prometheus metrics for monitoring migration progress, performance, and error rates.
 
 **Example Output:**
 ```text
@@ -221,6 +240,17 @@ Displays version information including Git commit and build date.
 ## How It Works
 
 mongo2dynamo follows a standard Extract, Transform, Load (ETL) architecture with parallel processing capabilities. Each stage is designed to perform its task efficiently and reliably.
+
+### Monitoring and Metrics
+
+When metrics are enabled (`--metrics-enabled`), mongo2dynamo provides comprehensive Prometheus-compatible metrics for real-time monitoring:
+
+- **Document Processing Metrics**: Total documents, processed documents, and processing rates
+- **Error Tracking**: Transformation errors, loading errors, and error rates by type
+- **Performance Metrics**: Migration duration, throughput, and worker pool utilization
+- **Migration Status**: Success/failure status and completion tracking
+
+The metrics server runs on the specified address (default: `:2112`) and can be scraped by Prometheus or other monitoring systems for comprehensive observability during migration operations.
 
 ### Pipeline Architecture
 - **Parallel Processing**: The ETL stages run concurrently using Go channels with a buffer size of 10, allowing extraction, transformation, and loading to happen simultaneously for maximum throughput.
