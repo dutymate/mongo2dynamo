@@ -37,3 +37,9 @@ func AddAutoApproveFlag(cmd *cobra.Command) {
 func AddNoProgressFlag(cmd *cobra.Command) {
 	cmd.Flags().Bool("no-progress", false, "Disable progress display during migration.")
 }
+
+// AddMetricsFlags adds metrics-related flags to the command.
+func AddMetricsFlags(cmd *cobra.Command) {
+	cmd.Flags().Bool("metrics-enabled", false, "Enable Prometheus metrics server.")
+	cmd.Flags().String("metrics-addr", ":2112", "Address for the metrics server to listen on.")
+}

@@ -15,6 +15,7 @@ import (
 	"mongo2dynamo/internal/extractor"
 	"mongo2dynamo/internal/flags"
 	"mongo2dynamo/internal/loader"
+	"mongo2dynamo/internal/metrics"
 	"mongo2dynamo/internal/progress"
 	"mongo2dynamo/internal/transformer"
 )
@@ -92,6 +93,12 @@ func runApply(cmd *cobra.Command, _ []string) error {
 	if cmd.Flags().Changed("no-progress") {
 		cfg.NoProgress, _ = cmd.Flags().GetBool("no-progress")
 	}
+	if cmd.Flags().Changed("metrics-enabled") {
+		cfg.MetricsEnabled, _ = cmd.Flags().GetBool("metrics-enabled")
+	}
+	if cmd.Flags().Changed("metrics-addr") {
+		cfg.MetricsAddr, _ = cmd.Flags().GetString("metrics-addr")
+	}
 
 	// Validate configuration after all values are set.
 	if err := cfg.Validate(); err != nil {
@@ -149,6 +156,26 @@ func runApply(cmd *cobra.Command, _ []string) error {
 		defer progressTracker.Stop()
 	}
 
+	// Initialize metrics if enabled.
+	var metricsManager *metrics.Metrics
+	if cfg.MetricsEnabled {
+		metricsManager = metrics.NewMetrics()
+		// Start metrics server in background.
+		go func() {
+			if err := metricsManager.StartMetricsServer(cfg.MetricsAddr); err != nil {
+				cmd.PrintErrf("Failed to start metrics server: %v\n", err)
+			}
+		}()
+		defer func() {
+			if err := metricsManager.StopMetricsServer(); err != nil {
+				cmd.PrintErrf("Failed to stop metrics server: %v\n", err)
+			}
+		}()
+
+		// Set initial metrics.
+		metricsManager.SetTotalDocuments(cfg.MongoCollection, cfg.MongoDB, total)
+	}
+
 	// Pipeline channels.
 	const pipelineChannelBufferSize = 10
 	extractChan := make(chan []map[string]any, pipelineChannelBufferSize)
@@ -165,6 +192,9 @@ func runApply(cmd *cobra.Command, _ []string) error {
 		defer wg.Done()
 		for transformed := range transformChan {
 			if err := dynamoLoader.Load(ctx, transformed); err != nil {
+				if metricsManager != nil {
+					metricsManager.IncrementLoadingErrors(cfg.MongoCollection, cfg.MongoDB, "batch_write_error")
+				}
 				errorChan <- fmt.Errorf("failed to load document chunk to DynamoDB: %w", err)
 				cancel()
 				return
@@ -173,6 +203,9 @@ func runApply(cmd *cobra.Command, _ []string) error {
 			atomic.AddInt64(&migratedCount, processed)
 			if progressTracker != nil {
 				progressTracker.UpdateProgress(processed)
+			}
+			if metricsManager != nil {
+				metricsManager.IncrementProcessedDocuments(cfg.MongoCollection, cfg.MongoDB, processed)
 			}
 		}
 	}()
@@ -192,6 +225,9 @@ func runApply(cmd *cobra.Command, _ []string) error {
 
 			transformed, err := docTransformer.Transform(ctx, chunk)
 			if err != nil {
+				if metricsManager != nil {
+					metricsManager.IncrementTransformationErrors(cfg.MongoCollection, cfg.MongoDB, "transform_error")
+				}
 				errorChan <- fmt.Errorf("failed to transform document chunk: %w", err)
 				cancel()
 				return
@@ -207,6 +243,13 @@ func runApply(cmd *cobra.Command, _ []string) error {
 
 	// Stage 1: Extractor.
 	fmt.Println("Starting data migration from MongoDB to DynamoDB...")
+
+	// Record migration start time for metrics.
+	var migrationStartTime time.Time
+	if metricsManager != nil {
+		migrationStartTime = time.Now()
+	}
+
 	extractErr := mongoExtractor.Extract(ctx, func(chunk []map[string]any) error {
 		select {
 		case extractChan <- chunk:
@@ -235,12 +278,23 @@ func runApply(cmd *cobra.Command, _ []string) error {
 	}
 
 	if finalErr != nil {
+		if metricsManager != nil {
+			metricsManager.RecordMigrationDuration(cfg.MongoCollection, cfg.MongoDB, "failed", time.Since(migrationStartTime))
+		}
 		return finalErr
 	}
 
 	// If extraction failed with something other than cancellation, report it.
 	if extractErr != nil && !errors.Is(extractErr, context.Canceled) {
+		if metricsManager != nil {
+			metricsManager.RecordMigrationDuration(cfg.MongoCollection, cfg.MongoDB, "failed", time.Since(migrationStartTime))
+		}
 		return fmt.Errorf("error during extraction: %w", extractErr)
+	}
+
+	// Record successful migration duration.
+	if metricsManager != nil {
+		metricsManager.RecordMigrationDuration(cfg.MongoCollection, cfg.MongoDB, "success", time.Since(migrationStartTime))
 	}
 
 	fmt.Printf("Successfully migrated %s documents.\n", common.FormatNumber(int(migratedCount)))
@@ -253,4 +307,5 @@ func init() {
 	flags.AddDynamoFlags(ApplyCmd)
 	flags.AddAutoApproveFlag(ApplyCmd)
 	flags.AddNoProgressFlag(ApplyCmd)
+	flags.AddMetricsFlags(ApplyCmd)
 }

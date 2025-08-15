@@ -95,3 +95,16 @@ func TestAddNoProgressFlag(t *testing.T) {
 	assert.NotNil(t, noProgressFlag, "no-progress flag should be registered")
 	assert.Equal(t, "false", noProgressFlag.DefValue)
 }
+
+func TestAddMetricsFlags(t *testing.T) {
+	cmd := &cobra.Command{}
+	flags.AddMetricsFlags(cmd)
+
+	metricsEnabledFlag := cmd.Flags().Lookup("metrics-enabled")
+	assert.NotNil(t, metricsEnabledFlag, "metrics-enabled flag should be registered")
+	assert.Equal(t, "false", metricsEnabledFlag.DefValue)
+
+	metricsAddrFlag := cmd.Flags().Lookup("metrics-addr")
+	assert.NotNil(t, metricsAddrFlag, "metrics-addr flag should be registered")
+	assert.Equal(t, ":2112", metricsAddrFlag.DefValue)
+}

@@ -14,6 +14,7 @@ import (
 	"mongo2dynamo/internal/config"
 	"mongo2dynamo/internal/extractor"
 	"mongo2dynamo/internal/flags"
+	"mongo2dynamo/internal/metrics"
 	"mongo2dynamo/internal/progress"
 	"mongo2dynamo/internal/transformer"
 )
@@ -65,6 +66,12 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 	if cmd.Flags().Changed("no-progress") {
 		cfg.NoProgress, _ = cmd.Flags().GetBool("no-progress")
 	}
+	if cmd.Flags().Changed("metrics-enabled") {
+		cfg.MetricsEnabled, _ = cmd.Flags().GetBool("metrics-enabled")
+	}
+	if cmd.Flags().Changed("metrics-addr") {
+		cfg.MetricsAddr, _ = cmd.Flags().GetString("metrics-addr")
+	}
 
 	// Validate configuration after all values are set.
 	if err := cfg.Validate(); err != nil {
@@ -102,6 +109,26 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 		defer progressTracker.Stop()
 	}
 
+	// Initialize metrics if enabled.
+	var metricsManager *metrics.Metrics
+	if cfg.MetricsEnabled {
+		metricsManager = metrics.NewMetrics()
+		// Start metrics server in background.
+		go func() {
+			if err := metricsManager.StartMetricsServer(cfg.MetricsAddr); err != nil {
+				cmd.PrintErrf("Failed to start metrics server: %v\n", err)
+			}
+		}()
+		defer func() {
+			if err := metricsManager.StopMetricsServer(); err != nil {
+				cmd.PrintErrf("Failed to stop metrics server: %v\n", err)
+			}
+		}()
+
+		// Set initial metrics for plan mode.
+		metricsManager.SetTotalDocuments(cfg.MongoCollection, cfg.MongoDB, total)
+	}
+
 	// Pipeline channels.
 	const pipelineChannelBufferSize = 10
 	extractChan := make(chan []map[string]any, pipelineChannelBufferSize)
@@ -125,6 +152,9 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 
 			transformed, err := docTransformer.Transform(ctx, chunk)
 			if err != nil {
+				if metricsManager != nil {
+					metricsManager.IncrementTransformationErrors(cfg.MongoCollection, cfg.MongoDB, "transform_error")
+				}
 				errorChan <- fmt.Errorf("failed to transform document chunk: %w", err)
 				cancel()
 				return
@@ -133,6 +163,9 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 			atomic.AddInt64(&totalCount, processed)
 			if progressTracker != nil {
 				progressTracker.UpdateProgress(processed)
+			}
+			if metricsManager != nil {
+				metricsManager.IncrementProcessedDocuments(cfg.MongoCollection, cfg.MongoDB, processed)
 			}
 		}
 	}()
@@ -183,4 +216,5 @@ func init() {
 	// Add flags.
 	flags.AddMongoFlags(PlanCmd)
 	flags.AddNoProgressFlag(PlanCmd)
+	flags.AddMetricsFlags(PlanCmd)
 }
