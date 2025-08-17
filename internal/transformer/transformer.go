@@ -60,6 +60,10 @@ func (t *DocTransformer) Transform(
 	pool := worker.NewDynamicWorkerPool(transformFunc, DefaultMinWorkers, DefaultMaxWorkers, DefaultQueueSize, DefaultScaleInterval)
 	defer pool.Stop()
 
+	// Configure backpressure settings for optimal performance.
+	pool.SetBackpressureThreshold(0.95)                // Start backpressure at 95% channel usage for minimal impact.
+	pool.SetBackpressureTimeout(10 * time.Millisecond) // 10ms timeout for faster response.
+
 	pool.Start(ctx)
 	output, err := pool.Process(ctx, input)
 	if err != nil {

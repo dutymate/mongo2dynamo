@@ -34,6 +34,10 @@ type Metrics struct {
 	activeWorkers *prometheus.GaugeVec
 	queueSize     *prometheus.GaugeVec
 
+	// Backpressure metrics.
+	backpressureHits  *prometheus.CounterVec
+	flowControlEvents *prometheus.CounterVec
+
 	// HTTP server.
 	server *http.Server
 }
@@ -166,6 +170,27 @@ func (m *Metrics) initMetricsWithRegistry(registry prometheus.Registerer) {
 		[]string{"stage"},
 	)
 
+	// Backpressure metrics.
+	m.backpressureHits = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "backpressure_hits_total",
+			Help:      "Total number of backpressure events triggered",
+		},
+		[]string{"stage"},
+	)
+
+	m.flowControlEvents = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "flow_control_events_total",
+			Help:      "Total number of flow control events",
+		},
+		[]string{"stage"},
+	)
+
 	// Register all metrics in the specified registry.
 	registry.MustRegister(
 		m.migrationTotalDocuments,
@@ -178,6 +203,8 @@ func (m *Metrics) initMetricsWithRegistry(registry prometheus.Registerer) {
 		m.loadingErrors,
 		m.activeWorkers,
 		m.queueSize,
+		m.backpressureHits,
+		m.flowControlEvents,
 	)
 }
 
@@ -256,6 +283,16 @@ func (m *Metrics) SetActiveWorkers(stage string, count int) {
 // SetQueueSize sets the current number of documents waiting in queue.
 func (m *Metrics) SetQueueSize(stage string, size int) {
 	m.queueSize.WithLabelValues(stage).Set(float64(size))
+}
+
+// IncrementBackpressureHits increments the number of backpressure events.
+func (m *Metrics) IncrementBackpressureHits(stage string) {
+	m.backpressureHits.WithLabelValues(stage).Inc()
+}
+
+// IncrementFlowControlEvents increments the number of flow control events.
+func (m *Metrics) IncrementFlowControlEvents(stage string) {
+	m.flowControlEvents.WithLabelValues(stage).Inc()
 }
 
 // GetMetricsHandler returns the metrics HTTP handler.
