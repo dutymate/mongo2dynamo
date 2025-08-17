@@ -23,6 +23,7 @@ mongo2dynamo is designed for efficient and reliable data migration, incorporatin
 
 -   **High-Performance Transformation**: Utilizes a **dynamic worker pool** that scales based on CPU cores (from 2 to 2x `runtime.NumCPU()`) with real-time workload monitoring. Workers auto-scale every 500ms based on pending jobs, maximizing parallel processing efficiency.
 -   **Optimized Memory Management**: Implements strategic memory allocation - extractor uses `ChunkPool` for efficient slice reuse during document streaming, while transformer uses direct allocation with pre-calculated capacity for optimal performance based on benchmarking.
+-   **Advanced Backpressure Control**: Features an **optimized backpressure mechanism** that automatically manages data flow between pipeline stages, preventing memory overflow and ensuring stable performance under high load conditions.
 -   **Robust Loading Mechanism**: Implements a reliable data loading strategy for DynamoDB using the `BatchWriteItem` API with a **concurrent worker pool**. Features **Exponential Backoff with Jitter** algorithm to automatically handle DynamoDB throttling exceptions, ensuring smooth migration process.
 -   **Memory-Efficient Extraction**: Employs a streaming approach to extract data from MongoDB in configurable chunks (default: 2000 documents), minimizing memory footprint even with large datasets. Supports MongoDB query filters and projections for selective migration.
 -   **Intelligent Field Processing**: Removes framework metadata (`__v`, `_class`) while preserving all other fields including `_id`. Pre-calculates output document capacity to minimize memory allocations during transformation.
@@ -30,7 +31,7 @@ mongo2dynamo is designed for efficient and reliable data migration, incorporatin
 -   **Comprehensive CLI**: Built with `Cobra`, providing a user-friendly command-line interface with `plan` (dry-run) and `apply` commands, flexible configuration options (flags, env vars, config file), and an `--auto-approve` flag for non-interactive execution.
 -   **Automatic Table Management**: Automatically creates DynamoDB tables if they don't exist, with user confirmation prompts (unless auto-approved). **Supports custom primary keys (Partition and Sort Keys).** Waits for table activation before proceeding with migration.
 -   **Real-Time Progress Tracking**: Provides visual progress indicators with real-time status updates, processing rate, and estimated completion time. Progress display can be disabled with `--no-progress` flag for non-interactive environments.
--   **Prometheus Metrics**: Built-in monitoring with Prometheus-compatible metrics for real-time performance tracking, including document processing rates, error counts, and migration duration. Metrics server can be enabled with `--metrics-enabled` flag.
+-   **Prometheus Metrics**: Built-in monitoring with Prometheus-compatible metrics for real-time performance tracking, including document processing rates, error counts, migration duration, and worker pool utilization. Metrics server can be enabled with `--metrics-enabled` flag.
 
 ## Installation
 
@@ -198,10 +199,10 @@ Performs a dry-run to preview the migration by executing the full ETL pipeline w
 **Features:**
 - Connects to MongoDB and validates configuration.
 - Extracts documents from MongoDB (with filters and projections if specified).
-- Transforms documents to DynamoDB format using dynamic worker pools.
+- Transforms documents to DynamoDB format using dynamic worker pools with backpressure control.
 - Counts the total number of documents that would be migrated.
 - No data is loaded to DynamoDB (dry-run mode).
-- Provides Prometheus metrics when enabled (document counts, processing rates, error tracking).
+- Provides Prometheus metrics when enabled (document counts, processing rates, error tracking, worker pool utilization).
 
 **Example Output:**
 ```text
@@ -219,9 +220,9 @@ Executes the complete ETL pipeline to migrate data from MongoDB to DynamoDB.
 - Configuration validation and user confirmation prompts.
 - Automatic DynamoDB table creation (with confirmation).
 - Batch processing with optimized chunk sizes (1000 documents per MongoDB batch, 2000 documents per extraction chunk, 25 documents per DynamoDB batch, concurrent loader workers).
-- Dynamic worker pool scaling for optimal performance.
+- Dynamic worker pool scaling with intelligent backpressure control for optimal performance.
 - Retry logic for failed operations (configurable via `--max-retries`).
-- Real-time Prometheus metrics for monitoring migration progress, performance, and error rates.
+- Real-time Prometheus metrics for monitoring migration progress, performance, error rates, and worker pool efficiency.
 
 **Example Output:**
 ```text
@@ -249,12 +250,15 @@ When metrics are enabled (`--metrics-enabled`), mongo2dynamo provides comprehens
 - **Error Tracking**: Transformation errors, loading errors, and error rates by type
 - **Performance Metrics**: Migration duration, throughput, and worker pool utilization
 - **Migration Status**: Success/failure status and completion tracking
+- **Worker Pool Metrics**: Active workers, queue depth, and backpressure status
+- **Pipeline Health**: Channel buffer usage and data flow monitoring
 
 The metrics server runs on the specified address (default: `:2112`) and can be scraped by Prometheus or other monitoring systems for comprehensive observability during migration operations.
 
 ### Pipeline Architecture
 - **Parallel Processing**: The ETL stages run concurrently using Go channels with a buffer size of 10, allowing extraction, transformation, and loading to happen simultaneously for maximum throughput.
 - **Strategic Memory Optimization**: Components use independent memory strategies optimized for their specific workloads - extractor leverages `ChunkPool` for slice reuse, while transformer uses direct allocation for maximum speed.
+- **Advanced Backpressure Control**: Implements intelligent backpressure mechanisms that automatically manage data flow between pipeline stages, preventing memory overflow and ensuring stable performance under high load conditions.
 
 ```mermaid
 %%{init: { 'theme': 'neutral' } }%%
@@ -304,6 +308,7 @@ flowchart LR
 - Utilizes a **dynamic worker pool** starting with CPU core count, scaling up to 2x CPU cores based on workload.
 - **Intelligent scaling**: Workers auto-adjust every 500ms with optimized thresholds (scale up at 80% load, scale down at 30% load).
 - **Bidirectional scaling**: Automatically scales down when workload decreases to optimize resource usage.
+- **Advanced backpressure control**: Implements optimized backpressure mechanisms that automatically manage data flow, preventing memory overflow and ensuring stable performance.
 - **Memory optimization**: Pre-calculates field counts to allocate maps with optimal capacity, reducing garbage collection overhead.
 - **Field processing**: Preserves all fields including `_id` with intelligent type handling (ObjectID → hex, bson.M → JSON). Framework metadata (`__v`, `_class`) is excluded by default via MongoDB projection.
 - Implements panic recovery and comprehensive error reporting for worker failures.
