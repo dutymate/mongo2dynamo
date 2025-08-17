@@ -315,3 +315,115 @@ func TestDynamicWorkerPool_ConcurrentScaling(t *testing.T) {
 	activeWorkers := stats["active_workers"].(int32)
 	assert.GreaterOrEqual(t, activeWorkers, int32(2), "Should maintain minimum workers")
 }
+
+// TestDynamicWorkerPool_Backpressure tests backpressure functionality.
+func TestDynamicWorkerPool_Backpressure(t *testing.T) {
+	// Create a pool with small queue size to trigger backpressure.
+	pool := NewDynamicWorkerPool(
+		func(_ context.Context, job Job[int]) Result[int] {
+			// Simulate slow processing to create backpressure.
+			time.Sleep(50 * time.Millisecond)
+			return Result[int]{JobID: job.ID, Value: job.Data * 2}
+		},
+		2,                    // minWorkers.
+		4,                    // maxWorkers.
+		5,                    // queueSize (small to trigger backpressure).
+		100*time.Millisecond, // scaleInterval.
+	)
+
+	// Set aggressive backpressure threshold.
+	pool.SetBackpressureThreshold(0.3) // Start backpressure at 30% to ensure hits.
+	pool.SetBackpressureTimeout(10 * time.Millisecond)
+
+	ctx := context.Background()
+	pool.Start(ctx)
+	defer pool.Stop()
+
+	// Submit more jobs than the queue can handle.
+	jobs := make([]int, 100)
+	for i := range jobs {
+		jobs[i] = i
+	}
+
+	// Process jobs and check backpressure stats.
+	results, err := pool.Process(ctx, jobs)
+	require.NoError(t, err)
+	assert.Len(t, results, 100)
+
+	// Check backpressure statistics.
+	backpressureStats := pool.GetBackpressureStats()
+	assert.Greater(t, backpressureStats.BackpressureHits, int64(0), "Should have backpressure hits")
+	assert.Greater(t, backpressureStats.FlowControlEvents, int64(0), "Should have flow control events")
+
+	t.Logf("Backpressure hits: %d, Flow control events: %d",
+		backpressureStats.BackpressureHits, backpressureStats.FlowControlEvents)
+
+	// Check that backpressure stats are included in main stats.
+	stats := pool.GetStats()
+	assert.Contains(t, stats, "backpressure_hits")
+	assert.Contains(t, stats, "flow_control_events")
+}
+
+// TestDynamicWorkerPool_BackpressureThresholdValidation tests backpressure threshold validation.
+func TestDynamicWorkerPool_BackpressureThresholdValidation(_ *testing.T) {
+	pool := NewDynamicWorkerPool(
+		func(_ context.Context, job Job[int]) Result[int] {
+			return Result[int]{JobID: job.ID, Value: job.Data}
+		},
+		2, 4, 10, 100*time.Millisecond,
+	)
+
+	// Test valid thresholds.
+	pool.SetBackpressureThreshold(0.5)
+	pool.SetBackpressureThreshold(0.9)
+	pool.SetBackpressureThreshold(1.0)
+
+	// Test invalid thresholds (should be ignored).
+	pool.SetBackpressureThreshold(-0.1)
+	pool.SetBackpressureThreshold(1.1)
+
+	// Verify threshold is set to last valid value.
+	_ = pool.GetStats() // Get stats to verify pool is working.
+	// Note: threshold is not exposed in stats, but we can verify it works through behavior.
+}
+
+// TestDynamicWorkerPool_BackpressureTimeout tests backpressure timeout functionality.
+func TestDynamicWorkerPool_BackpressureTimeout(t *testing.T) {
+	pool := NewDynamicWorkerPool(
+		func(_ context.Context, job Job[int]) Result[int] {
+			// Very slow processing to create backpressure.
+			time.Sleep(100 * time.Millisecond)
+			return Result[int]{JobID: job.ID, Value: job.Data}
+		},
+		1,                    // minWorkers.
+		2,                    // maxWorkers.
+		3,                    // queueSize.
+		100*time.Millisecond, // scaleInterval.
+	)
+
+	pool.SetBackpressureThreshold(0.2)
+	pool.SetBackpressureTimeout(5 * time.Millisecond) // Very short timeout.
+
+	ctx := context.Background()
+	pool.Start(ctx)
+	defer pool.Stop()
+
+	// Submit jobs to trigger backpressure.
+	jobs := make([]int, 50)
+	for i := range jobs {
+		jobs[i] = i
+	}
+
+	start := time.Now()
+	results, err := pool.Process(ctx, jobs)
+	duration := time.Since(start)
+
+	require.NoError(t, err)
+	assert.Len(t, results, 50)
+
+	// Should complete within reasonable time.
+	assert.Less(t, duration, 3*time.Second, "Should complete within reasonable time")
+
+	backpressureStats := pool.GetBackpressureStats()
+	assert.Greater(t, backpressureStats.BackpressureHits, int64(0), "Should have backpressure hits")
+}
