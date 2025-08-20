@@ -32,6 +32,7 @@ mongo2dynamo is designed for efficient and reliable data migration, incorporatin
 -   **Automatic Table Management**: Automatically creates DynamoDB tables if they don't exist, with user confirmation prompts (unless auto-approved). **Supports custom primary keys (Partition and Sort Keys).** Waits for table activation before proceeding with migration.
 -   **Real-Time Progress Tracking**: Provides visual progress indicators with real-time status updates, processing rate, and estimated completion time. Progress display can be disabled with `--no-progress` flag for non-interactive environments.
 -   **Prometheus Metrics**: Built-in monitoring with Prometheus-compatible metrics for real-time performance tracking, including document processing rates, error counts, migration duration, and worker pool utilization. Metrics server can be enabled with `--metrics-enabled` flag.
+-   **Shell Completion**: Interactive command-line completion support for bash, zsh, fish, and PowerShell, providing intelligent suggestions for commands, flags, and options to enhance CLI usability.
 
 ## Installation
 
@@ -86,6 +87,10 @@ mongo2dynamo apply --mongo-db mydb --mongo-collection users \
 mongo2dynamo apply --mongo-db mydb --mongo-collection users \
   --metrics-enabled \
   --metrics-addr :2112
+
+# Enable shell completion for better CLI experience
+mongo2dynamo completion zsh | source  # For zsh
+# mongo2dynamo completion bash | source  # For bash
 ```
 
 ## Configuration
@@ -237,6 +242,57 @@ Successfully migrated 2,000,000 documents.
 ### `version` - Show Version
 
 Displays version information including Git commit and build date.
+
+### `completion` - Generate Shell Completion
+
+Generates shell completion scripts for interactive command-line usage.
+
+**Supported Shells:**
+- **Bash**: `mongo2dynamo completion bash`
+- **Zsh**: `mongo2dynamo completion zsh`
+- **Fish**: `mongo2dynamo completion fish`
+- **PowerShell**: `mongo2dynamo completion powershell`
+
+**Usage Examples:**
+
+**Bash:**
+```bash
+# Load completion for current session
+source <(mongo2dynamo completion bash)
+
+# Load completion permanently (add to ~/.bashrc)
+mongo2dynamo completion bash > ~/.mongo2dynamo/completion.bash
+echo "source ~/.mongo2dynamo/completion.bash" >> ~/.bashrc
+```
+
+**Zsh:**
+```bash
+# Load completion for current session
+source <(mongo2dynamo completion zsh)
+
+# Load completion permanently (add to ~/.zshrc)
+mongo2dynamo completion zsh > ~/.mongo2dynamo/completion.zsh
+echo "source ~/.mongo2dynamo/completion.zsh" >> ~/.zshrc
+```
+
+**Fish:**
+```bash
+# Load completion for current session
+mongo2dynamo completion fish | source
+
+# Load completion permanently
+mongo2dynamo completion fish > ~/.config/fish/completions/mongo2dynamo.fish
+```
+
+**PowerShell:**
+```powershell
+# Load completion for current session
+mongo2dynamo completion powershell | Out-String | Invoke-Expression
+
+# Load completion permanently (add to PowerShell profile)
+mongo2dynamo completion powershell > $PROFILE\mongo2dynamo-completion.ps1
+Add-Content $PROFILE "& '$PROFILE\mongo2dynamo-completion.ps1'"
+```
 
 ## How It Works
 
