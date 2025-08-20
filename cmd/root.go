@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"mongo2dynamo/cmd/apply"
+	"mongo2dynamo/cmd/completion"
 	"mongo2dynamo/cmd/plan"
 	"mongo2dynamo/cmd/version"
 )
@@ -31,4 +32,5 @@ func init() {
 	rootCmd.AddCommand(apply.ApplyCmd)
 	rootCmd.AddCommand(plan.PlanCmd)
 	rootCmd.AddCommand(version.VersionCmd)
+	rootCmd.AddCommand(completion.CompletionCmd)
 }
