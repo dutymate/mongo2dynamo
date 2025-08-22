@@ -115,7 +115,7 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 		metricsManager = metrics.NewMetrics()
 		// Start metrics server in background.
 		go func() {
-			if err := metricsManager.StartMetricsServer(cfg.MetricsAddr); err != nil {
+			if err := metricsManager.StartMetricsServer(ctx, cfg.MetricsAddr); err != nil {
 				cmd.PrintErrf("Failed to start metrics server: %v\n", err)
 			}
 		}()

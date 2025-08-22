@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"time"
@@ -209,7 +210,7 @@ func (m *Metrics) initMetricsWithRegistry(registry prometheus.Registerer) {
 }
 
 // StartMetricsServer starts an HTTP server to expose metrics.
-func (m *Metrics) StartMetricsServer(addr string) error {
+func (m *Metrics) StartMetricsServer(ctx context.Context, addr string) error {
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
 
@@ -219,10 +220,29 @@ func (m *Metrics) StartMetricsServer(addr string) error {
 	}
 
 	fmt.Printf("Starting metrics server: %s\n", addr)
-	if err := m.server.ListenAndServe(); err != nil {
-		return fmt.Errorf("failed to start metrics server: %w", err)
+
+	// Start server in a goroutine.
+	errChan := make(chan error, 1)
+	go func() {
+		if err := m.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			errChan <- fmt.Errorf("failed to start metrics server: %w", err)
+		}
+	}()
+
+	// Wait for context cancellation or server error.
+	select {
+	case <-ctx.Done():
+		// Context cancelled, shutdown server gracefully.
+		shutdownCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+
+		if err := m.server.Shutdown(shutdownCtx); err != nil {
+			return fmt.Errorf("failed to shutdown metrics server: %w", err)
+		}
+		return nil
+	case err := <-errChan:
+		return err
 	}
-	return nil
 }
 
 // StopMetricsServer stops the metrics server.
