@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -92,7 +93,7 @@ func TestMetricsServer(t *testing.T) {
 
 	// Start server.
 	go func() {
-		err := metrics.StartMetricsServer(":0") // Port 0 automatically selects an available port.
+		err := metrics.StartMetricsServer(context.Background(), ":0") // Port 0 automatically selects an available port.
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			t.Errorf("Failed to start metrics server: %v", err)
 		}
