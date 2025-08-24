@@ -341,3 +341,15 @@ func TestVersionCommand(t *testing.T) {
 	require.Regexp(t, `^Git Commit: .+$`, lines[1], "Git Commit line should match expected format")
 	require.Regexp(t, `^Build Date: .+$`, lines[2], "Build Date line should match expected format")
 }
+
+// TestCompletionCommand tests the completion command functionality.
+func TestCompletionCommand(t *testing.T) {
+	// Run the completion command.
+	cmd := exec.Command("go", "run", "../../main.go", "completion", "zsh")
+	output, err := cmd.CombinedOutput()
+	require.NoError(t, err, "CLI completion command should not fail")
+
+	// Verify completion output format.
+	outputStr := string(output)
+	require.Contains(t, outputStr, "zsh", "Completion output should contain zsh")
+}
