@@ -19,6 +19,8 @@ type Extractor interface {
 type Transformer interface {
 	// Transform transforms the provided documents into a new format.
 	Transform(ctx context.Context, data []map[string]any) ([]map[string]any, error)
+	// Close releases any resources held by the transformer.
+	Close()
 }
 
 // Loader defines the interface for loading data to a destination.

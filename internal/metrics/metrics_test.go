@@ -76,7 +76,7 @@ func TestMetricsHandler(t *testing.T) {
 	assert.NotNil(t, handler)
 
 	// Test if HTTP handler works properly.
-	req := httptest.NewRequest("GET", "/metrics", nil)
+	req := httptest.NewRequestWithContext(t.Context(), "GET", "/metrics", nil)
 	w := httptest.NewRecorder()
 
 	handler.ServeHTTP(w, req)
