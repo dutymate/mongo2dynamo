@@ -3,6 +3,7 @@ package transformer
 import (
 	"context"
 	"runtime"
+	"sync"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -22,15 +23,46 @@ var (
 	DefaultQueueSize  = DefaultMaxWorkers * 2
 )
 
-// DocTransformer transforms MongoDB documents.
-type DocTransformer struct{}
+// transformFunc is the per-document transformation applied by the worker pool.
+func transformFunc(_ context.Context, job worker.Job[map[string]any]) worker.Result[map[string]any] {
+	doc := job.Data
 
-// NewDocTransformer creates a new DocTransformer.
-func NewDocTransformer() common.Transformer {
-	return &DocTransformer{}
+	estimatedFields := len(doc)
+	if estimatedFields == 0 {
+		return worker.Result[map[string]any]{JobID: job.ID, Value: map[string]any{}}
+	}
+
+	newDoc := make(map[string]any, estimatedFields)
+	for k, v := range doc {
+		newDoc[k] = convertValue(v)
+	}
+	return worker.Result[map[string]any]{JobID: job.ID, Value: newDoc}
 }
 
-// Transform removes framework metadata fields while preserving all other fields.
+// DocTransformer transforms MongoDB documents using a shared, reusable worker pool.
+type DocTransformer struct {
+	mu         sync.Mutex
+	pool       *worker.DynamicWorkerPool[map[string]any, map[string]any]
+	poolCancel context.CancelFunc
+	closed     bool
+}
+
+// NewDocTransformer creates a new DocTransformer with a shared worker pool that is reused across Transform calls.
+// The pool lifetime is owned by the transformer, decoupled from any single Transform's ctx, so that pool workers survive across chunk boundaries.
+func NewDocTransformer() common.Transformer {
+	poolCtx, cancel := context.WithCancel(context.Background())
+	pool := worker.NewDynamicWorkerPool(transformFunc, DefaultMinWorkers, DefaultMaxWorkers, DefaultQueueSize, DefaultScaleInterval)
+	pool.SetBackpressureThreshold(0.95)
+	pool.SetBackpressureTimeout(10 * time.Millisecond)
+	pool.Start(poolCtx)
+	return &DocTransformer{
+		pool:       pool,
+		poolCancel: cancel,
+	}
+}
+
+// Transform converts MongoDB documents (e.g., ObjectID → hex string) using the shared worker pool.
+// Concurrent callers are serialized because the underlying pool's Process is not safe for concurrent use (job IDs and result channels are shared).
 func (t *DocTransformer) Transform(
 	ctx context.Context,
 	input []map[string]any,
@@ -39,33 +71,16 @@ func (t *DocTransformer) Transform(
 		return []map[string]any{}, nil
 	}
 
-	// This is the actual transformation logic for a single document.
-	transformFunc := func(_ context.Context, job worker.Job[map[string]any]) worker.Result[map[string]any] {
-		doc := job.Data
+	t.mu.Lock()
+	defer t.mu.Unlock()
 
-		// Use original document size as base capacity estimate.
-		estimatedFields := len(doc)
-		if estimatedFields == 0 {
-			return worker.Result[map[string]any]{JobID: job.ID, Value: map[string]any{}}
+	if t.closed {
+		return []map[string]any{}, &common.TransformError{
+			Reason: "transformer is closed",
 		}
-
-		newDoc := make(map[string]any, estimatedFields)
-		for k, v := range doc {
-			newDoc[k] = convertValue(v)
-		}
-		return worker.Result[map[string]any]{JobID: job.ID, Value: newDoc}
 	}
 
-	// Configure and run the dynamic worker pool.
-	pool := worker.NewDynamicWorkerPool(transformFunc, DefaultMinWorkers, DefaultMaxWorkers, DefaultQueueSize, DefaultScaleInterval)
-	defer pool.Stop()
-
-	// Configure backpressure settings for optimal performance.
-	pool.SetBackpressureThreshold(0.95)                // Start backpressure at 95% channel usage for minimal impact.
-	pool.SetBackpressureTimeout(10 * time.Millisecond) // 10ms timeout for faster response.
-
-	pool.Start(ctx)
-	output, err := pool.Process(ctx, input)
+	output, err := t.pool.Process(ctx, input)
 	if err != nil {
 		return []map[string]any{}, &common.TransformError{
 			Reason: "document transformation failed",
@@ -74,6 +89,20 @@ func (t *DocTransformer) Transform(
 	}
 
 	return output, nil
+}
+
+// Close shuts down the worker pool and releases its goroutines.
+func (t *DocTransformer) Close() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if t.closed {
+		return
+	}
+	t.closed = true
+
+	t.pool.Stop()
+	t.poolCancel()
 }
 
 // convertValue recursively converts values, handling ObjectID references.

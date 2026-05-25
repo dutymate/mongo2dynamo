@@ -133,6 +133,7 @@ func runApply(cmd *cobra.Command, _ []string) error {
 
 	// Create docTransformer for MongoDB to DynamoDB document conversion.
 	docTransformer := transformer.NewDocTransformer()
+	defer docTransformer.Close()
 
 	// Create dynamoLoader using configuration.
 	dynamoLoader, err := loader.NewDynamoLoader(cmd.Context(), cfg)

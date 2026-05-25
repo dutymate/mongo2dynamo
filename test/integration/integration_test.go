@@ -162,7 +162,7 @@ func TestApplyCommand_WithExistingTable(t *testing.T) {
 	createDynamoTable(t, dynamoClient, "test_table")
 
 	// Run the apply command.
-	cmd := exec.Command("go", "run", "../../main.go", "apply",
+	cmd := exec.CommandContext(t.Context(), "go", "run", "../../main.go", "apply",
 		"--mongo-host", mongoHost,
 		"--mongo-port", mongoPort,
 		"--mongo-db", "testdb",
@@ -232,7 +232,7 @@ func TestApplyCommand_WithAutoCreateTable(t *testing.T) {
 	dynamoClient := setupDynamoDB(t, dynamoHost, dynamoPort)
 
 	// Run the apply command with auto-approve enabled.
-	cmd := exec.Command("go", "run", "../../main.go", "apply",
+	cmd := exec.CommandContext(t.Context(), "go", "run", "../../main.go", "apply",
 		"--mongo-host", mongoHost,
 		"--mongo-port", mongoPort,
 		"--mongo-db", "testdb",
@@ -296,7 +296,7 @@ func TestPlanCommand(t *testing.T) {
 	}()
 
 	// Run the plan command.
-	cmd := exec.Command("go", "run", "../../main.go", "plan",
+	cmd := exec.CommandContext(t.Context(), "go", "run", "../../main.go", "plan",
 		"--mongo-host", mongoHost,
 		"--mongo-port", mongoPort,
 		"--mongo-db", "testdb",
@@ -317,7 +317,7 @@ func TestPlanCommand(t *testing.T) {
 // TestVersionCommand tests the version command functionality.
 func TestVersionCommand(t *testing.T) {
 	// Run the version command.
-	cmd := exec.Command("go", "run", "../../main.go", "version")
+	cmd := exec.CommandContext(t.Context(), "go", "run", "../../main.go", "version")
 	output, err := cmd.CombinedOutput()
 	require.NoError(t, err, "CLI version command should not fail")
 
@@ -340,7 +340,7 @@ func TestVersionCommand(t *testing.T) {
 // TestCompletionCommand tests the completion command functionality.
 func TestCompletionCommand(t *testing.T) {
 	// Run the completion command.
-	cmd := exec.Command("go", "run", "../../main.go", "completion", "zsh")
+	cmd := exec.CommandContext(t.Context(), "go", "run", "../../main.go", "completion", "zsh")
 	output, err := cmd.CombinedOutput()
 	require.NoError(t, err, "CLI completion command should not fail")
 

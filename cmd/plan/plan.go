@@ -96,6 +96,7 @@ func runPlan(cmd *cobra.Command, _ []string) error {
 
 	// Create docTransformer for MongoDB to DynamoDB document conversion.
 	docTransformer := transformer.NewDocTransformer()
+	defer docTransformer.Close()
 
 	// Use a cancellable context to shut down the pipeline on error.
 	ctx, cancel := context.WithCancel(cmd.Context())
