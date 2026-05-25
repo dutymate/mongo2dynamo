@@ -21,8 +21,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// setupTestContainers sets up MongoDB and LocalStack containers for testing.
-func setupTestContainers(t *testing.T) (mongoC, lsC testcontainers.Container, mongoHost, mongoPort, lsHost, lsPort string) {
+// setupTestContainers sets up MongoDB and DynamoDB Local containers for testing.
+func setupTestContainers(t *testing.T) (mongoC, dynamoC testcontainers.Container, mongoHost, mongoPort, dynamoHost, dynamoPort string) {
 	// Start MongoDB container.
 	mongoC, err := testcontainers.GenericContainer(context.Background(), testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
@@ -41,30 +41,25 @@ func setupTestContainers(t *testing.T) (mongoC, lsC testcontainers.Container, mo
 	require.NoError(t, err)
 	mongoPort = mongoPortMap.Port()
 
-	// Start LocalStack container.
-	lsC, err = testcontainers.GenericContainer(context.Background(), testcontainers.GenericContainerRequest{
+	// Start DynamoDB Local container.
+	dynamoC, err = testcontainers.GenericContainer(context.Background(), testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
-			Image:        "localstack/localstack:latest",
-			ExposedPorts: []string{"4566/tcp"},
-			Env: map[string]string{
-				"SERVICES":            "dynamodb",
-				"DEFAULT_REGION":      "us-east-1",
-				"SKIP_SSL_VALIDATION": "1",
-			},
-			WaitingFor: wait.ForListeningPort(nat.Port("4566/tcp")),
+			Image:        "amazon/dynamodb-local:latest",
+			ExposedPorts: []string{"8000/tcp"},
+			WaitingFor:   wait.ForListeningPort(nat.Port("8000/tcp")),
 		},
 		Started: true,
 	})
 	require.NoError(t, err)
 
-	// Get LocalStack host and port.
-	lsHost, err = lsC.Host(context.Background())
+	// Get DynamoDB Local host and port.
+	dynamoHost, err = dynamoC.Host(context.Background())
 	require.NoError(t, err)
-	lsPortMap, err := lsC.MappedPort(context.Background(), "4566")
+	dynamoPortMap, err := dynamoC.MappedPort(context.Background(), "8000")
 	require.NoError(t, err)
-	lsPort = lsPortMap.Port()
+	dynamoPort = dynamoPortMap.Port()
 
-	return mongoC, lsC, mongoHost, mongoPort, lsHost, lsPort
+	return mongoC, dynamoC, mongoHost, mongoPort, dynamoHost, dynamoPort
 }
 
 // setupMongoDB sets up MongoDB with test data.
@@ -89,13 +84,13 @@ func setupMongoDB(t *testing.T, mongoHost, mongoPort string) *mongo.Client {
 }
 
 // setupDynamoDB sets up DynamoDB client (table will be created automatically by the loader).
-func setupDynamoDB(t *testing.T, lsHost, lsPort string) *dynamodb.Client {
+func setupDynamoDB(t *testing.T, dynamoHost, dynamoPort string) *dynamodb.Client {
 	ctx := context.Background()
 	awsCfg, err := awsConfig.LoadDefaultConfig(ctx)
 	require.NoError(t, err)
 
 	client := dynamodb.NewFromConfig(awsCfg, func(o *dynamodb.Options) {
-		o.BaseEndpoint = aws.String("http://" + lsHost + ":" + lsPort)
+		o.BaseEndpoint = aws.String("http://" + dynamoHost + ":" + dynamoPort)
 	})
 
 	return client
@@ -139,13 +134,13 @@ func createDynamoTable(t *testing.T, client *dynamodb.Client, tableName string) 
 // TestApplyCommand_WithExistingTable tests the apply command when DynamoDB table already exists.
 func TestApplyCommand_WithExistingTable(t *testing.T) {
 	// Set up test containers.
-	mongoC, lsC, mongoHost, mongoPort, lsHost, lsPort := setupTestContainers(t)
+	mongoC, dynamoC, mongoHost, mongoPort, dynamoHost, dynamoPort := setupTestContainers(t)
 	defer func() {
 		if err := mongoC.Terminate(context.Background()); err != nil {
 			t.Logf("Warning: failed to terminate MongoDB container: %v", err)
 		}
-		if err := lsC.Terminate(context.Background()); err != nil {
-			t.Logf("Warning: failed to terminate LocalStack container: %v", err)
+		if err := dynamoC.Terminate(context.Background()); err != nil {
+			t.Logf("Warning: failed to terminate DynamoDB Local container: %v", err)
 		}
 	}()
 
@@ -163,7 +158,7 @@ func TestApplyCommand_WithExistingTable(t *testing.T) {
 	}()
 
 	// Set up DynamoDB and create table manually.
-	dynamoClient := setupDynamoDB(t, lsHost, lsPort)
+	dynamoClient := setupDynamoDB(t, dynamoHost, dynamoPort)
 	createDynamoTable(t, dynamoClient, "test_table")
 
 	// Run the apply command.
@@ -173,7 +168,7 @@ func TestApplyCommand_WithExistingTable(t *testing.T) {
 		"--mongo-db", "testdb",
 		"--mongo-collection", "testcol",
 		"--dynamo-table", "test_table",
-		"--dynamo-endpoint", "http://"+lsHost+":"+lsPort,
+		"--dynamo-endpoint", "http://"+dynamoHost+":"+dynamoPort,
 		"--auto-approve",
 	)
 	output, err := cmd.CombinedOutput()
@@ -210,13 +205,13 @@ func TestApplyCommand_WithExistingTable(t *testing.T) {
 // TestApplyCommand_WithAutoCreateTable tests the apply command when DynamoDB table needs to be created automatically.
 func TestApplyCommand_WithAutoCreateTable(t *testing.T) {
 	// Set up test containers.
-	mongoC, lsC, mongoHost, mongoPort, lsHost, lsPort := setupTestContainers(t)
+	mongoC, dynamoC, mongoHost, mongoPort, dynamoHost, dynamoPort := setupTestContainers(t)
 	defer func() {
 		if err := mongoC.Terminate(context.Background()); err != nil {
 			t.Logf("Warning: failed to terminate MongoDB container: %v", err)
 		}
-		if err := lsC.Terminate(context.Background()); err != nil {
-			t.Logf("Warning: failed to terminate LocalStack container: %v", err)
+		if err := dynamoC.Terminate(context.Background()); err != nil {
+			t.Logf("Warning: failed to terminate DynamoDB Local container: %v", err)
 		}
 	}()
 
@@ -234,7 +229,7 @@ func TestApplyCommand_WithAutoCreateTable(t *testing.T) {
 	}()
 
 	// Set up DynamoDB (table will be created automatically).
-	dynamoClient := setupDynamoDB(t, lsHost, lsPort)
+	dynamoClient := setupDynamoDB(t, dynamoHost, dynamoPort)
 
 	// Run the apply command with auto-approve enabled.
 	cmd := exec.Command("go", "run", "../../main.go", "apply",
@@ -243,7 +238,7 @@ func TestApplyCommand_WithAutoCreateTable(t *testing.T) {
 		"--mongo-db", "testdb",
 		"--mongo-collection", "testcol",
 		"--dynamo-table", "test_table_auto",
-		"--dynamo-endpoint", "http://"+lsHost+":"+lsPort,
+		"--dynamo-endpoint", "http://"+dynamoHost+":"+dynamoPort,
 		"--auto-approve",
 	)
 	output, err := cmd.CombinedOutput()
@@ -282,13 +277,13 @@ func TestApplyCommand_WithAutoCreateTable(t *testing.T) {
 // TestPlanCommand tests the plan command functionality.
 func TestPlanCommand(t *testing.T) {
 	// Set up test containers.
-	mongoC, lsC, mongoHost, mongoPort, _, _ := setupTestContainers(t)
+	mongoC, dynamoC, mongoHost, mongoPort, _, _ := setupTestContainers(t)
 	defer func() {
 		if err := mongoC.Terminate(context.Background()); err != nil {
 			t.Logf("Warning: failed to terminate MongoDB container: %v", err)
 		}
-		if err := lsC.Terminate(context.Background()); err != nil {
-			t.Logf("Warning: failed to terminate LocalStack container: %v", err)
+		if err := dynamoC.Terminate(context.Background()); err != nil {
+			t.Logf("Warning: failed to terminate DynamoDB Local container: %v", err)
 		}
 	}()
 
