@@ -321,8 +321,11 @@ func (l *DynamoLoader) Load(ctx context.Context, data []map[string]any) error {
 	wg.Wait()
 	close(errorChan)
 
-	// Return the first error encountered.
-	return <-errorChan
+	var errs []error
+	for err := range errorChan {
+		errs = append(errs, err)
+	}
+	return errors.Join(errs...)
 }
 
 // batchWrite writes a batch of items to DynamoDB.
