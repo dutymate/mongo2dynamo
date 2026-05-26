@@ -177,27 +177,33 @@ func (p *DynamicWorkerPool[T, V]) Process(ctx context.Context, jobsData []T) ([]
 
 // sendJobs sends jobs to the worker pool.
 func (p *DynamicWorkerPool[T, V]) sendJobs(ctx context.Context, jobsData []T) {
-	// Check backpressure with dynamic frequency based on workload.
-	checkFrequency := p.getBackpressureCheckFrequency()
+	// checkFrequency adapts to load each time the backpressure block runs; lazy-initialize to a conservative value for the very first iteration.
+	checkFrequency := BackpressureCheckFrequencyLow
 	backpressureCounter := 0
 
 	for i, data := range jobsData {
 		atomic.AddInt64(&p.pendingJobs, 1)
 
-		if backpressureCounter == 0 && p.shouldApplyBackpressure() {
-			// Use atomic increment to minimize lock contention.
-			atomic.AddInt64(&p.backpressureStats.BackpressureHits, 1)
+		if backpressureCounter == 0 {
+			// Load pendingJobs once and reuse for both the backpressure decision and the check-frequency calculation.
+			pending := atomic.LoadInt64(&p.pendingJobs)
+			if shouldApplyBackpressureFor(pending, p.queueSize, p.backpressureThreshold) {
+				// Use atomic increment to minimize lock contention.
+				atomic.AddInt64(&p.backpressureStats.BackpressureHits, 1)
 
-			// Quick backpressure check with minimal delay.
-			select {
-			case <-p.flowControlChan:
-				// Flow control signal received, continue.
-			case <-time.After(1 * time.Millisecond):
-				// Minimal timeout to minimize performance impact.
-			case <-ctx.Done():
-				atomic.AddInt64(&p.pendingJobs, -1)
-				return
+				// Quick backpressure check with minimal delay.
+				select {
+				case <-p.flowControlChan:
+					// Flow control signal received, continue.
+				case <-time.After(1 * time.Millisecond):
+					// Minimal timeout to minimize performance impact.
+				case <-ctx.Done():
+					atomic.AddInt64(&p.pendingJobs, -1)
+					return
+				}
 			}
+			// Refresh check frequency from the same atomic read so it tracks current load.
+			checkFrequency = backpressureCheckFrequencyFor(pending, p.queueSize)
 		}
 
 		// Increment counter and reset when reaching check frequency.
@@ -515,23 +521,25 @@ func (p *DynamicWorkerPool[T, V]) adjustFlowControl() {
 
 // shouldApplyBackpressure determines if backpressure should be applied.
 func (p *DynamicWorkerPool[T, V]) shouldApplyBackpressure() bool {
-	// Quick check: if pending jobs are very low, no need for backpressure.
-	pending := atomic.LoadInt64(&p.pendingJobs)
-	if pending < DefaultMinPendingJobsForBackpressure {
-		return false
-	}
-
-	// Only check backpressure if we have significant pending jobs.
-	queueSize := p.queueSize
-	return float64(pending) > float64(queueSize)*p.backpressureThreshold
+	return shouldApplyBackpressureFor(atomic.LoadInt64(&p.pendingJobs), p.queueSize, p.backpressureThreshold)
 }
 
 // getBackpressureCheckFrequency returns dynamic check frequency based on workload.
 func (p *DynamicWorkerPool[T, V]) getBackpressureCheckFrequency() int {
-	pending := atomic.LoadInt64(&p.pendingJobs)
-	queueSize := p.queueSize
+	return backpressureCheckFrequencyFor(atomic.LoadInt64(&p.pendingJobs), p.queueSize)
+}
 
-	// Dynamic frequency: more pending jobs = less frequent checks.
+// shouldApplyBackpressureFor decides whether backpressure should be applied for the given pending count.
+// Split from shouldApplyBackpressure so callers that already hold a pendingJobs snapshot can reuse it.
+func shouldApplyBackpressureFor(pending int64, queueSize int, threshold float64) bool {
+	if pending < DefaultMinPendingJobsForBackpressure {
+		return false
+	}
+	return float64(pending) > float64(queueSize)*threshold
+}
+
+// backpressureCheckFrequencyFor computes the dynamic check frequency from a pendingJobs snapshot.
+func backpressureCheckFrequencyFor(pending int64, queueSize int) int {
 	switch {
 	case pending > int64(queueSize*3/4):
 		return BackpressureCheckFrequencyHigh
