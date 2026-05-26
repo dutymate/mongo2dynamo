@@ -209,8 +209,13 @@ func (l *DynamoLoader) Load(ctx context.Context, data []map[string]any) error {
 		return nil
 	}
 
+	// loadCtx is cancelled when any worker or the dispatcher fails, so the dispatcher unblocks from jobChan sends and other workers stop early.
+	loadCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	jobChan := make(chan []types.WriteRequest)
-	errorChan := make(chan error, DefaultLoaderWorkers)
+	// +1 to accommodate a marshal error from the dispatcher in addition to one error per worker.
+	errorChan := make(chan error, DefaultLoaderWorkers+1)
 	var wg sync.WaitGroup
 
 	// Start a pool of workers.
@@ -220,32 +225,34 @@ func (l *DynamoLoader) Load(ctx context.Context, data []map[string]any) error {
 			defer wg.Done()
 			for {
 				select {
-				case <-ctx.Done(): // Context cancelled from the outside.
+				case <-loadCtx.Done():
 					return
 				case writeRequests, ok := <-jobChan:
 					if !ok { // Channel closed.
 						return
 					}
-					if err := l.batchWrite(ctx, writeRequests); err != nil {
+					if err := l.batchWrite(loadCtx, writeRequests); err != nil {
 						// Non-blocking send.
 						select {
 						case errorChan <- err:
 						default:
 						}
-						return // Stop this worker on first error.
+						cancel() // Signal the dispatcher and other workers to stop.
+						return
 					}
 				}
 			}
 		}()
 	}
 
-	// Dispatch jobs.
+	// Dispatch jobs. Tracked with wg so Load does not return while the goroutine is still running.
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		defer close(jobChan)
 		writeRequests := make([]types.WriteRequest, 0, DefaultDynamoBatchSize)
 		for _, item := range data {
-			// Check for cancellation before dispatching new jobs.
-			if ctx.Err() != nil {
+			if loadCtx.Err() != nil {
 				return
 			}
 
@@ -255,13 +262,14 @@ func (l *DynamoLoader) Load(ctx context.Context, data []map[string]any) error {
 				case errorChan <- &common.DataValidationError{Database: "DynamoDB", Op: "marshal", Reason: err.Error(), Err: err}:
 				default:
 				}
-				return // Stop dispatching.
+				cancel()
+				return
 			}
 			writeRequests = append(writeRequests, types.WriteRequest{PutRequest: &types.PutRequest{Item: av}})
 			if len(writeRequests) == DefaultDynamoBatchSize {
 				select {
 				case jobChan <- writeRequests:
-				case <-ctx.Done():
+				case <-loadCtx.Done():
 					return
 				}
 				writeRequests = make([]types.WriteRequest, 0, DefaultDynamoBatchSize)
@@ -270,7 +278,7 @@ func (l *DynamoLoader) Load(ctx context.Context, data []map[string]any) error {
 		if len(writeRequests) > 0 {
 			select {
 			case jobChan <- writeRequests:
-			case <-ctx.Done():
+			case <-loadCtx.Done():
 				return
 			}
 		}
