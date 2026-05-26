@@ -190,6 +190,31 @@ func (l *DynamoLoader) waitForTableActive(ctx context.Context) error {
 	defer cancel()
 
 	for {
+		output, err := l.client.DescribeTable(timeoutCtx, &dynamodb.DescribeTableInput{
+			TableName: &l.table,
+		})
+		if err != nil {
+			if timeoutCtx.Err() != nil {
+				return &common.DatabaseOperationError{
+					Database: "DynamoDB",
+					Op:       "wait for table active",
+					Reason:   "timeout waiting for table to become active",
+					Err:      timeoutCtx.Err(),
+				}
+			}
+			return &common.DatabaseOperationError{
+				Database: "DynamoDB",
+				Op:       "describe table",
+				Reason:   err.Error(),
+				Err:      err,
+			}
+		}
+
+		if output.Table.TableStatus == types.TableStatusActive {
+			fmt.Printf("Table '%s' is now active and ready for use.\n", l.table)
+			return nil
+		}
+
 		select {
 		case <-timeoutCtx.Done():
 			return &common.DatabaseOperationError{
@@ -198,25 +223,7 @@ func (l *DynamoLoader) waitForTableActive(ctx context.Context) error {
 				Reason:   "timeout waiting for table to become active",
 				Err:      timeoutCtx.Err(),
 			}
-		default:
-			output, err := l.client.DescribeTable(ctx, &dynamodb.DescribeTableInput{
-				TableName: &l.table,
-			})
-			if err != nil {
-				return &common.DatabaseOperationError{
-					Database: "DynamoDB",
-					Op:       "describe table",
-					Reason:   err.Error(),
-					Err:      err,
-				}
-			}
-
-			if output.Table.TableStatus == types.TableStatusActive {
-				fmt.Printf("Table '%s' is now active and ready for use.\n", l.table)
-				return nil
-			}
-
-			time.Sleep(CheckIntervalForTableActive)
+		case <-time.After(CheckIntervalForTableActive):
 		}
 	}
 }
