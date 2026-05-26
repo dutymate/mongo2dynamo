@@ -519,18 +519,8 @@ func (p *DynamicWorkerPool[T, V]) adjustFlowControl() {
 	}
 }
 
-// shouldApplyBackpressure determines if backpressure should be applied.
-func (p *DynamicWorkerPool[T, V]) shouldApplyBackpressure() bool {
-	return shouldApplyBackpressureFor(atomic.LoadInt64(&p.pendingJobs), p.queueSize, p.backpressureThreshold)
-}
-
-// getBackpressureCheckFrequency returns dynamic check frequency based on workload.
-func (p *DynamicWorkerPool[T, V]) getBackpressureCheckFrequency() int {
-	return backpressureCheckFrequencyFor(atomic.LoadInt64(&p.pendingJobs), p.queueSize)
-}
-
 // shouldApplyBackpressureFor decides whether backpressure should be applied for the given pending count.
-// Split from shouldApplyBackpressure so callers that already hold a pendingJobs snapshot can reuse it.
+// Takes pending as a parameter so callers can reuse a single atomic snapshot across related decisions.
 func shouldApplyBackpressureFor(pending int64, queueSize int, threshold float64) bool {
 	if pending < DefaultMinPendingJobsForBackpressure {
 		return false
