@@ -25,6 +25,24 @@ const (
 	DefaultLoaderWorkers        = 10
 )
 
+// writeRequestBatchPool reuses []types.WriteRequest backing arrays across batches to reduce GC pressure on large migrations.
+// Pool stores *[]types.WriteRequest (not the slice value) so Put avoids the interface{} boxing allocation that sync.Pool incurs for non-pointer types.
+var writeRequestBatchPool = sync.Pool{
+	New: func() any {
+		s := make([]types.WriteRequest, 0, DefaultDynamoBatchSize)
+		return &s
+	},
+}
+
+func getWriteRequestBatch() *[]types.WriteRequest {
+	return writeRequestBatchPool.Get().(*[]types.WriteRequest)
+}
+
+func putWriteRequestBatch(b *[]types.WriteRequest) {
+	*b = (*b)[:0]
+	writeRequestBatchPool.Put(b)
+}
+
 // DBClient defines the interface for DynamoDB operations used by Loader.
 type DBClient interface {
 	CreateTable(ctx context.Context, params *dynamodb.CreateTableInput, optFns ...func(*dynamodb.Options)) (*dynamodb.CreateTableOutput, error)
@@ -213,7 +231,7 @@ func (l *DynamoLoader) Load(ctx context.Context, data []map[string]any) error {
 	loadCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	jobChan := make(chan []types.WriteRequest)
+	jobChan := make(chan *[]types.WriteRequest)
 	// +1 to accommodate a marshal error from the dispatcher in addition to one error per worker.
 	errorChan := make(chan error, DefaultLoaderWorkers+1)
 	var wg sync.WaitGroup
@@ -227,11 +245,13 @@ func (l *DynamoLoader) Load(ctx context.Context, data []map[string]any) error {
 				select {
 				case <-loadCtx.Done():
 					return
-				case writeRequests, ok := <-jobChan:
+				case batch, ok := <-jobChan:
 					if !ok { // Channel closed.
 						return
 					}
-					if err := l.batchWrite(loadCtx, writeRequests); err != nil {
+					err := l.batchWrite(loadCtx, *batch)
+					putWriteRequestBatch(batch)
+					if err != nil {
 						// Non-blocking send.
 						select {
 						case errorChan <- err:
@@ -250,9 +270,10 @@ func (l *DynamoLoader) Load(ctx context.Context, data []map[string]any) error {
 	go func() {
 		defer wg.Done()
 		defer close(jobChan)
-		writeRequests := make([]types.WriteRequest, 0, DefaultDynamoBatchSize)
+		batch := getWriteRequestBatch()
 		for _, item := range data {
 			if loadCtx.Err() != nil {
+				putWriteRequestBatch(batch)
 				return
 			}
 
@@ -262,25 +283,31 @@ func (l *DynamoLoader) Load(ctx context.Context, data []map[string]any) error {
 				case errorChan <- &common.DataValidationError{Database: "DynamoDB", Op: "marshal", Reason: err.Error(), Err: err}:
 				default:
 				}
+				putWriteRequestBatch(batch)
 				cancel()
 				return
 			}
-			writeRequests = append(writeRequests, types.WriteRequest{PutRequest: &types.PutRequest{Item: av}})
-			if len(writeRequests) == DefaultDynamoBatchSize {
+			*batch = append(*batch, types.WriteRequest{PutRequest: &types.PutRequest{Item: av}})
+			if len(*batch) == DefaultDynamoBatchSize {
 				select {
-				case jobChan <- writeRequests:
+				case jobChan <- batch:
 				case <-loadCtx.Done():
+					putWriteRequestBatch(batch)
 					return
 				}
-				writeRequests = make([]types.WriteRequest, 0, DefaultDynamoBatchSize)
+				batch = getWriteRequestBatch()
 			}
 		}
-		if len(writeRequests) > 0 {
+		if len(*batch) > 0 {
 			select {
-			case jobChan <- writeRequests:
+			case jobChan <- batch:
 			case <-loadCtx.Done():
+				putWriteRequestBatch(batch)
 				return
 			}
+		} else {
+			// Empty trailing batch (full data was a multiple of batch size); return immediately so it can be reused.
+			putWriteRequestBatch(batch)
 		}
 	}()
 
