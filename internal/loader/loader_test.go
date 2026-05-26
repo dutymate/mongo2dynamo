@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime"
 	"testing"
 	"time"
 
@@ -326,6 +327,39 @@ func TestDynamoLoader_Load_ContextCancellation(t *testing.T) {
 	err := dynamoLoader.Load(ctx, data)
 	assert.NoError(t, err, "cancelled context should gracefully stop without returning an error from the loader itself")
 	mockClient.AssertNotCalled(t, "BatchWriteItem")
+}
+
+// TestDynamoLoader_Load_NoDispatcherLeakOnWorkerError ensures the dispatcher goroutine exits when all workers fail early.
+// Regression: workers exiting on error left the dispatcher blocked on an unbuffered jobChan send because ctx was never cancelled.
+func TestDynamoLoader_Load_NoDispatcherLeakOnWorkerError(t *testing.T) {
+	mockClient := &MockDBClient{}
+	dynamoLoader := newDynamoLoader(mockClient, "test-table", 0) // No retries to fail fast.
+
+	// Far more items than DefaultLoaderWorkers * DefaultDynamoBatchSize so the dispatcher would still have batches to send after all workers exit on error.
+	itemCount := DefaultLoaderWorkers * DefaultDynamoBatchSize * 4
+	data := make([]map[string]any, itemCount)
+	for i := 0; i < itemCount; i++ {
+		data[i] = map[string]any{"id": fmt.Sprintf("%d", i)}
+	}
+
+	mockClient.On("BatchWriteItem", mock.Anything, mock.Anything).Return(nil, errors.New("dynamodb error"))
+
+	baseline := runtime.NumGoroutine()
+
+	err := dynamoLoader.Load(context.Background(), data)
+	require.Error(t, err)
+
+	// Give goroutines a brief moment to wind down.
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if runtime.NumGoroutine() <= baseline+1 {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	assert.LessOrEqualf(t, runtime.NumGoroutine(), baseline+1,
+		"dispatcher or workers leaked: baseline=%d, after=%d", baseline, runtime.NumGoroutine())
 }
 
 func TestCalculateBackoffWithJitter(t *testing.T) {
