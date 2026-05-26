@@ -1,4 +1,5 @@
 bin/
 vendor/
+.claude/
 .vscode/
 coverage.out
