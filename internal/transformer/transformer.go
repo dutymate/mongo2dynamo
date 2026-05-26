@@ -106,34 +106,41 @@ func (t *DocTransformer) Close() {
 }
 
 // convertValue recursively converts values, handling ObjectID references.
+// For []any and map[string]any, the original is returned when no nested element needs conversion;
+// callers may share the result with the input. Downstream consumers (attributevalue.MarshalMap) only read,
+// so the shallow-share is safe and avoids per-document allocations on plain JSON-like sub-trees.
 func convertValue(v any) any {
 	switch val := v.(type) {
 	case primitive.ObjectID:
 		// Convert ObjectID to hex string for references.
 		return val.Hex()
 	case []any:
-		// Handle arrays (e.g., array of ObjectIDs).
+		if !needsConversion(val) {
+			return v
+		}
 		result := make([]any, len(val))
 		for i, item := range val {
 			result[i] = convertValue(item)
 		}
 		return result
 	case map[string]any:
-		// Handle nested objects.
+		if !needsConversion(val) {
+			return v
+		}
 		result := make(map[string]any, len(val))
 		for k, item := range val {
 			result[k] = convertValue(item)
 		}
 		return result
 	case bson.M:
-		// Handle BSON maps.
+		// bson.M is always normalized to map[string]any per the established contract.
 		result := make(map[string]any, len(val))
 		for k, item := range val {
 			result[k] = convertValue(item)
 		}
 		return result
 	case bson.A:
-		// Handle BSON arrays.
+		// bson.A is always normalized to []any per the established contract.
 		result := make([]any, len(val))
 		for i, item := range val {
 			result[i] = convertValue(item)
@@ -142,5 +149,33 @@ func convertValue(v any) any {
 	default:
 		// For other types, return as-is.
 		return v
+	}
+}
+
+// needsConversion reports whether v (or any nested element) would change when passed through convertValue.
+// It is allocation-free and lets convertValue skip allocating containers when nothing inside changes.
+func needsConversion(v any) bool {
+	switch val := v.(type) {
+	case primitive.ObjectID:
+		return true
+	case bson.M, bson.A:
+		// These types are always re-typed to map[string]any / []any.
+		return true
+	case []any:
+		for _, item := range val {
+			if needsConversion(item) {
+				return true
+			}
+		}
+		return false
+	case map[string]any:
+		for _, item := range val {
+			if needsConversion(item) {
+				return true
+			}
+		}
+		return false
+	default:
+		return false
 	}
 }

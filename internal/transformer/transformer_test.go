@@ -427,6 +427,32 @@ func TestConvertValue(t *testing.T) {
 	}
 }
 
+// TestConvertValue_FastPathPreservesReference verifies the fast-path returns the original container reference
+// when no nested value needs conversion, avoiding allocation.
+func TestConvertValue_FastPathPreservesReference(t *testing.T) {
+	// Nested slice and map without any ObjectID or bson type.
+	inner := []any{"a", 1, true}
+	outer := map[string]any{"items": inner, "name": "plain"}
+
+	got := convertValue(outer).(map[string]any)
+	if !reflect.DeepEqual(got, outer) {
+		t.Fatalf("expected unchanged value, got %+v", got)
+	}
+
+	gotInner, ok := got["items"].([]any)
+	if !ok {
+		t.Fatalf("expected []any for items, got %T", got["items"])
+	}
+
+	// Both the outer map and the inner slice should be the same reference as input (fast-path).
+	if reflect.ValueOf(got).Pointer() != reflect.ValueOf(outer).Pointer() {
+		t.Errorf("outer map: expected same reference (fast-path), got new allocation")
+	}
+	if reflect.ValueOf(gotInner).Pointer() != reflect.ValueOf(inner).Pointer() {
+		t.Errorf("inner slice: expected same reference (fast-path), got new allocation")
+	}
+}
+
 func TestConvertValue_EdgeCases(t *testing.T) {
 	tests := []struct {
 		name     string
